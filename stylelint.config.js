@@ -1,0 +1,26 @@
+/** @type {import('stylelint').Config} */
+export default {
+  extends: ['stylelint-config-standard'],
+  rules: {
+    'import-notation': 'string',
+    'no-invalid-position-at-import-rule': null,
+    'at-rule-no-unknown': null,
+    'function-no-unknown': null,
+    'unit-no-unknown': null,
+    'block-no-empty': null,
+    'custom-property-pattern': null,
+    'comment-empty-line-before': null,
+    'comment-whitespace-inside': null,
+    'custom-property-empty-line-before': null,
+    'at-rule-empty-line-before': null,
+    'rule-empty-line-before': null,
+    'no-duplicate-selectors': null,
+    'color-hex-length': null,
+    'alpha-value-notation': null,
+    'color-function-notation': null,
+    'shorthand-property-no-redundant-values': null,
+    'declaration-block-no-redundant-longhand-properties': null,
+    'value-keyword-case': null,
+  },
+  ignoreFiles: ['node_modules/**/*', 'dist/**/*', 'src/styles/index.css'],
+};

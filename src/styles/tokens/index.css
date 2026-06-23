@@ -1,0 +1,9 @@
+/* ========================================
+   Design Tokens 入口
+   按顺序导入所有 Token 文件
+   ======================================== */
+
+@import "./colors.css";
+@import "./spacing.css";
+@import "./typography.css";
+@import "./shadows.css";

@@ -1,0 +1,345 @@
+/* ========================================
+   全局样式入口
+   Tailwind CSS v4 + Design Tokens
+   ======================================== */
+
+@import "tailwindcss";
+@import "./tokens/index.css";
+@import "@fontsource-variable/geist";
+@import "../../node_modules/tw-animate-css/dist/tw-animate.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ========================================
+   Tailwind 主题映射
+   将 CSS 变量注册为 Tailwind 主题值
+   ======================================== */
+@theme {
+  /* ---------- 颜色映射 ---------- */
+  /* 品牌色 */
+  --color-brand-50: var(--color-brand-50);
+  --color-brand-100: var(--color-brand-100);
+  --color-brand-500: var(--color-brand-500);
+  --color-brand-600: var(--color-brand-600);
+  --color-brand-900: var(--color-brand-900);
+
+  /* 项目语义别名（开发使用更直观） */
+  --color-page: var(--color-bg-page);
+  --color-surface: var(--color-bg-card);
+  --color-elevated: var(--color-bg-elevated);
+  --color-surface-hover: var(--color-bg-hover);
+  --color-surface-muted: var(--color-bg-muted);
+
+  --color-fg: var(--color-text-primary);
+  --color-fg-muted: var(--color-text-secondary);
+  --color-fg-subtle: var(--color-text-tertiary);
+  --color-fg-disabled: var(--color-text-disabled);
+  --color-fg-inverse: var(--color-text-inverse);
+
+  --color-line: var(--color-border-default);
+  --color-line-hover: var(--color-border-hover);
+  --color-line-focus: var(--color-border-focus);
+
+  --color-action: var(--color-primary);
+  --color-action-hover: var(--color-primary-hover);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+
+  /* ---------- 间距映射 ---------- */
+  --spacing-0: var(--space-0);
+  --spacing-0\.5: var(--space-0\.5);
+  --spacing-1: var(--space-1);
+  --spacing-1\.5: var(--space-1\.5);
+  --spacing-2: var(--space-2);
+  --spacing-2\.5: var(--space-2\.5);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-8: var(--space-8);
+  --spacing-10: var(--space-10);
+  --spacing-12: var(--space-12);
+
+  /* ---------- 字号映射 ---------- */
+  --text-2xs: var(--text-2xs);
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-base: var(--text-base);
+  --text-lg: var(--text-lg);
+  --text-xl: var(--text-xl);
+  --text-2xl: var(--text-2xl);
+
+  /* 行高 */
+  --leading-xs: var(--leading-xs);
+  --leading-sm: var(--leading-sm);
+  --leading-base: var(--leading-base);
+  --leading-lg: var(--leading-lg);
+  --leading-xl: var(--leading-xl);
+
+  /* ---------- 字重映射 ---------- */
+  --font-thin: var(--font-thin);
+  --font-normal: var(--font-normal);
+  --font-medium: var(--font-medium);
+  --font-semibold: var(--font-semibold);
+  --font-bold: var(--font-bold);
+
+  /* ---------- 圆角映射 ---------- */
+  --radius-xs: var(--radius-xs);
+  --radius-full: var(--radius-full);
+
+  /* ---------- 阴影映射 ---------- */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-focus: var(--shadow-focus);
+
+  /* ---------- 字体族 ---------- */
+  --font-mono: var(--font-mono);
+}
+
+/* ========================================
+   全局基础样式
+   ======================================== */
+@layer base {
+  * {
+    box-sizing: border-box;
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--leading-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-page);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply font-sans;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    @apply bg-background text-foreground;
+  }
+
+  #root {
+    height: 100%;
+  }
+
+  /* 滚动条样式 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-slate-300);
+    border-radius: var(--radius-full);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-slate-400);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: var(--color-slate-600);
+  }
+
+  /* 焦点样式 */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  /* 禁用状态 */
+  :disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+/* ========================================
+   自定义工具类
+   ======================================== */
+@layer utilities {
+  /* 文字截断 */
+  .text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* 布局工具 */
+  .center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+/* ========================================
+   主题切换动画 - View Transitions
+   ======================================== */
+
+/* 禁用默认动画 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* 新主题从点击位置圆形扩散 */
+::view-transition-new(root) {
+  z-index: 1;
+}
+
+/* 自定义径向扩散动画 */
+@keyframes vt-expand {
+  from {
+    clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 50%));
+  }
+  to {
+    clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 50%));
+  }
+}
+
+::view-transition-new(root) {
+  animation: vt-expand 0.5s ease-out;
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Geist Variable', sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ========================================
+   shadcn 语义变量 → 项目 Token 桥接
+   shadcn 组件使用 --background/--primary 等
+   这里将其映射到项目自身的 design token
+   ======================================== */
+:root {
+  /* 背景 / 前景 */
+  --background: var(--color-bg-page);
+  --foreground: var(--color-text-primary);
+
+  /* 卡片 */
+  --card: var(--color-bg-card);
+  --card-foreground: var(--color-text-primary);
+
+  /* 弹层 */
+  --popover: var(--color-bg-elevated);
+  --popover-foreground: var(--color-text-primary);
+
+  /* 主色 */
+  --primary: var(--color-brand-600);
+  --primary-foreground: #ffffff;
+
+  /* 次色 */
+  --secondary: var(--color-bg-muted);
+  --secondary-foreground: var(--color-text-primary);
+
+  /* 静音色 */
+  --muted: var(--color-bg-muted);
+  --muted-foreground: var(--color-text-secondary);
+
+  /* 强调色 */
+  --accent: var(--color-bg-hover);
+  --accent-foreground: var(--color-text-primary);
+
+  /* 危险色 */
+  --destructive: var(--color-error);
+
+  /* 边框 / 输入框 / 聚焦环 */
+  --border: var(--color-border-default);
+  --input: var(--color-border-default);
+  --ring: var(--color-border-focus);
+
+  /* 圆角基准 */
+  --radius: 0.5rem;
+
+  /* 图表色（保持默认）*/
+  --chart-1: var(--color-brand-500);
+  --chart-2: var(--color-success-500);
+  --chart-3: var(--color-warning-500);
+  --chart-4: var(--color-error-500);
+  --chart-5: var(--color-brand-300);
+
+  /* Sidebar */
+  --sidebar: var(--color-bg-card);
+  --sidebar-foreground: var(--color-text-primary);
+  --sidebar-primary: var(--color-brand-600);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--color-bg-hover);
+  --sidebar-accent-foreground: var(--color-text-primary);
+  --sidebar-border: var(--color-border-default);
+  --sidebar-ring: var(--color-border-focus);
+}
+
+/* 暗色模式：token 已在 colors.css 里切换，这里无需重复 */
+.dark {
+}
