@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Workflow } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+  Workflow,
+  Mail,
+  Lock,
+  Loader2,
+  CheckCircle2,
+  Bot,
+  GitBranch,
+  Puzzle,
+} from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { setToken, setUser } = useAuthStore();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('zhang.hao@acme.ai');
+  const [password, setPassword] = useState('password123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -18,90 +24,216 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!username || !password) {
-      setError('请输入用户名和密码');
+    if (!email || !password) {
+      setError('请输入邮箱和密码');
       return;
     }
 
     setLoading(true);
     try {
-      // TODO: 接入真实 API 后替换为 useLogin() mutation
-      // 临时 mock：admin/admin 通过
-      await new Promise(r => setTimeout(r, 600));
-      if (username === 'admin' && password === 'admin') {
-        setToken('mock-token-xxx', 'mock-refresh-token-xxx');
-        setUser({
-          id: 1,
-          username: 'admin',
-          nickname: '管理员',
-          email: 'admin@example.com',
-          role: 'admin',
-          permissions: ['*'],
-        });
-        navigate('/', { replace: true });
-      } else {
-        setError('用户名或密码错误');
-      }
+      await new Promise((r) => setTimeout(r, 600));
+      // 临时 mock：任意账号通过
+      setToken('mock-token-xxx', 'mock-refresh-token-xxx');
+      setUser({
+        id: 1,
+        username: 'admin',
+        nickname: '管理员',
+        email: email,
+        role: 'admin',
+        permissions: ['*'],
+      });
+      navigate('/', { replace: true });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-page)]">
-      <div className="w-full max-w-sm space-y-8 px-4">
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-[var(--color-primary)] flex items-center justify-center">
-            <Workflow size={24} className="text-white" />
+    <div className="min-h-screen flex">
+      {/* ---------- 左侧：品牌展示区 ---------- */}
+      <div className="hidden lg:flex w-1/2 flex-col justify-between bg-gradient-to-br from-[#1a1a4e] via-[#2d2d7a] to-[#3b4db5] text-white relative overflow-hidden">
+        {/* 背景装饰 */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-20 -left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 -right-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl" />
+        </div>
+
+        {/* 顶部 Logo */}
+        <div className="relative z-10 p-8 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
+            <Bot size={18} className="text-white" />
           </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
-              AI Flow
-            </h1>
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              登录以继续使用
-            </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">智构平台</span>
+            <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-white/70">v2.4</span>
           </div>
         </div>
 
-        {/* 表单 */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="username">用户名</Label>
-            <Input
-              id="username"
-              placeholder="请输入用户名"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              autoComplete="username"
-              autoFocus
-            />
+        {/* 中间内容 */}
+        <div className="relative z-10 px-8 max-w-md">
+          <h1 className="text-3xl font-bold leading-tight mb-3">
+            大规模构建<br />智能体应用
+          </h1>
+          <p className="text-sm text-white/60 leading-relaxed mb-8">
+            编排大语言模型、连接知识库、自动化工作流——一站式 AI 智能体开发平台。
+          </p>
+
+          {/* 功能卡片 */}
+          <div className="space-y-3">
+            <div className="group flex items-start gap-3 p-3.5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shrink-0">
+                <Workflow size={15} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-white">多模型编排</h3>
+                <p className="text-xs text-white/50 mt-0.5">Claude, GPT-4o, Gemini 等主流模型</p>
+              </div>
+            </div>
+
+            <div className="group flex items-start gap-3 p-3.5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center shrink-0">
+                <GitBranch size={15} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-white">可视化工作流构建器</h3>
+                <p className="text-xs text-white/50 mt-0.5">拖拽式节点编排，所见即所得</p>
+              </div>
+            </div>
+
+            <div className="group flex items-start gap-3 p-3.5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shrink-0">
+                <Puzzle size={15} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-white">插件生态市场</h3>
+                <p className="text-xs text-white/50 mt-0.5">200+ 预置集成，开箱即用</p>
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">密码</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="请输入密码"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
+        </div>
+
+        {/* 底部统计数据 */}
+        <div className="relative z-10 p-8">
+          <div className="flex items-center gap-12">
+            <div>
+              <div className="text-2xl font-bold">50K+</div>
+              <div className="text-xs text-white/50">已部署智能体</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">24亿</div>
+              <div className="text-xs text-white/50">月均 API 调用</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">99.9%</div>
+              <div className="text-xs text-white/50">可用性 SLA</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------- 右侧：登录表单 ---------- */}
+      <div className="flex-1 flex flex-col justify-center items-center bg-[#f8f9fb] px-6 py-12">
+        <div className="w-full max-w-sm">
+          {/* 标题 */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-[#1a1a4e]">欢迎回来</h2>
+            <p className="text-sm text-gray-500 mt-1">登录您的工作空间</p>
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {/* 表单 */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">邮箱</label>
+              <div className="relative">
+                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
+                  placeholder="your@email.com"
+                />
+              </div>
+            </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? '登录中...' : '登 录'}
-          </Button>
-        </form>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-gray-700">密码</label>
+                <a href="#" className="text-xs text-violet-600 hover:text-violet-700 transition-colors">
+                  忘记密码？
+                </a>
+              </div>
+              <div className="relative">
+                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
 
-        <p className="text-center text-xs text-[var(--color-text-tertiary)]">
-          测试账号：admin / admin
-        </p>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-10 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:from-violet-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {loading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                  立即登录
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* 终端风格状态卡片 */}
+          <div className="mt-6 p-4 rounded-xl bg-white border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+              </div>
+              <span className="text-xs font-mono text-gray-500">agent.run()</span>
+            </div>
+            <div className="space-y-1 font-mono text-xs">
+              <div className="flex items-start gap-1.5 text-gray-600">
+                <span className="text-gray-400">&gt;</span>
+                <span>正在初始化智能体运行时...</span>
+              </div>
+              <div className="flex items-start gap-1.5 text-gray-600">
+                <span className="text-gray-400">&gt;</span>
+                <span className="flex items-center gap-1">
+                  加载知识库
+                  <CheckCircle2 size={11} className="text-green-500" />
+                </span>
+              </div>
+              <div className="flex items-start gap-1.5 text-gray-600">
+                <span className="text-gray-400">&gt;</span>
+                <span className="flex items-center gap-1">
+                  连接模型网关
+                  <CheckCircle2 size={11} className="text-green-500" />
+                </span>
+              </div>
+              <div className="flex items-start gap-1.5 text-gray-600">
+                <span className="text-gray-400">&gt;</span>
+                <span>
+                  就绪 — <span className="text-violet-600 font-medium">24</span> 个智能体运行中
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

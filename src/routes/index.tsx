@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout';
 import { DashboardPage } from '@/features/dashboard';
 import { WorkflowsPage } from '@/features/workflows';
+import { AgentsPage } from '@/features/agents';
 import { UsersPage } from '@/features/users';
 import { SettingsPage } from '@/features/settings';
 import { LoginPage } from '@/features/auth';
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
         element: <MainLayout />,
         children: [
           { index: true, element: <DashboardPage /> },
+          { path: 'agents', element: <AgentsPage /> },
           { path: 'workflows', element: <WorkflowsPage /> },
           { path: 'users', element: <UsersPage /> },
           { path: 'settings', element: <SettingsPage /> },
