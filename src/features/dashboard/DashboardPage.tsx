@@ -1,110 +1,15 @@
 import { useState } from 'react';
 import {
   Bot,
-  Zap,
   Server,
-  Activity,
   ArrowUp,
   ArrowDown,
-  BarChart3,
   ChevronRight,
   Circle,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-// 模拟统计卡数据
-const statCards = [
-  {
-    title: 'API 调用量',
-    value: '284K',
-    change: '+12.4%',
-    trend: 'up' as const,
-    icon: Zap,
-    color: 'text-violet-500',
-    bg: 'bg-violet-500/10',
-  },
-  {
-    title: '活跃智能体',
-    value: '24',
-    change: '+3',
-    trend: 'up' as const,
-    icon: Bot,
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-500/10',
-  },
-  {
-    title: '平均延迟',
-    value: '248ms',
-    change: '-8.1%',
-    trend: 'down' as const,
-    icon: Activity,
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/10',
-  },
-  {
-    title: 'Token 用量',
-    value: '12.4亿',
-    change: '+18.7%',
-    trend: 'up' as const,
-    icon: BarChart3,
-    color: 'text-sky-500',
-    bg: 'bg-sky-500/10',
-  },
-];
-
-// 模拟 API 调用趋势数据
-const trendData = [40, 55, 35, 70, 50, 85, 60, 90, 75, 45, 65, 80, 55, 70, 95, 60, 85, 50, 65, 75, 45, 55, 65, 80];
-
-// 本周活动数据
-const weeklyData = [
-  { day: '一', value: 35 },
-  { day: '二', value: 68 },
-  { day: '三', value: 52 },
-  { day: '四', value: 85 },
-  { day: '五', value: 78 },
-  { day: '六', value: 42 },
-  { day: '日', value: 30 },
-];
-
-// 系统状态数据
-const systemStatus = [
-  { name: '智能体运行时', uptime: '99.97%', latency: '12ms', color: 'text-emerald-500' },
-  { name: '模型网关', uptime: '99.94%', latency: '38ms', color: 'text-emerald-500' },
-  { name: '向量数据库', uptime: '100%', latency: '4ms', color: 'text-emerald-500' },
-  { name: '工作流引擎', uptime: '99.91%', latency: '21ms', color: 'text-emerald-500' },
-];
-
-// 智能体列表
-const topAgents = [
-  {
-    name: '客服支持机器人',
-    model: 'Claude 3.5 Sonnet',
-    usage: 12840,
-    accuracy: '97.3%',
-    status: 'running',
-  },
-  {
-    name: '代码审查助手',
-    model: 'GPT-4o',
-    usage: 4392,
-    accuracy: '99.1%',
-    status: 'running',
-  },
-  {
-    name: '数据抽取流水线',
-    model: 'Claude 3 Haiku',
-    usage: 8910,
-    accuracy: '94.7%',
-    status: 'paused',
-  },
-  {
-    name: '内容创作助手',
-    model: 'GPT-4o-mini',
-    usage: 3210,
-    accuracy: '91.2%',
-    status: 'running',
-  },
-];
+import { statCards, trendData, weeklyData, systemStatus, topAgents } from '@/data/dashboard';
 
 // 简单的 SVG 面积图组件
 function AreaChart({ data, color }: { data: number[]; color: string }) {
@@ -212,18 +117,20 @@ export function DashboardPage() {
                   { key: '7d' as const, label: '7天' },
                   { key: '30d' as const, label: '30天' },
                 ]).map((tab) => (
-                  <button
+                  <Button
                     key={tab.key}
+                    variant={trendTab === tab.key ? 'secondary' : 'ghost'}
+                    size="xs"
                     onClick={() => setTrendTab(tab.key)}
                     className={cn(
-                      'px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                      'rounded-md text-xs h-7',
                       trendTab === tab.key
-                        ? 'bg-[var(--color-bg-card)] text-[var(--color-text-primary)] shadow-sm'
-                        : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
+                        ? 'bg-[var(--color-bg-card)] shadow-sm'
+                        : 'text-[var(--color-text-tertiary)]'
                     )}
                   >
                     {tab.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -293,10 +200,10 @@ export function DashboardPage() {
                 <Bot size={15} className="text-[var(--color-text-tertiary)]" />
                 <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">调用量最高的智能体</h3>
               </div>
-              <button className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-brand-500)] transition-colors">
+              <Button variant="ghost" size="xs" className="gap-1 text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-brand-500)]">
                 查看全部
                 <ChevronRight size={13} />
-              </button>
+              </Button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

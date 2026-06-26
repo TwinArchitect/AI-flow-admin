@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -6,74 +7,24 @@ import {
   Globe,
   Clock,
   CheckCheck,
-  AlertCircle,
-  Info,
-  CheckCircle2,
-  X,
+  Sun,
+  Moon,
   ChevronRight,
   LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
 import { cn } from '@/lib/utils';
-
-// 模拟通知数据
-const notifications = [
-  {
-    id: 'n1',
-    type: 'success',
-    title: '智能体部署成功',
-    desc: '客服支持机器人 v1.2 已成功发布上线',
-    time: '2 分钟前',
-    unread: true,
-  },
-  {
-    id: 'n2',
-    type: 'info',
-    title: '知识库更新完成',
-    desc: '产品手册新版本切片处理完成，共 156 个片段',
-    time: '15 分钟前',
-    unread: true,
-  },
-  {
-    id: 'n3',
-    type: 'warning',
-    title: 'API 调用量告警',
-    desc: '本月 API 调用量已达配额的 85%，建议升级套餐',
-    time: '1 小时前',
-    unread: true,
-  },
-  {
-    id: 'n4',
-    type: 'info',
-    title: '系统维护通知',
-    desc: '平台将于 6月28日 凌晨 2:00-4:00 进行维护升级',
-    time: '3 小时前',
-    unread: false,
-  },
-  {
-    id: 'n5',
-    type: 'success',
-    title: '工作流测试通过',
-    desc: '数据抽取流水线全部测试用例通过',
-    time: '昨天',
-    unread: false,
-  },
-];
-
-const typeConfig = {
-  success: { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-  warning: { icon: AlertCircle, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-  error: { icon: X, color: 'text-red-500', bg: 'bg-red-500/10' },
-  info: { icon: Info, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-};
+import { notifications, typeConfig } from '@/data/notifications';
 
 export function Header() {
   const { isDark, setTheme } = useThemeStore();
   const { clear: logout } = useAuthStore();
   const navigate = useNavigate();
-  const [isAnimating] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   // 下拉面板状态
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -99,6 +50,27 @@ export function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [notifyOpen]);
 
+  // View Transitions 动画切换主题
+  const toggleTheme = useCallback(async () => {
+    if (isAnimating) return;
+    setIsAnimating(true);
+    try {
+      if ('startViewTransition' in document) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const doc = document as any;
+        await doc.startViewTransition(() => {
+          flushSync(() => {
+            setTheme(!isDark);
+          });
+        }).finished;
+      } else {
+        setTheme(!isDark);
+      }
+    } finally {
+      setIsAnimating(false);
+    }
+  }, [isDark, isAnimating, setTheme]);
+
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
@@ -119,11 +91,11 @@ export function Header() {
       <div className="flex items-center gap-2">
         {/* 全局搜索 */}
         <div className="relative w-56">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-          <input
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] z-10 pointer-events-none" />
+          <Input
             type="text"
             placeholder="全局搜索..."
-            className="w-full h-9 pl-9 pr-4 rounded-lg bg-[var(--color-bg-muted)] border border-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-border-focus)] focus:bg-[var(--color-bg-card)] transition-colors"
+            className="pl-9 h-9 bg-[var(--color-bg-muted)] border-transparent rounded-lg text-sm focus-visible:border-[var(--color-border-focus)] focus-visible:bg-[var(--color-bg-card)]"
           />
         </div>
 
@@ -135,37 +107,36 @@ export function Header() {
           </span>
         </div>
 
-        {/* 主题切换 */}
+        {/* 主题切换（带 View Transitions 动画） */}
         <Button
           variant="ghost"
-          size="sm"
-          onClick={() => setTheme(!isDark)}
+          size="icon-sm"
+          onClick={toggleTheme}
           disabled={isAnimating}
-          className="h-8 w-8 p-0 rounded-lg"
+          className="rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4 text-[var(--color-text-secondary)]" fill="none" stroke="currentColor" strokeWidth="2">
-            {isDark ? (
-              <><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></>
-            ) : (
-              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-            )}
-          </svg>
+          {isDark ? <Sun size={16} /> : <Moon size={16} />}
         </Button>
 
         {/* ====== 通知 ====== */}
         <div className="relative">
-          <button
+          <Button
             ref={notifyBtnRef}
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setNotifyOpen(!notifyOpen)}
-            className="relative h-8 w-8 p-0 rounded-lg flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] transition-colors"
+            className="relative rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
             <Bell size={16} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-[var(--color-error)] text-white text-[9px] font-bold px-[3px] leading-none">
+              <Badge
+                variant="destructive"
+                className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center rounded-full px-[3px] text-[9px] font-bold leading-none"
+              >
                 {unreadCount}
-              </span>
+              </Badge>
             )}
-          </button>
+          </Button>
 
           {/* 通知下拉面板 */}
           {notifyOpen && (
@@ -175,14 +146,14 @@ export function Header() {
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-default)]">
                 <span className="text-sm font-semibold text-[var(--color-text-primary)]">通知</span>
-                <button className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors flex items-center gap-1">
+                <Button variant="ghost" size="xs" className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
                   <CheckCheck size={12} />
                   全部已读
-                </button>
+                </Button>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notifications.map((n) => {
-                  const cfg = typeConfig[n.type as keyof typeof typeConfig] || typeConfig.info;
+                  const cfg = typeConfig[n.type] || typeConfig.info;
                   const Icon = cfg.icon;
                   return (
                     <div
@@ -213,12 +184,14 @@ export function Header() {
         </div>
 
         {/* 退出 */}
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={handleLogout}
-          className="h-8 w-8 p-0 rounded-lg flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-error)] hover:bg-[var(--color-bg-hover)] transition-colors"
+          className="rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]"
         >
           <LogOut size={16} />
-        </button>
+        </Button>
       </div>
     </header>
   );

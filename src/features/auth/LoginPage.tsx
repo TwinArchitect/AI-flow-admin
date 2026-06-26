@@ -9,7 +9,10 @@ import {
   Bot,
   GitBranch,
   Puzzle,
+  ArrowRight,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth';
 
 export function LoginPage() {
@@ -32,7 +35,6 @@ export function LoginPage() {
     setLoading(true);
     try {
       await new Promise((r) => setTimeout(r, 600));
-      // 临时 mock：任意账号通过
       setToken('mock-token-xxx', 'mock-refresh-token-xxx');
       setUser({
         id: 1,
@@ -51,9 +53,9 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* ---------- 左侧：品牌展示区 ---------- */}
-      <div className="hidden lg:flex w-1/2 flex-col justify-between bg-gradient-to-br from-[#1a1a4e] via-[#2d2d7a] to-[#3b4db5] text-white relative overflow-hidden">
+      <div className="hidden lg:flex w-1/2 flex-col justify-between bg-gradient-to-br from-[var(--color-slate-900)] via-[#2d2d7a] to-violet-800 text-white relative overflow-hidden">
         {/* 背景装饰 */}
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-20 -left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
           <div className="absolute top-1/2 -right-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
           <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl" />
@@ -133,100 +135,98 @@ export function LoginPage() {
       </div>
 
       {/* ---------- 右侧：登录表单 ---------- */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-[#f8f9fb] px-6 py-12">
+      <div className="flex-1 flex flex-col justify-center items-center bg-[var(--color-bg-page)] px-6 py-12">
         <div className="w-full max-w-sm">
           {/* 标题 */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-[#1a1a4e]">欢迎回来</h2>
-            <p className="text-sm text-gray-500 mt-1">登录您的工作空间</p>
+            <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">欢迎回来</h2>
+            <p className="text-sm text-[var(--color-text-tertiary)] mt-1">登录您的工作空间</p>
           </div>
 
           {/* 表单 */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">邮箱</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[var(--color-text-secondary)]">邮箱</label>
               <div className="relative">
-                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
+                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] z-10 pointer-events-none" />
+                <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
+                  className="pl-9 h-10"
                   placeholder="your@email.com"
                 />
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-gray-700">密码</label>
-                <a href="#" className="text-xs text-violet-600 hover:text-violet-700 transition-colors">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-[var(--color-text-secondary)]">密码</label>
+                <a href="#" className="text-xs text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition-colors">
                   忘记密码？
                 </a>
               </div>
               <div className="relative">
-                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
+                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] z-10 pointer-events-none" />
+                <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
+                  className="pl-9 h-10"
                   placeholder="••••••••"
                 />
               </div>
             </div>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
 
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full h-10 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:from-violet-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full h-10 gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white"
             >
               {loading ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <>
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
+                  <ArrowRight size={16} />
                   立即登录
                 </>
               )}
-            </button>
+            </Button>
           </form>
 
           {/* 终端风格状态卡片 */}
-          <div className="mt-6 p-4 rounded-xl bg-white border border-gray-200 shadow-sm">
+          <div className="mt-6 p-4 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-default)] shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
               </div>
-              <span className="text-xs font-mono text-gray-500">agent.run()</span>
+              <span className="text-xs font-mono text-[var(--color-text-tertiary)]">agent.run()</span>
             </div>
             <div className="space-y-1 font-mono text-xs">
-              <div className="flex items-start gap-1.5 text-gray-600">
-                <span className="text-gray-400">&gt;</span>
+              <div className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
+                <span className="text-[var(--color-text-tertiary)]">&gt;</span>
                 <span>正在初始化智能体运行时...</span>
               </div>
-              <div className="flex items-start gap-1.5 text-gray-600">
-                <span className="text-gray-400">&gt;</span>
+              <div className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
+                <span className="text-[var(--color-text-tertiary)]">&gt;</span>
                 <span className="flex items-center gap-1">
                   加载知识库
                   <CheckCircle2 size={11} className="text-green-500" />
                 </span>
               </div>
-              <div className="flex items-start gap-1.5 text-gray-600">
-                <span className="text-gray-400">&gt;</span>
+              <div className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
+                <span className="text-[var(--color-text-tertiary)]">&gt;</span>
                 <span className="flex items-center gap-1">
                   连接模型网关
                   <CheckCircle2 size={11} className="text-green-500" />
                 </span>
               </div>
-              <div className="flex items-start gap-1.5 text-gray-600">
-                <span className="text-gray-400">&gt;</span>
+              <div className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
+                <span className="text-[var(--color-text-tertiary)]">&gt;</span>
                 <span>
                   就绪 — <span className="text-violet-600 font-medium">24</span> 个智能体运行中
                 </span>
