@@ -7,8 +7,8 @@ export const statCards = [
     change: '+12.4%',
     trend: 'up' as const,
     icon: Zap,
-    color: 'text-violet-500',
-    bg: 'bg-violet-500/10',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
   },
   {
     title: '活跃智能体',
@@ -16,8 +16,8 @@ export const statCards = [
     change: '+3',
     trend: 'up' as const,
     icon: Bot,
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-500/10',
+    color: 'text-success',
+    bg: 'bg-success/10',
   },
   {
     title: '平均延迟',
@@ -25,8 +25,8 @@ export const statCards = [
     change: '-8.1%',
     trend: 'down' as const,
     icon: Activity,
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/10',
+    color: 'text-warning',
+    bg: 'bg-warning/10',
   },
   {
     title: 'Token 用量',
@@ -34,8 +34,8 @@ export const statCards = [
     change: '+18.7%',
     trend: 'up' as const,
     icon: BarChart3,
-    color: 'text-sky-500',
-    bg: 'bg-sky-500/10',
+    color: 'text-muted-foreground',
+    bg: 'bg-muted',
   },
 ];
 
@@ -52,10 +52,10 @@ export const weeklyData = [
 ];
 
 export const systemStatus = [
-  { name: '智能体运行时', uptime: '99.97%', latency: '12ms', color: 'text-emerald-500' },
-  { name: '模型网关', uptime: '99.94%', latency: '38ms', color: 'text-emerald-500' },
-  { name: '向量数据库', uptime: '100%', latency: '4ms', color: 'text-emerald-500' },
-  { name: '工作流引擎', uptime: '99.91%', latency: '21ms', color: 'text-emerald-500' },
+  { name: '智能体运行时', uptime: '99.97%', latency: '12ms', color: 'text-success' },
+  { name: '模型网关', uptime: '99.94%', latency: '38ms', color: 'text-success' },
+  { name: '向量数据库', uptime: '100%', latency: '4ms', color: 'text-success' },
+  { name: '工作流引擎', uptime: '99.91%', latency: '21ms', color: 'text-success' },
 ];
 
 export const topAgents = [

@@ -52,13 +52,13 @@ export function AgentsPage() {
   });
 
   return (
-    <div className="h-full overflow-y-auto bg-[var(--color-bg-page)]">
+    <div className="h-full overflow-y-auto bg-background">
       <div className="px-6 py-5">
         {/* 页面标题 */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">智能体</h2>
-            <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">管理和监控所有已部署的 AI 智能体</p>
+            <h2 className="text-lg font-semibold text-foreground">智能体</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">管理和监控所有已部署的 AI 智能体</p>
           </div>
         </div>
 
@@ -66,7 +66,7 @@ export function AgentsPage() {
         <div className="flex items-center justify-between mb-4">
           {/* 左侧：搜索 */}
           <div className="relative w-64">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] z-10 pointer-events-none" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10 pointer-events-none" />
             <Input
               type="text"
               value={search}
@@ -79,7 +79,7 @@ export function AgentsPage() {
                 variant="ghost"
                 size="icon-xs"
                 onClick={() => setSearch('')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <span className="sr-only">清除</span>
                 <span aria-hidden>×</span>
@@ -93,7 +93,7 @@ export function AgentsPage() {
               <SlidersHorizontal size={13} />
               筛选
             </Button>
-            <Button size="sm" className="h-9 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+            <Button size="sm" className="h-9 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
               <Plus size={14} />
               新建智能体
             </Button>
@@ -110,7 +110,7 @@ export function AgentsPage() {
               onClick={() => setActiveTag(tag)}
               className={cn(
                 'text-[11px]',
-                activeTag === tag && 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20'
+                activeTag === tag && 'bg-primary/10 text-primary hover:bg-primary/15'
               )}
             >
               {tag}
@@ -121,8 +121,8 @@ export function AgentsPage() {
         {/* ====== 智能体卡片网格 ====== */}
         {filteredAgents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Bot size={40} className="text-[var(--color-text-tertiary)]/30 mb-3" />
-            <p className="text-sm text-[var(--color-text-tertiary)]">没有找到匹配的智能体</p>
+            <Bot size={40} className="text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">没有找到匹配的智能体</p>
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-4">
@@ -133,7 +133,7 @@ export function AgentsPage() {
               return (
                 <div
                   key={agent.id}
-                  className="rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-default)] p-4 hover:border-[var(--color-border-hover)] hover:shadow-sm transition-all group cursor-pointer"
+                  className="rounded-xl bg-card border border-border p-4 hover:border-border/80 hover:shadow-sm transition-all group cursor-pointer"
                 >
                   {/* 头部：图标 + 名称 + 状态 */}
                   <div className="flex items-center justify-between mb-3">
@@ -142,8 +142,8 @@ export function AgentsPage() {
                         <IconComp size={17} className={agent.iconColor} />
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{agent.name}</h3>
-                        <span className="text-[11px] text-[var(--color-text-tertiary)]">{agent.model}</span>
+                        <h3 className="text-sm font-semibold text-foreground">{agent.name}</h3>
+                        <span className="text-[11px] text-muted-foreground">{agent.model}</span>
                       </div>
                     </div>
                     <Badge variant="outline" className={cn('gap-1 text-[10px]', status.badgeClass)}>
@@ -153,7 +153,7 @@ export function AgentsPage() {
                   </div>
 
                   {/* 描述 */}
-                  <p className="text-xs text-[var(--color-text-tertiary)] leading-relaxed mb-3 line-clamp-2">
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-3 line-clamp-2">
                     {agent.desc}
                   </p>
 
@@ -167,22 +167,22 @@ export function AgentsPage() {
                   </div>
 
                   {/* 底部统计 */}
-                  <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-default)]">
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
                     <div className="flex items-center gap-3">
                       <div>
-                        <span className="text-xs text-[var(--color-text-tertiary)]">调用</span>
-                        <span className="text-sm font-semibold text-[var(--color-text-primary)] ml-1 tabular-nums">
+                        <span className="text-xs text-muted-foreground">调用</span>
+                        <span className="text-sm font-semibold text-foreground ml-1 tabular-nums">
                           {agent.calls.toLocaleString()}
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-[var(--color-text-tertiary)]">成功率</span>
-                        <span className="text-sm font-semibold text-[var(--color-text-primary)] ml-1">
+                        <span className="text-xs text-muted-foreground">成功率</span>
+                        <span className="text-sm font-semibold text-foreground ml-1">
                           {agent.successRate}
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Clock size={10} />
                       {agent.updatedAt}
                     </div>

@@ -39,7 +39,7 @@ export const toast = {
   },
 
   // 操作确认
-  confirm: (title: string, onConfirm: () => void, _onCancel?: () => void) => {
+  confirm: (title: string, onConfirm: () => void) => {
     useToast.getState().addToast({
       title,
       type: 'info',

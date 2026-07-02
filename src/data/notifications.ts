@@ -1,13 +1,5 @@
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
-
-export interface Notification {
-  id: string;
-  type: 'success' | 'warning' | 'error' | 'info';
-  title: string;
-  desc: string;
-  time: string;
-  unread: boolean;
-}
+import type { Notification } from '@/types/notification';
 
 export const notifications: Notification[] = [
   {
@@ -53,8 +45,8 @@ export const notifications: Notification[] = [
 ];
 
 export const typeConfig = {
-  success: { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-  warning: { icon: AlertCircle, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-  error: { icon: X, color: 'text-red-500', bg: 'bg-red-500/10' },
-  info: { icon: Info, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+  success: { icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
+  warning: { icon: AlertCircle, color: 'text-warning', bg: 'bg-warning/10' },
+  error: { icon: X, color: 'text-destructive', bg: 'bg-destructive/10' },
+  info: { icon: Info, color: 'text-primary', bg: 'bg-primary/10' },
 };
