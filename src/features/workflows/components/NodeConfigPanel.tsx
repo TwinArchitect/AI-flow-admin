@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { NODE_DEF_MAP, NODE_FALLBACK_ICON, NODE_ICON_MAP } from '../config/nodeDefs';
 import { useWorkflowCanvasStore } from '../store/useWorkflowCanvasStore';
+import type { WorkflowCanvasEdge, WorkflowCanvasNode, WorkflowNodeConfig } from '../types';
+import { getAvailableVariablesForNode } from '../utils/availableVariables';
 import { EndConfigPanel } from './config-panels/EndConfigPanel';
 import { HttpConfigPanel } from './config-panels/HttpConfigPanel';
 import { LlmConfigPanel } from './config-panels/LlmConfigPanel';
@@ -16,24 +18,29 @@ function NodeSpecificConfig({
   nodeType,
   config,
   def,
+  nodes,
+  edges,
 }: {
   nodeId: string;
   nodeType: string;
-  config: Record<string, unknown>;
+  config: WorkflowNodeConfig;
   def: (typeof NODE_DEF_MAP)[keyof typeof NODE_DEF_MAP];
+  nodes: WorkflowCanvasNode[];
+  edges: WorkflowCanvasEdge[];
 }) {
   const updateNodeConfig = useWorkflowCanvasStore((state) => state.updateNodeConfig);
   const onUpdate = (patch: Record<string, unknown>) => updateNodeConfig(nodeId, patch);
+  const variables = getAvailableVariablesForNode(nodeId, nodes, edges);
 
   switch (nodeType) {
     case 'start':
-      return <StartConfigPanel config={config} onUpdate={onUpdate} />;
+      return <StartConfigPanel config={config as Record<string, unknown>} onUpdate={onUpdate} />;
     case 'llm':
-      return <LlmConfigPanel config={config} onUpdate={onUpdate} />;
+      return <LlmConfigPanel config={config as Record<string, unknown>} variables={variables} onUpdate={onUpdate} />;
     case 'end':
-      return <EndConfigPanel config={config} onUpdate={onUpdate} />;
+      return <EndConfigPanel config={config as Record<string, unknown>} variables={variables} onUpdate={onUpdate} />;
     case 'http':
-      return <HttpConfigPanel config={config} onUpdate={onUpdate} />;
+      return <HttpConfigPanel config={config as Record<string, unknown>} onUpdate={onUpdate} />;
     default:
       return <PlaceholderConfigPanel def={def} />;
   }
@@ -42,6 +49,7 @@ function NodeSpecificConfig({
 export function NodeConfigPanel() {
   const {
     nodes,
+    edges,
     selectedNodeId,
     setSelectedNodeId,
     deleteNode,
@@ -88,6 +96,12 @@ export function NodeConfigPanel() {
       </div>
 
       <div className="flex-1 space-y-5 overflow-y-auto p-4">
+        <Field label="节点 ID">
+          <div className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+            {node.id}
+          </div>
+        </Field>
+
         <Field label="节点名称">
           <Input
             value={node.data.label}
@@ -100,6 +114,8 @@ export function NodeConfigPanel() {
           nodeType={node.data.nodeType}
           config={node.data.config}
           def={def}
+          nodes={nodes}
+          edges={edges}
         />
       </div>
     </aside>

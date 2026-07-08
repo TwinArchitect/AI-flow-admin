@@ -16,7 +16,10 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useThemeStore } from '@/stores/theme';
+import { useRunWorkflowStream, useSaveWorkflowConfig } from '../hooks/useWorkflowRuntime';
 import { createConnectionValidator } from '../utils/connectionRules';
+import { serializeWorkflowToBackend } from '../utils/workflowSerialization';
+import { validateWorkflowForBackend } from '../utils/workflowValidation';
 import { useWorkflowCanvasStore } from '../store/useWorkflowCanvasStore';
 import type { EdgeLineMode, WorkflowCanvasNode, WorkflowNodeType } from '../types';
 import { NodeConfigPanel } from './NodeConfigPanel';
@@ -86,6 +89,8 @@ function EdgeModeButton({
 
 function WorkflowToolbar({ isSidebarOpen, onOpenSidebar }: WorkflowToolbarProps) {
   const { fitView } = useReactFlow();
+  const saveWorkflowMutation = useSaveWorkflowConfig();
+  const runWorkflowMutation = useRunWorkflowStream();
   const {
     undo,
     redo,
@@ -94,13 +99,94 @@ function WorkflowToolbar({ isSidebarOpen, onOpenSidebar }: WorkflowToolbarProps)
     toJSON,
     edgeLineMode,
     setEdgeLineMode,
+    resetRunState,
+    setNodeRunState,
   } = useWorkflowCanvasStore();
+  const isRunning = runWorkflowMutation.isPending;
+
+  function buildValidatedPayload(action: string) {
+    const json = toJSON();
+    const errors = validateWorkflowForBackend(json.nodes, json.edges);
+
+    if (errors.length > 0) {
+      toast.error(`工作流暂不能${action}`, {
+        description: errors[0],
+      });
+      console.warn('工作流校验失败:', errors);
+      return null;
+    }
+
+    const payload = serializeWorkflowToBackend(json.nodes, json.edges);
+    return { ...json, payload };
+  }
 
   function handleSave() {
-    const json = toJSON();
-    console.log('工作流 JSON:', JSON.stringify(json, null, 2));
-    toast.success('工作流已生成 JSON', {
-      description: '已输出到浏览器控制台，后续可接入保存接口。',
+    const result = buildValidatedPayload('保存');
+    if (!result) return;
+
+    saveWorkflowMutation.mutate({
+      agentId: 'workflow-demo',
+      agentName: '工作流演示',
+      nodes: result.nodes,
+      edges: result.edges,
+    }, {
+      onSuccess: (data) => {
+        console.log('后端工作流 Payload:', JSON.stringify(data.payload, null, 2));
+        toast.success('工作流配置已准备保存', {
+          description: '已通过保存 adapter 生成 agentSetting。',
+        });
+      },
+      onError: (error) => {
+        toast.error('工作流保存失败', {
+          description: error instanceof Error ? error.message : '未知错误',
+        });
+      },
+    });
+  }
+
+  function handleRun() {
+    if (isRunning) return;
+    const result = buildValidatedPayload('运行');
+    if (!result) return;
+
+    const { nodes, edges, payload } = result;
+    resetRunState();
+
+    runWorkflowMutation.mutate({
+      request: {
+        appId: 'workflow-demo',
+        message: [
+          {
+            role: 'user',
+            content: String(payload.chatConfig.variables[0]?.defaultValue ?? ''),
+          },
+        ],
+        variables: Object.fromEntries(
+          payload.chatConfig.variables.map((variable) => [
+            variable.key,
+            variable.defaultValue ?? '',
+          ]),
+        ),
+        debug: true,
+      },
+      nodes,
+      edges,
+      payload,
+      onNodeEvent: (event) => {
+        setNodeRunState(event.nodeId, event.status, event.message);
+      },
+    }, {
+      onSuccess: (runResult) => {
+        console.log('工作流运行结果:', JSON.stringify(runResult, null, 2));
+        toast.success('工作流运行完成', {
+          description: `最终输出：${JSON.stringify(runResult.outputs)}`,
+        });
+      },
+      onError: (error) => {
+        toast.error('工作流运行失败', {
+          description: error instanceof Error ? error.message : '未知错误',
+        });
+      },
     });
   }
 
@@ -150,13 +236,13 @@ function WorkflowToolbar({ isSidebarOpen, onOpenSidebar }: WorkflowToolbarProps)
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={handleSave}>
+        <Button variant="outline" size="sm" onClick={handleSave} disabled={saveWorkflowMutation.isPending}>
           <Save size={14} />
-          保存
+          {saveWorkflowMutation.isPending ? '保存中' : '保存'}
         </Button>
-        <Button size="sm">
+        <Button size="sm" onClick={handleRun} disabled={isRunning}>
           <Play size={14} fill="currentColor" />
-          运行
+          {isRunning ? '运行中' : '运行'}
         </Button>
       </div>
     </header>

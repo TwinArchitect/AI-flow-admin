@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import type { Connection, EdgeChange, NodeChange, XYPosition } from '@xyflow/react';
-import type { EdgeLineMode, WorkflowCanvasEdge, WorkflowCanvasNode, WorkflowNodeType } from '../types';
+import type {
+  EdgeLineMode,
+  WorkflowCanvasEdge,
+  WorkflowCanvasNode,
+  WorkflowNodeRunStatus,
+  WorkflowNodeType,
+} from '../types';
 import { NODE_DEF_MAP } from '../config/nodeDefs';
 import { DEFAULT_LLM_CONFIG, getDefaultNodeConfig } from '../config/nodeDefaults';
 
@@ -32,7 +38,10 @@ const initialNodes: WorkflowCanvasNode[] = [
       description: '识别用户问题并生成结构化意图',
       config: {
         ...DEFAULT_LLM_CONFIG,
-        temperature: 0.4,
+        advanced: {
+          ...DEFAULT_LLM_CONFIG.advanced,
+          temperature: 0.4,
+        },
         systemPrompt: '你是一个严谨的业务助手，请识别用户意图并输出简洁结论。',
       },
     },
@@ -71,6 +80,8 @@ interface WorkflowCanvasState {
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
   updateNodeLabel: (nodeId: string, label: string) => void;
   deleteNode: (nodeId: string) => void;
+  resetRunState: () => void;
+  setNodeRunState: (nodeId: string, status: WorkflowNodeRunStatus, message?: string) => void;
   setEdgeLineMode: (mode: EdgeLineMode) => void;
   setSelectedNodeId: (id: string | null) => void;
   saveSnapshot: () => void;
@@ -192,6 +203,38 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
       selectedNodeId: selectedNodeId === nodeId ? null : selectedNodeId,
       past: pushSnapshot(past, nodes, edges),
       future: [],
+    });
+  },
+
+  resetRunState: () => {
+    const { nodes } = get();
+    set({
+      nodes: nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          runStatus: 'idle',
+          runMessage: undefined,
+        },
+      })),
+    });
+  },
+
+  setNodeRunState: (nodeId, runStatus, runMessage) => {
+    const { nodes } = get();
+    set({
+      nodes: nodes.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                runStatus,
+                runMessage,
+              },
+            }
+          : node,
+      ),
     });
   },
 

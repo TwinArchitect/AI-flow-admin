@@ -8,10 +8,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { DEFAULT_LLM_CONFIG } from '../../config/nodeDefaults';
-import type { LlmNodeConfig } from '../../types';
+import type { LlmNodeConfig, WorkflowVariableOption } from '../../types';
 import { Field } from './shared/Field';
+import { VariablePicker } from './shared/VariablePicker';
 
 const MODEL_OPTIONS = [
   { value: 'gpt-4o', label: 'GPT-4o' },
@@ -23,12 +25,16 @@ const MODEL_OPTIONS = [
 
 export function LlmConfigPanel({
   config,
+  variables,
   onUpdate,
 }: {
   config: Record<string, unknown>;
+  variables: WorkflowVariableOption[];
   onUpdate: (config: Partial<LlmNodeConfig>) => void;
 }) {
   const value = { ...DEFAULT_LLM_CONFIG, ...(config as Partial<LlmNodeConfig>) };
+  const advanced = { ...DEFAULT_LLM_CONFIG.advanced, ...value.advanced };
+  const selectedModel = value.model?.model ?? '';
 
   return (
     <div className="space-y-5">
@@ -37,7 +43,10 @@ export function LlmConfigPanel({
       </p>
 
       <Field label="模型选择">
-        <Select value={value.model} onValueChange={(model) => onUpdate({ model })}>
+        <Select
+          value={selectedModel}
+          onValueChange={(model) => onUpdate({ model: { id: '', model, type: 'llm' } })}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="选择模型" />
           </SelectTrigger>
@@ -51,13 +60,15 @@ export function LlmConfigPanel({
         </Select>
       </Field>
 
-      <Field label={`Temperature: ${value.temperature.toFixed(1)}`}>
+      <Field label={`Temperature: ${advanced.temperature.toFixed(1)}`}>
         <Slider
           min={0}
           max={1}
           step={0.1}
-          value={[value.temperature]}
-          onValueChange={([temperature]) => onUpdate({ temperature })}
+          value={[advanced.temperature]}
+          onValueChange={([temperature]) =>
+            onUpdate({ advanced: { ...advanced, temperature } })
+          }
         />
         <div className="flex justify-between text-[10px] text-muted-foreground">
           <span>精准</span>
@@ -69,12 +80,54 @@ export function LlmConfigPanel({
         <Input
           type="number"
           min={256}
-          max={8192}
+          max={32000}
           step={256}
-          value={value.maxTokens}
-          onChange={(event) => onUpdate({ maxTokens: Number(event.target.value) })}
+          value={advanced.maxToken}
+          onChange={(event) =>
+            onUpdate({ advanced: { ...advanced, maxToken: Number(event.target.value) } })
+          }
         />
       </Field>
+
+      <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+        <div>
+          <div className="text-xs font-medium text-foreground">对话记忆</div>
+          <div className="text-[10px] text-muted-foreground">开启后携带最近多轮上下文</div>
+        </div>
+        <Switch
+          checked={value.memoryEnabled}
+          onCheckedChange={(memoryEnabled) =>
+            onUpdate({
+              memoryEnabled,
+              history: memoryEnabled ? Math.max(value.history, 6) : 0,
+            })
+          }
+        />
+      </div>
+
+      <Field label="携带历史轮数">
+        <Input
+          type="number"
+          min={0}
+          max={50}
+          value={value.history}
+          disabled={!value.memoryEnabled}
+          onChange={(event) => onUpdate({ history: Number(event.target.value) })}
+        />
+      </Field>
+
+      <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+        <div>
+          <div className="text-xs font-medium text-foreground">推理内容</div>
+          <div className="text-[10px] text-muted-foreground">保留 reasoningText 输出定义</div>
+        </div>
+        <Switch
+          checked={advanced.aiChatReasoning}
+          onCheckedChange={(aiChatReasoning) =>
+            onUpdate({ advanced: { ...advanced, aiChatReasoning } })
+          }
+        />
+      </div>
 
       <Field label="系统提示词">
         <Textarea
@@ -85,28 +138,42 @@ export function LlmConfigPanel({
         />
       </Field>
 
-      <Field label="用户提示词">
+      <Field
+        label={
+          <div className="flex items-center justify-between gap-2">
+            <span>用户提示词</span>
+            <VariablePicker
+              variables={variables}
+              onSelect={(ref) =>
+                onUpdate({
+                  userChatInput: value.userChatInput ? `${value.userChatInput}\n${ref}` : ref,
+                })
+              }
+            />
+          </div>
+        }
+      >
         <Textarea
-          value={value.userPrompt}
-          onChange={(event) => onUpdate({ userPrompt: event.target.value })}
-          placeholder="{{start.userInput}}"
+          value={value.userChatInput}
+          onChange={(event) => onUpdate({ userChatInput: event.target.value })}
+          placeholder="{{start.userChatInput}}"
           className="min-h-24 font-mono text-xs"
-        />
-      </Field>
-
-      <Field label="输出字段">
-        <Input
-          value={value.outputField}
-          onChange={(event) => onUpdate({ outputField: event.target.value })}
-          placeholder="text"
         />
       </Field>
 
       <div className="border-t border-border pt-4">
         <div className="mb-2 text-xs font-semibold text-foreground">输出</div>
-        <Badge variant="outline" className="font-mono text-[10px]">
-          {value.outputField || 'text'}: string
-        </Badge>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline" className="font-mono text-[10px]">
+            answerText: string
+          </Badge>
+          <Badge variant="outline" className="font-mono text-[10px]">
+            history: chatHistory
+          </Badge>
+          <Badge variant="outline" className="font-mono text-[10px]">
+            reasoningText: string
+          </Badge>
+        </div>
       </div>
     </div>
   );

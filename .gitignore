@@ -1,6 +1,7 @@
 # 项目文档（README.md 保留，其余不推送）
 TOKENS_GUIDE.md
 Tailwind-*.md
+AGENTS.md
 
 # 依赖
 node_modules/

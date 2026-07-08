@@ -7,23 +7,46 @@ import type {
 } from '../types';
 
 export const DEFAULT_START_CONFIG: StartNodeConfig = {
-  triggerMode: 'manual',
-  inputField: 'userInput',
+  variables: [
+    {
+      id: 'start-var-userChatInput',
+      key: 'userChatInput',
+      label: '用户问题',
+      valueType: 'string',
+      required: true,
+      description: '工作流入口用户输入',
+      defaultValue: '',
+    },
+  ],
   sampleInput: '请帮我总结这段内容',
 };
 
 export const DEFAULT_LLM_CONFIG: LlmNodeConfig = {
-  model: 'gpt-4o-mini',
-  temperature: 0.7,
+  model: {
+    id: '',
+    model: 'gpt-4o-mini',
+    type: 'llm',
+  },
   systemPrompt: '',
-  userPrompt: '{{start.userInput}}',
-  maxTokens: 2048,
-  outputField: 'text',
+  userChatInput: '{{start.userChatInput}}',
+  history: 0,
+  memoryEnabled: false,
+  advanced: {
+    temperature: 0,
+    maxToken: 12000,
+    isResponseAnswerText: true,
+    aiChatReasoning: true,
+  },
 };
 
 export const DEFAULT_END_CONFIG: EndNodeConfig = {
-  responseTemplate: '{{llm.text}}',
-  outputField: 'answer',
+  outputVariables: [
+    {
+      id: 'end-var-answer',
+      key: 'answer',
+      value: '{{llm-demo.answerText}}',
+    },
+  ],
 };
 
 export const DEFAULT_HTTP_CONFIG: HttpNodeConfig = {
