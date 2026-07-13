@@ -7,6 +7,7 @@ import {
   Puzzle,
   Settings,
   User,
+  Component,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,9 +22,44 @@ const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: '工作台', path: '/' },
   { icon: Bot, label: '智能体', path: '/agents', badge: 8 },
   { icon: Workflow, label: '工作流', path: '/workflows', badge: 12 },
+  { icon: Component, label: '组件示例', path: '/components' },
   { icon: Database, label: '知识库', path: '/knowledge' },
   { icon: Puzzle, label: '插件市场', path: '/plugins' },
   { icon: Settings, label: '系统设置', path: '/settings' },
+];
+
+const componentLinks = [
+  { label: 'Button', path: '/components/button' },
+  { label: 'Card', path: '/components/card' },
+  { label: 'Dialog', path: '/components/dialog' },
+  { label: 'Form', path: '/components/form' },
+  { label: 'Input', path: '/components/input' },
+  { label: 'Select', path: '/components/select' },
+  { label: 'Table', path: '/components/table' },
+  { label: 'Tabs', path: '/components/tabs' },
+  { label: 'Accordion', path: '/components/accordion' },
+  { label: 'Alert', path: '/components/alert' },
+  { label: 'Badge', path: '/components/badge' },
+  { label: 'Avatar', path: '/components/avatar' },
+  { label: 'Toast', path: '/components/toast' },
+  { label: 'Checkbox', path: '/components/checkbox' },
+  { label: 'Switch', path: '/components/switch' },
+  { label: 'Radio', path: '/components/radio-group' },
+  { label: 'Textarea', path: '/components/textarea' },
+  { label: 'Progress', path: '/components/progress' },
+  { label: 'Skeleton', path: '/components/skeleton' },
+  { label: 'Slider', path: '/components/slider' },
+  { label: 'Dropdown', path: '/components/dropdown-menu' },
+  { label: 'Popover', path: '/components/popover' },
+  { label: 'Tooltip', path: '/components/tooltip' },
+  { label: 'Sheet', path: '/components/sheet' },
+  { label: 'Separator', path: '/components/separator' },
+  { label: 'Calendar', path: '/components/calendar' },
+  { label: 'Command', path: '/components/command' },
+  { label: 'Date Picker', path: '/components/date-picker' },
+  { label: 'Multi Select', path: '/components/multi-select' },
+  { label: 'Time Picker', path: '/components/time-picker' },
+  { label: 'React Query', path: '/components/react-query' },
 ];
 
 export function Sidebar() {
@@ -42,12 +78,13 @@ export function Sidebar() {
       </div>
 
       {/* 导航菜单 */}
-      <nav className="flex-1 px-3">
+      <nav className="flex-1 overflow-y-auto px-3">
         <ul className="space-y-0.5">
           {menuItems.map((item) => {
             const isActive = item.path === '/'
               ? location.pathname === '/'
               : location.pathname.startsWith(item.path);
+            const showChildren = item.path === '/components' && isActive;
 
             return (
               <li key={item.path}>
@@ -77,6 +114,26 @@ export function Sidebar() {
                     </span>
                   )}
                 </NavLink>
+                {showChildren && (
+                  <div className="mt-1 space-y-0.5 border-l border-[var(--color-border-default)] py-1 pl-4">
+                    {componentLinks.map((child) => (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        className={({ isActive: isChildActive }) =>
+                          cn(
+                            'block rounded-md px-3 py-1.5 text-xs transition-colors',
+                            isChildActive
+                              ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                              : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
+                          )
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
               </li>
             );
           })}
