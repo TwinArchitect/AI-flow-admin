@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   Search,
@@ -16,14 +15,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useThemeStore } from '@/stores/theme';
-import { useAuthStore } from '@/stores/auth';
+import { useLogout } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { notifications, typeConfig } from '@/data/notifications';
 
 export function Header() {
   const { isDark, setTheme } = useThemeStore();
-  const { clear: logout } = useAuthStore();
-  const navigate = useNavigate();
+  const logoutMutation = useLogout();
   const [isAnimating, setIsAnimating] = useState(false);
 
   // 下拉面板状态
@@ -72,8 +70,7 @@ export function Header() {
   }, [isDark, isAnimating, setTheme]);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
+    logoutMutation.mutate();
   };
 
   const unreadCount = notifications.filter((n) => n.unread).length;

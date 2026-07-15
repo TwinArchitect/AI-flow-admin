@@ -21,7 +21,7 @@ import { createConnectionValidator } from '../utils/connectionRules';
 import { serializeWorkflowToBackend } from '../utils/workflowSerialization';
 import { validateWorkflowForBackend } from '../utils/workflowValidation';
 import { useWorkflowCanvasStore } from '../store/useWorkflowCanvasStore';
-import type { EdgeLineMode, WorkflowCanvasNode, WorkflowNodeType } from '../types';
+import type { EdgeLineMode, StartNodeConfig, WorkflowCanvasNode, WorkflowNodeType } from '../types';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { NodeSidebar } from './NodeSidebar';
 import { WorkflowNode } from './WorkflowNode';
@@ -38,6 +38,8 @@ const nodeTypes: NodeTypes = {
   plugin: WorkflowNode,
   mcp: WorkflowNode,
 };
+
+const WORKFLOW_AGENT_ID = import.meta.env.VITE_WORKFLOW_AGENT_ID ?? 'workflow-demo';
 
 interface WorkflowToolbarProps {
   isSidebarOpen: boolean;
@@ -125,7 +127,7 @@ function WorkflowToolbar({ isSidebarOpen, onOpenSidebar }: WorkflowToolbarProps)
     if (!result) return;
 
     saveWorkflowMutation.mutate({
-      agentId: 'workflow-demo',
+      agentId: WORKFLOW_AGENT_ID,
       agentName: '工作流演示',
       nodes: result.nodes,
       edges: result.edges,
@@ -150,15 +152,18 @@ function WorkflowToolbar({ isSidebarOpen, onOpenSidebar }: WorkflowToolbarProps)
     if (!result) return;
 
     const { nodes, edges, payload } = result;
+    const startNode = nodes.find((node) => node.data.nodeType === 'start');
+    const startConfig = startNode?.data.config as Partial<StartNodeConfig> | undefined;
+    const userInput = startConfig?.sampleInput ?? '';
     resetRunState();
 
     runWorkflowMutation.mutate({
       request: {
-        appId: 'workflow-demo',
+        appId: WORKFLOW_AGENT_ID,
         message: [
           {
             role: 'user',
-            content: String(payload.chatConfig.variables[0]?.defaultValue ?? ''),
+            content: userInput,
           },
         ],
         variables: Object.fromEntries(

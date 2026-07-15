@@ -13,40 +13,29 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useAuthStore } from '@/stores/auth';
+import { useLogin } from '@/hooks/useAuth';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { setToken, setUser } = useAuthStore();
-  const [email, setEmail] = useState('zhang.hao@acme.ai');
-  const [password, setPassword] = useState('password123');
-  const [loading, setLoading] = useState(false);
+  const loginMutation = useLogin();
+  const [username, setUsername] = useState('demo_admin');
+  const [password, setPassword] = useState('rma@new123');
   const [error, setError] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
-    if (!email || !password) {
-      setError('请输入邮箱和密码');
+    if (!username || !password) {
+      setError('请输入用户名和密码');
       return;
     }
 
-    setLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 600));
-      setToken('mock-token-xxx', 'mock-refresh-token-xxx');
-      setUser({
-        id: 1,
-        username: 'admin',
-        nickname: '管理员',
-        email: email,
-        role: 'admin',
-        permissions: ['*'],
-      });
+      await loginMutation.mutateAsync({ username, password });
       navigate('/', { replace: true });
-    } finally {
-      setLoading(false);
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : '登录失败');
     }
   }
 
@@ -146,15 +135,15 @@ export function LoginPage() {
           {/* 表单 */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[var(--color-text-secondary)]">邮箱</label>
+              <label className="text-xs font-medium text-[var(--color-text-secondary)]">用户名</label>
               <div className="relative">
                 <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] z-10 pointer-events-none" />
                 <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="pl-9 h-10"
-                  placeholder="your@email.com"
+                  placeholder="请输入用户名"
                 />
               </div>
             </div>
@@ -182,10 +171,10 @@ export function LoginPage() {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loginMutation.isPending}
               className="w-full h-10 gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white"
             >
-              {loading ? (
+              {loginMutation.isPending ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <>

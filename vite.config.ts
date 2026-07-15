@@ -12,5 +12,11 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    proxy: {
+      '/gpt': {
+        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:13001',
+        changeOrigin: true,
+      },
+    },
   },
 });

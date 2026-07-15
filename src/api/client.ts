@@ -11,12 +11,18 @@ export const http = axios.create({
 
 // 请求拦截器 — 自动注入 token
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (config.url?.startsWith('/gpt/')) {
+    config.baseURL = '';
+  }
+
   const raw = localStorage.getItem('auth-storage');
   if (raw) {
     try {
       const { state } = JSON.parse(raw);
       if (state?.token) {
         config.headers.Authorization = `Bearer ${state.token}`;
+        config.headers.token = state.token;
+        if (state.tenantId) config.headers.tenant_id = state.tenantId;
       }
     } catch {
       // ignore

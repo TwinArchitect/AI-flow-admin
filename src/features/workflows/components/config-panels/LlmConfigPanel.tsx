@@ -11,17 +11,10 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { DEFAULT_LLM_CONFIG } from '../../config/nodeDefaults';
+import { useWorkflowModels } from '../../hooks/useWorkflowModels';
 import type { LlmNodeConfig, WorkflowVariableOption } from '../../types';
 import { Field } from './shared/Field';
 import { VariablePicker } from './shared/VariablePicker';
-
-const MODEL_OPTIONS = [
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'deepseek-v3', label: 'DeepSeek V3' },
-  { value: 'deepseek-r1', label: 'DeepSeek R1' },
-  { value: 'qwen-max', label: 'Qwen Max' },
-];
 
 export function LlmConfigPanel({
   config,
@@ -34,7 +27,8 @@ export function LlmConfigPanel({
 }) {
   const value = { ...DEFAULT_LLM_CONFIG, ...(config as Partial<LlmNodeConfig>) };
   const advanced = { ...DEFAULT_LLM_CONFIG.advanced, ...value.advanced };
-  const selectedModel = value.model?.model ?? '';
+  const { data: models = [], isLoading: isLoadingModels, error: modelError } = useWorkflowModels();
+  const selectedModel = value.model?.id ?? '';
 
   return (
     <div className="space-y-5">
@@ -45,19 +39,37 @@ export function LlmConfigPanel({
       <Field label="模型选择">
         <Select
           value={selectedModel}
-          onValueChange={(model) => onUpdate({ model: { id: '', model, type: 'llm' } })}
+          onValueChange={(modelId) => {
+            const model = models.find((item) => item.id === modelId);
+            if (model) {
+              onUpdate({
+                model: {
+                  id: model.id,
+                  model: model.model,
+                  type: model.type,
+                  authToken: model.authToken,
+                  url: model.url,
+                },
+              });
+            }
+          }}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="选择模型" />
+            <SelectValue placeholder={isLoadingModels ? '加载模型中...' : '选择模型'} />
           </SelectTrigger>
           <SelectContent>
-            {MODEL_OPTIONS.map((model) => (
-              <SelectItem key={model.value} value={model.value}>
-                {model.label}
+            {models.map((model) => (
+              <SelectItem key={model.id} value={model.id}>
+                {model.name || model.model}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {modelError && (
+          <p className="text-xs text-destructive">
+            {modelError instanceof Error ? modelError.message : '模型列表加载失败'}
+          </p>
+        )}
       </Field>
 
       <Field label={`Temperature: ${advanced.temperature.toFixed(1)}`}>

@@ -8,11 +8,9 @@ export function useLogin() {
   const { setToken, setUser } = useAuthStore();
   return useMutation({
     mutationFn: (payload: LoginPayload) => login(payload),
-    onSuccess: async (data) => {
-      setToken(data.token, data.refreshToken);
-      // 登录成功后拉取用户信息
-      const user = await getCurrentUser();
-      setUser(user);
+    onSuccess: (data, variables) => {
+      setToken(data.token, data.refreshToken, data.tenantId);
+      setUser(getCurrentUser(data, variables.username));
     },
   });
 }

@@ -7,13 +7,19 @@ export interface LoginPayload {
 // 登录响应
 export interface LoginResult {
   token: string;
-  refreshToken: string;
-  expiresIn: number;
+  refreshToken?: string;
+  expiresIn?: number;
+  userId?: string;
+  nickName?: string;
+  username?: string;
+  email?: string;
+  tenantId?: string;
+  roles?: Array<{ code?: string; name?: string }>;
 }
 
 // 当前登录用户信息
 export interface CurrentUser {
-  id: number;
+  id: number | string;
   username: string;
   nickname: string;
   email: string;
