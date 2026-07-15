@@ -19,6 +19,7 @@ build/
 
 # 编辑器
 .vscode/
+.history
 .idea/
 *.suo
 *.ntvs*
