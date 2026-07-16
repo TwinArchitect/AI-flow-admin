@@ -20,11 +20,13 @@ export interface RunWorkflowStreamRequest {
   edges: WorkflowCanvasEdge[];
   payload: WorkflowBackendPayload;
   onNodeEvent: (event: WorkflowRunEvent) => void;
+  signal?: AbortSignal;
 }
 
 export async function runWorkflowStream({
   request,
   onNodeEvent,
+  signal,
 }: RunWorkflowStreamRequest): Promise<WorkflowRunResult> {
   const raw = localStorage.getItem('auth-storage');
   const state = raw ? JSON.parse(raw).state : {};
@@ -43,6 +45,7 @@ export async function runWorkflowStream({
     method: 'POST',
     headers,
     body: JSON.stringify(request),
+    signal,
   });
 
   if (!response.ok) {
@@ -81,6 +84,8 @@ export async function runWorkflowStream({
         statusCode?: number;
         message?: string;
         log?: string;
+        ts?: number;
+        inputs?: Record<string, unknown>;
         outputs?: Record<string, unknown>;
       };
       if (payload.nodeId) {
@@ -90,7 +95,14 @@ export async function runWorkflowStream({
         if (status === 'error' || eventName.toLowerCase().includes('error')) {
           executionError = eventMessage;
         }
-        onNodeEvent({ nodeId: payload.nodeId, status, message: eventMessage });
+        onNodeEvent({
+          nodeId: payload.nodeId,
+          status,
+          message: eventMessage,
+          durationMs: payload.ts,
+          inputs: payload.inputs,
+          outputs: payload.outputs,
+        });
         nodeOutputs[payload.nodeId] = payload.outputs ?? payload;
       }
     } catch {

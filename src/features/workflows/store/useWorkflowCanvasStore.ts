@@ -82,11 +82,18 @@ interface WorkflowCanvasState {
   deleteNode: (nodeId: string) => void;
   resetRunState: () => void;
   setNodeRunState: (nodeId: string, status: WorkflowNodeRunStatus, message?: string) => void;
+  setNodeRunDetails: (
+    nodeId: string,
+    details: Pick<WorkflowCanvasNode['data'], 'runDurationMs' | 'runInputs' | 'runOutputs'>,
+  ) => void;
+  markUnfinishedNodesSkipped: (message?: string) => void;
   setEdgeLineMode: (mode: EdgeLineMode) => void;
   setSelectedNodeId: (id: string | null) => void;
   saveSnapshot: () => void;
   undo: () => void;
   redo: () => void;
+  replaceWorkflow: (nodes: WorkflowCanvasNode[], edges: WorkflowCanvasEdge[]) => void;
+  resetToNewWorkflow: () => void;
   toJSON: () => { nodes: WorkflowCanvasNode[]; edges: WorkflowCanvasEdge[] };
 }
 
@@ -106,6 +113,24 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
   selectedNodeId: null,
   past: [],
   future: [],
+
+  replaceWorkflow: (nodes, edges) => set({
+    nodes,
+    edges,
+    selectedNodeId: null,
+    past: [],
+    future: [],
+  }),
+
+  resetToNewWorkflow: () => set({
+    nodes: initialNodes.filter(
+      (node) => node.data.nodeType === 'start' || node.data.nodeType === 'end',
+    ),
+    edges: [],
+    selectedNodeId: null,
+    past: [],
+    future: [],
+  }),
 
   onNodesChange: (changes) => {
     const { nodes, edges, past } = get();
@@ -215,6 +240,10 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
           ...node.data,
           runStatus: 'idle',
           runMessage: undefined,
+          runStartedAt: undefined,
+          runDurationMs: undefined,
+          runInputs: undefined,
+          runOutputs: undefined,
         },
       })),
     });
@@ -222,6 +251,7 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
 
   setNodeRunState: (nodeId, runStatus, runMessage) => {
     const { nodes } = get();
+    const now = Date.now();
     set({
       nodes: nodes.map((node) =>
         node.id === nodeId
@@ -231,8 +261,43 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
                 ...node.data,
                 runStatus,
                 runMessage,
+                runStartedAt: runStatus === 'running' ? now : node.data.runStartedAt,
+                runDurationMs:
+                  runStatus !== 'running' && node.data.runStartedAt
+                    ? now - node.data.runStartedAt
+                    : node.data.runDurationMs,
               },
             }
+          : node,
+      ),
+    });
+  },
+
+  setNodeRunDetails: (nodeId, details) => {
+    const { nodes } = get();
+    set({
+      nodes: nodes.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                runDurationMs: details.runDurationMs ?? node.data.runDurationMs,
+                runInputs: details.runInputs ?? node.data.runInputs,
+                runOutputs: details.runOutputs ?? node.data.runOutputs,
+              },
+            }
+          : node,
+      ),
+    });
+  },
+
+  markUnfinishedNodesSkipped: (message = '上游执行失败，未执行') => {
+    const { nodes } = get();
+    set({
+      nodes: nodes.map((node) =>
+        node.data.runStatus === 'idle' || node.data.runStatus === 'running'
+          ? { ...node, data: { ...node.data, runStatus: 'skipped', runMessage: message } }
           : node,
       ),
     });

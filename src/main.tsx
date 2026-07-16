@@ -50,8 +50,12 @@ createRoot(document.getElementById('root')!).render(
       <RouterProvider router={router} />
       <ReactQueryDevtools initialIsOpen={false} />
       <Toaster
-        position="top-right"
+        position="top-center"
         toastOptions={{
+          classNames: {
+            title: '!text-foreground',
+            description: '!text-muted-foreground',
+          },
           style: {
             background: 'var(--color-bg-card)',
             color: 'var(--color-text-primary)',

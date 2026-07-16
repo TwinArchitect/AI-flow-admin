@@ -23,7 +23,7 @@ import { moduleRefToString, stringToModuleRef } from './variableRefs';
 const DEFAULT_MODULE_VERSION = '481';
 
 function normalizeStartConfig(config: unknown): StartNodeConfig {
-  const raw = config as Partial<StartNodeConfig>;
+  const raw = (config ?? {}) as Partial<StartNodeConfig>;
   return {
     ...DEFAULT_START_CONFIG,
     ...raw,
@@ -32,7 +32,7 @@ function normalizeStartConfig(config: unknown): StartNodeConfig {
 }
 
 function normalizeLlmConfig(config: unknown): LlmNodeConfig {
-  const raw = config as Partial<LlmNodeConfig>;
+  const raw = (config ?? {}) as Partial<LlmNodeConfig>;
   return {
     ...DEFAULT_LLM_CONFIG,
     ...raw,
@@ -44,7 +44,7 @@ function normalizeLlmConfig(config: unknown): LlmNodeConfig {
 }
 
 function normalizeEndConfig(config: unknown): EndNodeConfig {
-  const raw = config as Partial<EndNodeConfig>;
+  const raw = (config ?? {}) as Partial<EndNodeConfig>;
   return {
     ...DEFAULT_END_CONFIG,
     ...raw,
@@ -277,7 +277,13 @@ export function serializeWorkflowToBackend(
     modules: nodes
       .map((node) => serializeWorkflowNode(node))
       .filter((module): module is WorkflowModule => Boolean(module)),
-    edges,
+    edges: edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
+      ...(edge.targetHandle ? { targetHandle: edge.targetHandle } : {}),
+    })),
     chatConfig: {
       variables: serializeStartVariables(startConfig),
     },

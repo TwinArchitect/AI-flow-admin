@@ -12,6 +12,9 @@ export interface WorkflowRunEvent {
   nodeId: string;
   status: 'running' | 'success' | 'error';
   message?: string;
+  durationMs?: number;
+  inputs?: Record<string, unknown>;
+  outputs?: Record<string, unknown>;
 }
 
 export interface WorkflowRunResult {

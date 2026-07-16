@@ -19,12 +19,16 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   config: WorkflowNodeConfig;
   runStatus?: WorkflowNodeRunStatus;
   runMessage?: string;
+  runStartedAt?: number;
+  runDurationMs?: number;
+  runInputs?: Record<string, unknown>;
+  runOutputs?: Record<string, unknown>;
 }
 
 export type WorkflowCanvasNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowCanvasEdge = Edge;
 export type EdgeLineMode = 'solid' | 'animated';
-export type WorkflowNodeRunStatus = 'idle' | 'running' | 'success' | 'error';
+export type WorkflowNodeRunStatus = 'idle' | 'running' | 'success' | 'error' | 'skipped';
 
 export interface WorkflowNodeDef {
   type: WorkflowNodeType;
