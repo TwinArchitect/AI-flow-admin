@@ -81,7 +81,7 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-16 pb-16 font-sans">
+    <div className="h-full space-y-16 pb-16 font-sans overflow-y-auto">
 
       {/* ═══════ SECTION 1: HERO CONTAINER ═══════ */}
       {/* Hero 区为刻意深色背景，不走亮/暗切换 */}

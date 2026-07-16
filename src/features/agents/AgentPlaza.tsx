@@ -12,7 +12,6 @@ import {
   Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 // ====== Banner 数据 ======
@@ -99,7 +98,6 @@ interface PlazaAgent {
   category: string;
 }
 
-/** 多模态知识问答卡片（渐变顶栏视觉风格） */
 interface KnowledgeAgent {
   id: string;
   title: string;
@@ -112,25 +110,7 @@ interface KnowledgeAgent {
   category: string;
 }
 
-// ====== 分类定义 ======
-
-interface SectionConfig {
-  label: string;
-  accentColor: string;
-  /** knowledge 表示使用渐变顶栏视觉卡片 */
-  variant: 'standard' | 'knowledge';
-}
-
-type CategoryKey = '办公' | '安全' | '运行' | '检修';
-
 const categories = ['全部', '办公', '安全', '运行', '检修'] as const;
-
-const sectionConfig: Record<CategoryKey, SectionConfig> = {
-  '办公': { label: '基础办公套件', accentColor: 'bg-primary', variant: 'standard' },
-  '安全': { label: '安全智能体套件', accentColor: 'bg-destructive', variant: 'standard' },
-  '运行': { label: '智能运行分析套件', accentColor: 'bg-blue-500', variant: 'standard' },
-  '检修': { label: '精益检修支撑套件', accentColor: 'bg-violet-500', variant: 'standard' },
-};
 
 // ====== 每条 1 条假数据 ======
 
@@ -190,13 +170,8 @@ const knowledgeAgents: KnowledgeAgent[] = [
   },
 ];
 
-// ====== 按分类索引 ======
-
 const standardByCategory = new Map<string, PlazaAgent>(
   standardAgents.map((a) => [a.category, a]),
-);
-const knowledgeByCategory = new Map<string, KnowledgeAgent>(
-  knowledgeAgents.map((a) => [a.category, a]),
 );
 
 // ====== 组件 ======
@@ -224,9 +199,8 @@ export function AgentPlazaPage() {
     activeCategory === '全部' || activeCategory === cat;
 
   return (
-    <div className="h-full overflow-y-auto bg-page">
-      <div className="space-y-14 pb-16">
-
+    <div className="h-full overflow-y-auto ">
+      <div className="h-full space-y-14 pb-16">
         {/* ====== Banner 轮播 ====== */}
         <div className="relative h-80 rounded-3xl overflow-hidden bg-slate-950 border border-slate-800/30">
           <div
@@ -329,48 +303,356 @@ export function AgentPlazaPage() {
           </div>
         </div>
 
-        {/* ====== 1. 基础办公套件（标准卡片 + 多模态知识问答视觉卡片） ====== */}
+        {/* ====== 办公（标准卡片 + 多模态知识问答视觉卡片） ====== */}
         {isVisible('办公') && (
-          <>
-            {/* 基础办公套件 */}
+          <div className="space-y-4">
             <SectionHeading label="基础办公套件" accentColor="bg-primary" />
             <StandardCardGrid agents={[standardByCategory.get('办公')!]} />
-
-            {/* 多模态知识问答（办公大类下，视觉风格不同） */}
+          </div>
+        )}
+        {isVisible('办公') && (
+          <div className="space-y-4">
             <SectionHeading label="多模态知识问答" accentColor="bg-primary" />
             <KnowledgeCardGrid agents={knowledgeAgents.filter((a) => a.category === '办公')} />
-          </>
+          </div>
         )}
-
-        {/* ====== 2. 安全智能体套件 ====== */}
+        {/* ====== 安全 ====== */}
         {isVisible('安全') && (
-          <>
+          <div className="space-y-4">
             <SectionHeading label="安全智能体套件" accentColor="bg-destructive" />
             <StandardCardGrid agents={[standardByCategory.get('安全')!]} />
-          </>
+          </div>
         )}
 
-        {/* ====== 3. 智能运行分析套件 ====== */}
+        {/* ====== 运行 ====== */}
         {isVisible('运行') && (
-          <>
+          <div className="space-y-4">
             <SectionHeading label="智能运行分析套件" accentColor="bg-blue-500" />
             <StandardCardGrid agents={[standardByCategory.get('运行')!]} />
-          </>
+          </div>
         )}
 
-        {/* ====== 4. 精益检修支撑套件 ====== */}
+        {/* ====== 检修 ====== */}
         {isVisible('检修') && (
-          <>
+          <div className="space-y-4">
             <SectionHeading label="精益检修支撑套件" accentColor="bg-violet-500" />
             <StandardCardGrid agents={[standardByCategory.get('检修')!]} />
-          </>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-// ====== 提取的纯渲染组件 ======
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ====== 渲染组件 ======
 
 function SectionHeading({ label, accentColor }: { label: string; accentColor: string }) {
   return (
@@ -403,9 +685,6 @@ function StandardCardGrid({ agents }: { agents: PlazaAgent[] }) {
               </div>
             </div>
             <p className="text-xs text-fg-muted leading-relaxed line-clamp-2">{agent.desc}</p>
-            <div className="flex items-center gap-1.5 pt-1">
-              <Badge variant="secondary" className="text-[10px]">{agent.category}</Badge>
-            </div>
           </div>
         </div>
       ))}
@@ -423,7 +702,6 @@ function KnowledgeCardGrid({ agents }: { agents: KnowledgeAgent[] }) {
           key={item.id}
           className="rounded-xl border border-line bg-surface overflow-hidden cursor-pointer transition-shadow hover:shadow-md"
         >
-          {/* 渐变顶栏 + 线框装饰 */}
           <div className={cn('h-36 p-4 relative flex flex-col justify-between overflow-hidden bg-gradient-to-tr', item.gradient)}>
             <div className="flex items-center justify-between relative z-10 w-full">
               <span className="text-[9px] font-mono uppercase bg-background/70 text-fg px-2 py-0.5 rounded-md font-bold tracking-wider border border-line/50 backdrop-blur-sm">
@@ -431,7 +709,6 @@ function KnowledgeCardGrid({ agents }: { agents: KnowledgeAgent[] }) {
               </span>
               <Sparkles size={14} className="text-fg-muted" />
             </div>
-            {/* 线框装饰 */}
             <div className="relative w-full h-16 bg-background/80 rounded-xl border border-line/30 p-2.5 shadow-sm overflow-hidden flex flex-col justify-between">
               <div className="flex gap-1.5">
                 <span className={cn('w-4 h-1.5 rounded-full', item.innerGradient, 'bg-gradient-to-r')} />
@@ -441,13 +718,12 @@ function KnowledgeCardGrid({ agents }: { agents: KnowledgeAgent[] }) {
               <div className="flex justify-between items-center">
                 <div className="w-12 h-1.5 bg-muted rounded-full" />
                 <span className={cn('w-3.5 h-3.5 rounded-full flex items-center justify-center', item.innerGradient, 'bg-gradient-to-r')}>
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </span>
               </div>
             </div>
           </div>
 
-          {/* 底部信息 */}
           <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
             <div className="space-y-1.5">
               <h4 className="text-sm font-semibold text-fg">{item.title}</h4>

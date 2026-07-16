@@ -78,11 +78,11 @@
   --leading-xl: var(--leading-xl);
 
   /* ---------- 字重映射 ---------- */
-  --font-thin: var(--font-thin);
+  /* --font-thin: var(--font-thin);
   --font-normal: var(--font-normal);
   --font-medium: var(--font-medium);
   --font-semibold: var(--font-semibold);
-  --font-bold: var(--font-bold);
+  --font-bold: var(--font-bold); */
 
   /* ---------- 圆角映射 ---------- */
   --radius-xs: var(--radius-xs);
@@ -95,7 +95,7 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-focus: var(--shadow-focus);
-
+  --shadow-sheet: var(--shadow-sheet);
   /* ---------- 字体族 ---------- */
   --font-mono: var(--font-mono);
 }
@@ -176,6 +176,7 @@
    自定义工具类
    ======================================== */
 @layer utilities {
+
   /* 文字截断 */
   .text-truncate {
     overflow: hidden;
@@ -225,6 +226,7 @@
   from {
     clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 50%));
   }
+
   to {
     clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 50%));
   }
@@ -341,5 +343,4 @@
 }
 
 /* 暗色模式：token 已在 colors.css 里切换，这里无需重复 */
-.dark {
-}
+.dark {}
