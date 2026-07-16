@@ -20,6 +20,8 @@ interface MenuItem {
 }
 const agentslist = [
   { label: '智能体广场', path: '/agents/AgentPlaza' },
+  { label: '模型管理', path: '/agents/models' },
+  { label: '记忆维护', path: '/agents/memory' },
 ]
 const componentLinks = [
   { label: 'Button', path: '/components/button' },
