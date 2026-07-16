@@ -199,7 +199,7 @@ export function AgentPlazaPage() {
     activeCategory === '全部' || activeCategory === cat;
 
   return (
-    <div className="h-full overflow-y-auto ">
+    <div className="h-full overflow-y-auto">
       <div className="h-full space-y-14 pb-16">
         {/* ====== Banner 轮播 ====== */}
         <div className="relative h-80 rounded-3xl overflow-hidden bg-slate-950 border border-slate-800/30">
