@@ -10,11 +10,11 @@ export function MainLayout() {
       <Sidebar />
 
       {/* 主内容区 */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0" >
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <Header />
         
         {/* 页面内容 */}
-        <main className="flex-1 bg-white overflow-hidden shadow-sheet rounded-[32px] p-8 mr-3 my-3 ml-4">
+        <main className="flex-1 overflow-y-auto p-8 ">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
