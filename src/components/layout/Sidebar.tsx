@@ -23,6 +23,8 @@ const agentslist = [
   { label: '智能体助手', path: '/agents/overview' },
   { label: '我的智能体', path: '/agents/myAgents' },
   { label: '知识库', path: '/agents/knowledge' },
+  { label: '模型管理', path: '/agents/models' },
+  { label: '记忆维护', path: '/agents/memory' },
 ]
 const componentLinks = [
   { label: 'Button', path: '/components/button' },

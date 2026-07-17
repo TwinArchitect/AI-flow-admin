@@ -14,7 +14,7 @@ export function MainLayout() {
         <Header />
         
         {/* 页面内容 */}
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-8 ">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
