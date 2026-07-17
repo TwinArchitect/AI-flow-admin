@@ -57,7 +57,8 @@ export function AgentOverviewPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
-  const [selectedPublishedAgent, setSelectedPublishedAgent] = useState<SelectedPublishedAgent | null>(null);
+  const [selectedPublishedAgent, setSelectedPublishedAgent] =
+    useState<SelectedPublishedAgent | null>(null);
   const [selectedModel, setSelectedModel] = useState('gpt-4o');
   const [showPinnedTestAgents] = useState(
     () => localStorage.getItem(PINNED_TEST_AGENTS_STORAGE_KEY) === '1'
@@ -77,7 +78,9 @@ export function AgentOverviewPage() {
 
   /* ─── 清理 ─── */
   useEffect(() => {
-    return () => { streamAbortRef.current?.abort(); };
+    return () => {
+      streamAbortRef.current?.abort();
+    };
   }, []);
 
   /* ─── Mock 初始数据 ─── */
@@ -115,6 +118,7 @@ export function AgentOverviewPage() {
   };
 
   const ensureActiveGroup = async (_titleHint: string): Promise<string> => {
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     if (activeGroupId) return activeGroupId;
     await handleNewConversation();
     return activeGroupId ?? 'g-mock';
@@ -145,9 +149,7 @@ export function AgentOverviewPage() {
 
   /* ─── 点赞 ─── */
   const handleLike = (backendId: string, next: number) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.backendId === backendId ? { ...m, likes: next } : m))
-    );
+    setMessages((prev) => prev.map((m) => (m.backendId === backendId ? { ...m, likes: next } : m)));
   };
 
   /* ─── 发送消息 ─── */
@@ -186,7 +188,9 @@ export function AgentOverviewPage() {
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 600));
       if (streamController.signal.aborted) return;
 
-      const reply = testMatch?.intro ?? `您好！我是智能助手。关于「${question}」的问题，已为您记录并处理。\n\n**处理结果：**\n- 已接收您的问题\n- 正在分析相关数据\n- 预计处理时长约 2 分钟\n\n如需进一步帮助，请随时告诉我！`;
+      const reply =
+        testMatch?.intro ??
+        `您好！我是智能助手。关于「${question}」的问题，已为您记录并处理。\n\n**处理结果：**\n- 已接收您的问题\n- 正在分析相关数据\n- 预计处理时长约 2 分钟\n\n如需进一步帮助，请随时告诉我！`;
 
       assistantBlocks = parseStringToBlocks(reply, 'assistant');
       setMessages((prev) =>
@@ -200,7 +204,10 @@ export function AgentOverviewPage() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantLocalId
-            ? { ...m, blocks: parseStringToBlocks('**请求失败：** 网络异常，请稍后重试', 'assistant') }
+            ? {
+                ...m,
+                blocks: parseStringToBlocks('**请求失败：** 网络异常，请稍后重试', 'assistant'),
+              }
             : m
         )
       );
@@ -211,7 +218,13 @@ export function AgentOverviewPage() {
     }
   };
 
-  const saveChatMessage = async (_data: { groupId: string; question: string; answer: string; agentId?: string }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const saveChatMessage = async (_data: {
+    groupId: string;
+    question: string;
+    answer: string;
+    agentId?: string;
+  }) => {
     // mock
   };
 
@@ -270,7 +283,8 @@ export function AgentOverviewPage() {
                 对话分组
               </span>
               <Button
-                variant="ghost" size="xs"
+                variant="ghost"
+                size="xs"
                 onClick={handleNewConversation}
                 className="bg-primary/10 hover:bg-primary/20 text-primary font-bold gap-1 rounded-lg"
               >
@@ -286,7 +300,9 @@ export function AgentOverviewPage() {
                   <Loader2 size={20} className="animate-spin" />
                 </div>
               ) : groups.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-8 px-2">暂无会话，点击新建开始对话</p>
+                <p className="text-xs text-muted-foreground text-center py-8 px-2">
+                  暂无会话，点击新建开始对话
+                </p>
               ) : (
                 groups.map((group) => {
                   const isActive = group.id === activeGroupId;
@@ -298,16 +314,24 @@ export function AgentOverviewPage() {
                         'group relative flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200',
                         isActive
                           ? 'bg-primary/10 text-primary font-semibold border-l-2 border-primary'
-                          : 'text-muted-foreground hover:bg-accent',
+                          : 'text-muted-foreground hover:bg-accent'
                       )}
                     >
                       <div className="flex flex-col flex-1 min-w-0 pr-6">
                         <div className="flex items-center gap-2 min-w-0">
-                          <MessageSquare size={14} className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                          <MessageSquare
+                            size={14}
+                            className={cn(
+                              'shrink-0',
+                              isActive ? 'text-primary' : 'text-muted-foreground'
+                            )}
+                          />
                           <span className="text-xs truncate">{group.groupName}</span>
                         </div>
                         {group.lastQuestion && (
-                          <span className="text-2xs text-muted-foreground truncate ml-6 mt-0.5">{group.lastQuestion}</span>
+                          <span className="text-2xs text-muted-foreground truncate ml-6 mt-0.5">
+                            {group.lastQuestion}
+                          </span>
                         )}
                       </div>
                       <Button
@@ -341,7 +365,7 @@ export function AgentOverviewPage() {
                 'rounded-xl border shadow-sm',
                 isSidebarOpen
                   ? 'border-primary text-primary'
-                  : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary',
+                  : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
               )}
             >
               {isSidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
@@ -355,27 +379,31 @@ export function AgentOverviewPage() {
                 'hidden sm:flex items-center gap-0.5 pl-2.5 pr-1 py-1 rounded-xl border text-[11px] font-bold transition-all max-w-[180px]',
                 selectedPublishedAgent
                   ? 'border-primary/30 bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground',
+                  : 'border-border text-muted-foreground'
               )}
             >
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setAgentPickerOpen(true)}
-                className="flex items-center gap-1.5 min-w-0 hover:opacity-80 transition-opacity"
+                className="flex items-center gap-1.5 min-w-0 hover:opacity-80 h-auto p-0 text-[11px]"
                 title="选择智能体"
               >
                 <Bot size={14} className="shrink-0" />
-                <span className="truncate">{selectedPublishedAgent?.agentName ?? '选择智能体'}</span>
-              </button>
+                <span className="truncate">
+                  {selectedPublishedAgent?.agentName ?? '选择智能体'}
+                </span>
+              </Button>
               {selectedPublishedAgent && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => setSelectedPublishedAgent(null)}
-                  className="p-1 rounded-lg hover:bg-primary/20 shrink-0"
+                  className="rounded-lg hover:bg-primary/20 shrink-0"
                   title="取消选择"
                 >
                   <X size={12} className="opacity-60" />
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -393,16 +421,25 @@ export function AgentOverviewPage() {
         ) : hasMessages ? (
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-6 bg-background relative z-0">
             {messages.map((msg, index) => {
-              const isStreamingAssistant = isSending && msg.role === 'assistant' && index === messages.length - 1;
+              const isStreamingAssistant =
+                isSending && msg.role === 'assistant' && index === messages.length - 1;
               return (
-                <div key={msg.id} className={cn('flex max-w-4xl mx-auto gap-4', msg.role === 'user' && 'flex-row-reverse')}>
+                <div
+                  key={msg.id}
+                  className={cn(
+                    'flex max-w-4xl mx-auto gap-4',
+                    msg.role === 'user' && 'flex-row-reverse'
+                  )}
+                >
                   {/* 头像 */}
-                  <div className={cn(
-                    'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-sm',
-                    msg.role === 'user'
-                      ? 'bg-accent border-border'
-                      : 'bg-primary border-primary/40 text-primary-foreground',
-                  )}>
+                  <div
+                    className={cn(
+                      'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-sm',
+                      msg.role === 'user'
+                        ? 'bg-accent border-border'
+                        : 'bg-primary border-primary/40 text-primary-foreground'
+                    )}
+                  >
                     {msg.role === 'user' ? (
                       <span className="text-xs font-bold">我</span>
                     ) : (
@@ -411,13 +448,20 @@ export function AgentOverviewPage() {
                   </div>
 
                   {/* 气泡 */}
-                  <div className={cn('flex flex-col space-y-1 max-w-[85%]', msg.role === 'user' && 'items-end')}>
-                    <div className={cn(
-                      'px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm',
-                      msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground rounded-tr-none'
-                        : 'bg-background text-foreground rounded-tl-none border border-border shadow-sm',
-                    )}>
+                  <div
+                    className={cn(
+                      'flex flex-col space-y-1 max-w-[85%]',
+                      msg.role === 'user' && 'items-end'
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm',
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-tr-none'
+                          : 'bg-background text-foreground rounded-tl-none border border-border shadow-sm'
+                      )}
+                    >
                       <MessageContentView
                         blocks={msg.blocks}
                         role={msg.role}
@@ -426,8 +470,15 @@ export function AgentOverviewPage() {
                     </div>
 
                     {/* 底部操作栏 */}
-                    <div className={cn('flex items-center gap-2 px-1', msg.role === 'user' && 'flex-row-reverse')}>
-                      <span className="text-2xs text-muted-foreground font-bold">{msg.timestamp}</span>
+                    <div
+                      className={cn(
+                        'flex items-center gap-2 px-1',
+                        msg.role === 'user' && 'flex-row-reverse'
+                      )}
+                    >
+                      <span className="text-2xs text-muted-foreground font-bold">
+                        {msg.timestamp}
+                      </span>
                       {msg.role === 'assistant' && msg.backendId && (
                         <div className="flex items-center gap-0.5">
                           <Button
@@ -438,7 +489,7 @@ export function AgentOverviewPage() {
                               'rounded-md',
                               msg.likes === 1
                                 ? 'text-success bg-success/10 hover:bg-success/20'
-                                : 'text-muted-foreground hover:text-success hover:bg-accent',
+                                : 'text-muted-foreground hover:text-success hover:bg-accent'
                             )}
                             title={msg.likes === 1 ? '取消有帮助' : '有帮助'}
                           >
@@ -452,7 +503,7 @@ export function AgentOverviewPage() {
                               'rounded-md',
                               msg.likes === 2
                                 ? 'text-destructive bg-destructive/10 hover:bg-destructive/20'
-                                : 'text-muted-foreground hover:text-destructive hover:bg-accent',
+                                : 'text-muted-foreground hover:text-destructive hover:bg-accent'
                             )}
                             title={msg.likes === 2 ? '取消没帮助' : '没帮助'}
                           >
