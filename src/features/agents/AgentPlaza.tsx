@@ -114,23 +114,7 @@ interface KnowledgeAgent {
 
 // ====== 分类定义 ======
 
-interface SectionConfig {
-  label: string;
-  accentColor: string;
-  /** knowledge 表示使用渐变顶栏视觉卡片 */
-  variant: 'standard' | 'knowledge';
-}
-
-type CategoryKey = '办公' | '安全' | '运行' | '检修';
-
 const categories = ['全部', '办公', '安全', '运行', '检修'] as const;
-
-const sectionConfig: Record<CategoryKey, SectionConfig> = {
-  '办公': { label: '基础办公套件', accentColor: 'bg-primary', variant: 'standard' },
-  '安全': { label: '安全智能体套件', accentColor: 'bg-destructive', variant: 'standard' },
-  '运行': { label: '智能运行分析套件', accentColor: 'bg-blue-500', variant: 'standard' },
-  '检修': { label: '精益检修支撑套件', accentColor: 'bg-violet-500', variant: 'standard' },
-};
 
 // ====== 每条 1 条假数据 ======
 
@@ -194,9 +178,6 @@ const knowledgeAgents: KnowledgeAgent[] = [
 
 const standardByCategory = new Map<string, PlazaAgent>(
   standardAgents.map((a) => [a.category, a]),
-);
-const knowledgeByCategory = new Map<string, KnowledgeAgent>(
-  knowledgeAgents.map((a) => [a.category, a]),
 );
 
 // ====== 组件 ======

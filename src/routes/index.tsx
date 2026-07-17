@@ -17,6 +17,7 @@ import { HttpToolsPage, McpToolsPage } from '@/features/agents/tools';
 import { AgentPlazaPage, AgentChatPage } from '@/features/agents/agent-plaza';
 import { ModelManagementPage } from '@/features/agents/model-management';
 import { MemoryMaintenancePage } from '@/features/agents/memory-maintenance';
+import { MobileOverviewPage } from '@/features/agents/mobile-overview';
 
 // Demo 页懒加载，减少首屏 bundle 体积
 const ButtonDemo = lazy(() =>
@@ -151,6 +152,7 @@ export const router = createBrowserRouter([
           { path: 'agents/memory', element: <MemoryMaintenancePage /> },
           { path: 'agents/httpTools', element: <HttpToolsPage /> },
           { path: 'agents/mcpTools', element: <McpToolsPage /> },
+          { path: 'agents/mobile-overview', element: <MobileOverviewPage /> },
           { path: 'workflows', element: <WorkflowsPage /> },
           { path: 'users', element: <UsersPage /> },
           { path: 'settings', element: <SettingsPage /> },

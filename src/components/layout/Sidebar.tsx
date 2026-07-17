@@ -29,6 +29,7 @@ const agentslist = [
   { label: '记忆维护', path: '/agents/memory' },
   { icon: Link2, label: 'HTTP 工具', path: '/agents/httpTools' },
   { icon: Terminal, label: 'MCP 工具', path: '/agents/mcpTools' },
+  { label: '移动端', path: '/agents/mobile-overview' },
 ];
 const componentLinks = [
   { label: 'Button', path: '/components/button' },
