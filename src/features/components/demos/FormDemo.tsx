@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 const schema = z.object({
   name: z.string().min(2, '姓名至少 2 个字符'),
   email: z.string().email('请输入有效的邮箱地址'),
-  role: z.string({ required_error: '请选择角色' }),
+  role: z.string({ error: '请选择角色' }),
   bio: z.string().max(100, '简介不超过 100 字').optional(),
   agree: z.boolean().refine((v) => v === true, '必须同意服务条款'),
 });
