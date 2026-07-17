@@ -35,6 +35,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { DataTable, createSelectColumn } from '@/components/ui/data-table';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -361,15 +362,15 @@ export function KnowledgeBasePage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
                 知识库名称
-              </label>
+              </Label>
               <Input placeholder="例如: 某区域技术规范文档库" className="h-10" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
                 关联节点
-              </label>
+              </Label>
               <div className="px-4 py-2.5 bg-muted border border-border rounded-xl text-xs font-bold text-muted-foreground flex items-center gap-2">
                 <FolderIcon size={14} />
                 {selNode || '通用根节点'}
@@ -971,9 +972,9 @@ function SearchTab() {
               />
             </div>
             <div>
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block">
                 Rerank 深度排序模型
-              </label>
+              </Label>
               <Select value={rerank} onValueChange={setRerank}>
                 <SelectTrigger className="w-full h-9 text-xs">
                   <SelectValue />
@@ -988,9 +989,9 @@ function SearchTab() {
               </Select>
             </div>
             <div className="flex items-center justify-between py-1 border-t border-border">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">
                 知识图谱关联检索
-              </label>
+              </Label>
               <Switch checked={kg} onCheckedChange={setKg} />
             </div>
             <div className="pt-2 border-t border-border space-y-1.5">
@@ -1115,9 +1116,9 @@ function ConfigTab({ kb }: { kb: KnowledgeBaseItem }) {
           <div className="space-y-4">
             <div className="flex items-center gap-4 py-2">
               <div>
-                <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
+                <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
                   知识库头像
-                </label>
+                </Label>
                 <div className="w-16 h-16 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground hover:border-primary/50 cursor-pointer bg-background shadow-sm">
                   <Plus size={18} />
                   <span className="text-[9px] mt-1 font-bold">上传</span>
@@ -1128,15 +1129,15 @@ function ConfigTab({ kb }: { kb: KnowledgeBaseItem }) {
               </div>
             </div>
             <div>
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
                 知识库名称
-              </label>
+              </Label>
               <Input defaultValue={kb.name} className="h-10 text-sm" />
             </div>
             <div>
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
                 简介说明
-              </label>
+              </Label>
               <Textarea className="h-28 text-xs resize-none" defaultValue={kb.description} />
             </div>
           </div>
@@ -1147,9 +1148,9 @@ function ConfigTab({ kb }: { kb: KnowledgeBaseItem }) {
           </h3>
           <div className="space-y-5">
             <div>
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">
                 嵌入向量模型
-              </label>
+              </Label>
               <Select defaultValue="bge-small">
                 <SelectTrigger className="w-full h-10 text-xs">
                   <SelectValue />
@@ -1213,9 +1214,9 @@ function CategoryDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
+            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
               节点名称
-            </label>
+            </Label>
             <Input
               value={val}
               onChange={(e) => setVal(e.target.value)}
@@ -1225,9 +1226,9 @@ function CategoryDialog({
           </div>
           {modal.mode === 'add' && (
             <div>
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
                 归属父节点
-              </label>
+              </Label>
               <Select value={pid} onValueChange={setPid}>
                 <SelectTrigger className="w-full h-10 text-xs font-bold">
                   <SelectValue />

@@ -27,6 +27,7 @@ import {
 import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { AgentOpenSysAgent } from '@/types/agent';
@@ -166,7 +167,7 @@ export function CreateAgentDialog({ isOpen, onClose, agent }: CreateAgentDialogP
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="gap-0 p-0 max-w-[920px]" showCloseButton={false}>
+      <DialogContent className="gap-0 p-0 sm:max-w-4xl" showCloseButton={false}>
         <div className="h-[3px] bg-gradient-to-r from-primary via-purple-500 to-destructive shrink-0" />
 
         <div className="px-7 pt-7 pb-4 flex items-start justify-between gap-4 shrink-0 relative">
@@ -256,9 +257,9 @@ export function CreateAgentDialog({ isOpen, onClose, agent }: CreateAgentDialogP
                 <h3 className="text-[13px] font-bold text-foreground mb-3">基础信息</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                       应用名称 <span className="text-destructive">*</span>
-                    </label>
+                    </Label>
                     <div className="relative">
                       <Input
                         value={agentName}
@@ -273,9 +274,9 @@ export function CreateAgentDialog({ isOpen, onClose, agent }: CreateAgentDialogP
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                       描述 <span className="text-destructive">*</span>
-                    </label>
+                    </Label>
                     <div className="relative">
                       <Textarea
                         value={remark}
