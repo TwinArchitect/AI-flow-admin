@@ -20,6 +20,9 @@ interface MenuItem {
 }
 const agentslist = [
   { label: '智能体广场', path: '/agents/AgentPlaza' },
+  { label: '智能体助手', path: '/agents/overview' },
+  { label: '我的智能体', path: '/agents/myAgents' },
+  { label: '知识库', path: '/agents/knowledge' },
   { label: '模型管理', path: '/agents/models' },
   { label: '记忆维护', path: '/agents/memory' },
   { label: '移动端', path: '/agents/mobile-overview' },
@@ -62,7 +65,7 @@ const menuItems: MenuItem[] = [
   { icon: Bot, label: '智能体', path: '/agents', badge: 8, children: agentslist },
   { icon: Workflow, label: '工作流', path: '/workflows', badge: 12 },
   { icon: Component, label: '组件示例', path: '/components', children: componentLinks },
-  { icon: Database, label: '知识库', path: '/knowledge' },
+  { icon: Database, label: '知识库', path: '/agents/knowledge' },
   { icon: Puzzle, label: '插件市场', path: '/plugins' },
   { icon: Settings, label: '系统设置', path: '/settings' },
 ];

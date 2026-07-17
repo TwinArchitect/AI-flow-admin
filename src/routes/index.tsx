@@ -10,6 +10,9 @@ import { LoginPage } from '@/features/auth';
 import { PrivateRoute } from './PrivateRoute';
 import { ComponentsLayout } from '@/features/components';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AgentOverviewPage } from '@/features/agents/overview';
+import { MyAgentsPage } from '@/features/agents/myAgents';
+import { KnowledgeBasePage } from '@/features/agents/knowledgeBase';
 import { AgentPlazaPage, AgentChatPage } from '@/features/agents/agent-plaza';
 import { ModelManagementPage } from '@/features/agents/model-management';
 import { MemoryMaintenancePage } from '@/features/agents/memory-maintenance';
@@ -69,6 +72,9 @@ export const router = createBrowserRouter([
           { index: true, element: <DashboardPage /> },
           { path: 'agents', element: <AgentsPage /> },
           { path: 'agents/AgentPlaza', element: <AgentPlazaPage /> },
+          { path: 'agents/overview', element: <AgentOverviewPage /> },
+          { path: 'agents/myAgents', element: <MyAgentsPage /> },
+          { path: 'agents/knowledge', element: <KnowledgeBasePage /> },
           { path: 'agents/AgentPlaza/chat', element: <AgentChatPage /> },
           { path: 'agents/models', element: <ModelManagementPage /> },
           { path: 'agents/memory', element: <MemoryMaintenancePage /> },
