@@ -11,6 +11,9 @@ import { PrivateRoute } from './PrivateRoute';
 import { ComponentsLayout } from '@/features/components';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AgentPlazaPage } from '@/features/agents/AgentPlaza';
+import { AgentOverviewPage } from '@/features/agents/overview';
+import { MyAgentsPage } from '@/features/agents/myAgents';
+import { KnowledgeBasePage } from '@/features/agents/knowledgeBase';
 
 // Demo 页懒加载，减少首屏 bundle 体积
 const ButtonDemo = lazy(() => import('@/features/components/demos/ButtonDemo').then(m => ({ default: m.ButtonDemo })));
@@ -66,6 +69,9 @@ export const router = createBrowserRouter([
           { index: true, element: <DashboardPage /> },
           { path: 'agents', element: <AgentsPage /> },
           { path: 'agents/AgentPlaza', element: <AgentPlazaPage /> },
+          { path: 'agents/overview', element: <AgentOverviewPage /> },
+          { path: 'agents/myAgents', element: <MyAgentsPage /> },
+          { path: 'agents/knowledge', element: <KnowledgeBasePage /> },
           { path: 'workflows', element: <WorkflowsPage /> },
           { path: 'users', element: <UsersPage /> },
           { path: 'settings', element: <SettingsPage /> },
