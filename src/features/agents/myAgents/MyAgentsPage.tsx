@@ -22,7 +22,19 @@ import { CircleHelp, Filter, Loader2, Plus, RefreshCw, Search } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { AgentListCard } from './components/AgentListCard';
@@ -51,9 +63,8 @@ export function MyAgentsPage() {
   /* ─── 搜索过滤 ─── */
   const agentsAfterSearch = useMemo(() => {
     const keyword = appliedSearch.trim().toLowerCase();
-    if (!keyword) return agents.filter((a) =>
-      selectedStatus === 'all' || String(a.status) === selectedStatus
-    );
+    if (!keyword)
+      return agents.filter((a) => selectedStatus === 'all' || String(a.status) === selectedStatus);
     return agents.filter((agent) => {
       if (selectedStatus !== 'all' && String(agent.status) !== selectedStatus) return false;
       const tagText = resolveAgentTagNames(agent.type, MOCK_LABELS).join(' ').toLowerCase();
@@ -77,7 +88,9 @@ export function MyAgentsPage() {
 
   const filteredAgents = useMemo(() => {
     if (selectedTagId === 'all') return agentsAfterSearch;
-    return agentsAfterSearch.filter((agent) => parseAgentTagIds(agent.type).includes(selectedTagId));
+    return agentsAfterSearch.filter((agent) =>
+      parseAgentTagIds(agent.type).includes(selectedTagId)
+    );
   }, [agentsAfterSearch, selectedTagId]);
 
   const handleSearch = () => setAppliedSearch(searchTerm.trim());
@@ -99,18 +112,29 @@ export function MyAgentsPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Button variant="outline" size="sm" className="text-xs gap-2 rounded-2xl h-9"
-              onClick={() => alert('帮助文档开发中，敬请期待')}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-2 rounded-2xl h-9"
+              onClick={() => alert('帮助文档开发中，敬请期待')}
+            >
               <CircleHelp size={15} />
               帮助文档
             </Button>
-            <Button variant="outline" size="sm" className="text-xs gap-2 rounded-2xl h-9"
-              onClick={() => {}}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-2 rounded-2xl h-9"
+              onClick={() => {}}
+            >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} />
               刷新
             </Button>
-            <Button size="sm" className="text-xs gap-2 rounded-2xl h-9 shadow-lg"
-              onClick={() => setIsCreateOpen(true)}>
+            <Button
+              size="sm"
+              className="text-xs gap-2 rounded-2xl h-9 shadow-lg"
+              onClick={() => setIsCreateOpen(true)}
+            >
               <Plus size={16} />
               创建智能体
             </Button>
@@ -122,48 +146,50 @@ export function MyAgentsPage() {
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             {/* 标签筛选 */}
             <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <button
-                type="button"
+              <Button
+                variant={selectedTagId === 'all' ? 'default' : 'outline'}
+                size="xs"
                 onClick={() => setSelectedTagId('all')}
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all',
-                  selectedTagId === 'all'
-                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                    : 'bg-background text-muted-foreground border-border hover:border-primary/50',
+                  'rounded-full gap-1.5 text-xs font-bold',
+                  selectedTagId !== 'all' && 'border-border text-muted-foreground'
                 )}
               >
                 全部
-                <span className={cn(
-                  'min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-2xs font-bold tabular-nums',
-                  selectedTagId === 'all' ? 'bg-primary-foreground/20' : 'bg-accent text-muted-foreground',
-                )}>
+                <span
+                  className={cn(
+                    'min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-2xs font-bold tabular-nums',
+                    selectedTagId === 'all' ? 'bg-primary-foreground/20' : 'bg-accent'
+                  )}
+                >
                   {agentsAfterSearch.length}
                 </span>
-              </button>
+              </Button>
 
               {MOCK_LABELS.map((label) => {
                 const count = labelCounts.get(label.id) ?? 0;
                 const active = selectedTagId === label.id;
                 return (
-                  <button
+                  <Button
                     key={label.id}
-                    type="button"
+                    variant={active ? 'default' : 'outline'}
+                    size="xs"
                     onClick={() => setSelectedTagId(label.id)}
                     className={cn(
-                      'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all',
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                        : 'bg-background text-muted-foreground border-border hover:border-primary/50',
+                      'rounded-full gap-1.5 text-xs font-bold',
+                      !active && 'border-border text-muted-foreground'
                     )}
                   >
                     {label.name}
-                    <span className={cn(
-                      'min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-2xs font-bold tabular-nums',
-                      active ? 'bg-primary-foreground/20' : 'bg-accent text-muted-foreground',
-                    )}>
+                    <span
+                      className={cn(
+                        'min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-2xs font-bold tabular-nums',
+                        active ? 'bg-primary-foreground/20' : 'bg-accent'
+                      )}
+                    >
                       {count}
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
 
@@ -174,21 +200,32 @@ export function MyAgentsPage() {
 
             {/* 搜索 + 状态 */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-              <div className="flex items-center gap-2 bg-muted px-3 py-2 rounded-xl border border-border">
-                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">状态:</span>
-                <select
+              <div className="flex items-center gap-2 bg-muted px-3 rounded-xl border border-border">
+                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+                  状态:
+                </span>
+                <Select
                   value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value as 'all' | '0' | '1')}
-                  className="bg-transparent border-none outline-none text-xs text-foreground font-bold pr-6 cursor-pointer"
+                  onValueChange={(v) => setSelectedStatus(v as 'all' | '0' | '1')}
                 >
-                  {statusOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="border-none bg-transparent text-xs text-foreground font-bold shadow-none p-0 h-auto gap-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="relative w-full sm:w-72">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
                 <Input
                   type="text"
                   placeholder="搜索名称、描述或标签..."
@@ -224,7 +261,9 @@ export function MyAgentsPage() {
                 >
                   <AgentListCard
                     agent={agent}
-                    onOpen={() => {/* navigate to orchestration */}}
+                    onOpen={() => {
+                      /* navigate to orchestration */
+                    }}
                     onDelete={() => setDeleteTarget(agent)}
                     onEdit={() => setEditTarget(agent)}
                   />
@@ -268,7 +307,8 @@ export function MyAgentsPage() {
             <DialogDescription>
               {deleteTarget && (
                 <>
-                  确定删除智能体「<span className="font-bold text-foreground">{deleteTarget.agentName}</span>」吗？
+                  确定删除智能体「
+                  <span className="font-bold text-foreground">{deleteTarget.agentName}</span>」吗？
                   <span className="block mt-2 text-destructive/80 text-xs">
                     删除后无法恢复，相关编排配置与发布记录将一并移除。
                   </span>
@@ -277,8 +317,12 @@ export function MyAgentsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
-            <Button variant="destructive" onClick={() => setDeleteTarget(null)}>确认删除</Button>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={() => setDeleteTarget(null)}>
+              确认删除
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

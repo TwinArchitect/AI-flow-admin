@@ -19,7 +19,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { AgentOpenSysAgent } from '@/types/agent';
-import { agentStatusLabel, agentFlowTypeLabel, formatAgentEditTime, parseAgentTagIds } from '@/types/agent';
+import {
+  agentStatusLabel,
+  agentFlowTypeLabel,
+  formatAgentEditTime,
+  parseAgentTagIds,
+} from '@/types/agent';
 import { MOCK_LABELS } from '../data/agentsMock';
 
 interface AgentListCardProps {
@@ -63,8 +68,12 @@ export function AgentListCard({ agent, onOpen, onDelete, onEdit }: AgentListCard
         {/* 菜单按钮 */}
         <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
           <Button
-            variant="ghost" size="icon-xs"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+            variant="ghost"
+            size="icon-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(!menuOpen);
+            }}
             className="text-muted-foreground"
           >
             <MoreVertical size={16} />
@@ -74,16 +83,31 @@ export function AgentListCard({ agent, onOpen, onDelete, onEdit }: AgentListCard
               className="absolute right-0 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-xl z-20 py-1"
               onClick={() => setMenuOpen(false)}
             >
-              <Button variant="ghost" size="sm" onClick={onEdit}
-                className="w-full justify-start gap-2 px-3 text-xs font-medium rounded-none">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onEdit}
+                className="w-full justify-start gap-2 px-3 text-xs font-medium rounded-none"
+              >
                 <Edit3 size={14} /> 修改信息
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => { setMenuOpen(false); onOpen(); }}
-                className="w-full justify-start gap-2 px-3 text-xs font-medium rounded-none">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpen();
+                }}
+                className="w-full justify-start gap-2 px-3 text-xs font-medium rounded-none"
+              >
                 <Layers size={14} /> 编辑编排
               </Button>
-              <Button variant="ghost" size="sm" onClick={onDelete}
-                className="w-full justify-start gap-2 px-3 text-xs font-medium text-destructive hover:text-destructive rounded-none">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onDelete}
+                className="w-full justify-start gap-2 px-3 text-xs font-medium text-destructive hover:text-destructive rounded-none"
+              >
                 <Trash2 size={14} /> 删除
               </Button>
             </div>
@@ -101,7 +125,7 @@ export function AgentListCard({ agent, onOpen, onDelete, onEdit }: AgentListCard
         {tagNames.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             {tagNames.map((name) => (
-              <Badge key={name} variant="secondary" className="text-[10px] font-medium">
+              <Badge key={name} variant="secondary" className="text-2xs font-medium">
                 #{name}
               </Badge>
             ))}
@@ -111,21 +135,30 @@ export function AgentListCard({ agent, onOpen, onDelete, onEdit }: AgentListCard
         {/* 底部信息 */}
         <div className="flex items-center justify-between pt-3 border-t border-border">
           <div className="flex items-center gap-1.5">
-            <span className={cn('w-1.5 h-1.5 rounded-full', agent.status === 1 ? 'bg-success' : 'bg-muted-foreground/40')} />
-            <span className="text-[11px] text-muted-foreground">{agentStatusLabel(agent.status)}</span>
+            <span
+              className={cn(
+                'w-1.5 h-1.5 rounded-full',
+                agent.status === 1 ? 'bg-success' : 'bg-muted-foreground/40'
+              )}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {agentStatusLabel(agent.status)}
+            </span>
           </div>
-          <span className={cn(
-            'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium',
-            isWorkflow
-              ? 'bg-primary/10 text-primary'
-              : 'bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400',
-          )}>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-2xs font-medium',
+              isWorkflow
+                ? 'bg-primary/10 text-primary'
+                : 'bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400'
+            )}
+          >
             {isWorkflow ? <Layers size={11} /> : <MessageCircle size={11} />}
             {agentFlowTypeLabel(agent.flowType)}
           </span>
         </div>
 
-        <div className="flex items-center justify-between text-[10px]">
+        <div className="flex items-center justify-between text-2xs">
           <span className="text-primary font-medium">最近编辑</span>
           <span className="text-muted-foreground tabular-nums">{editTime}</span>
         </div>
