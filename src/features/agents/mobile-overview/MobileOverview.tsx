@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles,
   SendHorizontal,
-  ChevronDown,
   TrendingUp,
   AlertTriangle,
   FileText,
@@ -32,6 +31,15 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Message, PhoneTheme, MessageCustomType } from './types';
 import { prohibitions, citations, chartData, pieData, quickActions, totalViolations } from './mockData';
@@ -526,7 +534,7 @@ export default function AgentMobileOverview() {
                 {/* Mobile Top App Header bar */}
                 <div
                   className={cn(
-                    'h-14 px-4 border-b shrink-0 flex items-center justify-between z-10 transition-colors duration-200',
+                    'h-20 p-4 border-b shrink-0 flex items-center justify-between z-10 transition-colors duration-200',
                     phoneTheme === 'huaneng-blue'
                       ? 'bg-[#2559F6] border-[#1141df] text-white'
                       : 'bg-white/70 dark:bg-slate-950/70 border-slate-100 dark:border-slate-905 backdrop-blur-md'
@@ -583,25 +591,22 @@ export default function AgentMobileOverview() {
                   </div>
 
                   {/* Model selector */}
-                  <div className="relative">
-                    <select
-                      value={modelType}
-                      onChange={(e) => setModelType(e.target.value)}
+                  <Select value={modelType} onValueChange={setModelType}>
+                    <SelectTrigger
                       className={cn(
-                        'appearance-none rounded-lg text-[9px] font-black pl-2 pr-5 py-1 outline-none cursor-pointer transition-all',
+                        'h-auto rounded-lg text-[9px] font-black pl-2 pr-5 py-1 border gap-0 [&>svg]:size-3',
                         phoneTheme === 'huaneng-blue'
-                          ? 'bg-[#1141df] border border-[#0e35bb] text-white'
-                          : 'bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-850 text-slate-650 dark:text-slate-350'
+                          ? 'bg-[#1141df] border-[#0e35bb] text-white'
+                          : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-850 text-slate-650 dark:text-slate-350'
                       )}
                     >
-                      <option value="Gemini 1.5 Pro">Gemini 1.5</option>
-                      <option value="Gemini Flash">Gemini Flash</option>
-                    </select>
-                    <ChevronDown
-                      size={8}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-current pointer-events-none opacity-80"
-                    />
-                  </div>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Gemini 1.5 Pro">Gemini 1.5</SelectItem>
+                      <SelectItem value="Gemini Flash">Gemini Flash</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Chat area */}
@@ -763,32 +768,33 @@ export default function AgentMobileOverview() {
                     }}
                     className="flex items-center gap-1.5"
                   >
-                    <input
+                    <Input
                       type="text"
                       placeholder="发送指令或与 AI 助手沟通..."
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       className={cn(
-                        'flex-1 px-3.5 py-2 rounded-2xl text-[11px] font-semibold border outline-none focus:ring-1 focus:ring-brand-500/20 transition-all',
+                        'flex-1 h-auto px-3.5 py-2 rounded-2xl text-[11px] font-semibold border outline-none focus:ring-1 focus:ring-brand-500/20 transition-all shadow-none',
                         phoneTheme === 'huaneng-blue'
                           ? 'bg-white border-[#d2dfec] text-slate-850 focus:border-[#2559F6]'
                           : 'bg-slate-50 dark:bg-[#090d16] border-slate-100 dark:border-slate-850 text-slate-850 dark:text-white'
                       )}
                     />
-                    <button
+                    <Button
                       type="submit"
+                      size="icon-xs"
                       disabled={!inputValue.trim()}
                       className={cn(
-                        'w-7.5 h-7.5 rounded-full flex items-center justify-center transition-all cursor-pointer',
+                        'rounded-full transition-all',
                         inputValue.trim()
                           ? phoneTheme === 'huaneng-blue'
-                            ? 'bg-[#2559F6] text-white active:scale-90 shadow-md shadow-blue-500/10'
-                            : 'bg-brand-600 text-white active:scale-90 shadow-md'
+                            ? 'bg-[#2559F6] text-white active:scale-90 shadow-md shadow-blue-500/10 hover:bg-[#2559F6]'
+                            : 'bg-brand-600 text-white active:scale-90 shadow-md hover:bg-brand-600'
                           : 'bg-slate-100 dark:bg-slate-900 text-slate-400'
                       )}
                     >
                       <SendHorizontal size={13} />
-                    </button>
+                    </Button>
                   </form>
                 </div>
               </div>

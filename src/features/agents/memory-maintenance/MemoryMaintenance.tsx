@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
   Brain,
   Calendar,
   CheckCircle,
-  ChevronRight,
   Database,
-  FileText,
-  LayoutGrid,
   MessageSquare,
   Plus,
   RefreshCw,
@@ -21,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -31,9 +30,29 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Slider } from '@/components/ui/slider';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { ExtractionResult, ImportanceLevel, MemoryCategory, MemoryItem, RecallResult } from './types';
 import { categoryLabel, formatDate } from './utils';
@@ -88,6 +107,7 @@ export default function MemoryMaintenance() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMemory, setEditMemory] = useState<MemoryItem | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // 表单
   const [formContent, setFormContent] = useState('');
@@ -149,10 +169,14 @@ export default function MemoryMaintenance() {
     if (result) loadData();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('确定要删除这条记忆记录吗？删除后智能体在生成式召回中将无法获取该事实。'))
-      return;
-    await deleteMemory(id);
+  const handleDelete = (id: string) => {
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteMemory(deleteTarget);
+    setDeleteTarget(null);
     loadData();
   };
 
@@ -178,7 +202,7 @@ export default function MemoryMaintenance() {
 
   const handleSave = async () => {
     if (!formContent.trim()) {
-      alert('请输入记忆实体内容！');
+      toast.error('请输入记忆实体内容！');
       return;
     }
     const tagsArray = formTags
@@ -283,22 +307,16 @@ export default function MemoryMaintenance() {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="space-y-6 pb-10">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-6 pb-10">
         {/* ====== Tab 切换 ====== */}
         <div className="flex flex-col gap-3 pb-6 border-b border-line">
-          <div className="flex gap-2 p-1 bg-muted rounded-2xl w-fit">
+          <TabsList className="rounded-2xl">
             {TABS.map((tab) => (
-              <Button
-                key={tab.key}
-                variant={activeTab === tab.key ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setActiveTab(tab.key)}
-                className="rounded-xl"
-              >
+              <TabsTrigger key={tab.key} value={tab.key}>
                 {tab.label}
-              </Button>
+              </TabsTrigger>
             ))}
-          </div>
+          </TabsList>
 
           {activeTab === 'archive' && (
             <p className="text-xs text-fg-muted leading-relaxed max-w-3xl pl-1">
@@ -308,8 +326,7 @@ export default function MemoryMaintenance() {
         </div>
 
         {/* ====== Tab 1: 记忆档案库 ====== */}
-        {activeTab === 'archive' && (
-          <div className="flex flex-col gap-6">
+        <TabsContent value="archive" className="flex flex-col gap-6 mt-0">
             {/* 统计卡片 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <StatCard
@@ -356,11 +373,12 @@ export default function MemoryMaintenance() {
                   </h4>
                   <div className="flex flex-col gap-1">
                     {categoryFilters.map((tab) => (
-                      <button
+                      <Button
                         key={tab.id}
+                        variant="ghost"
                         onClick={() => setCategoryFilter(tab.id)}
                         className={cn(
-                          'flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left',
+                          'flex items-center justify-between px-3 py-2 rounded-xl text-xs w-full text-left',
                           categoryFilter === tab.id
                             ? 'bg-primary text-primary-foreground font-bold'
                             : 'text-fg hover:bg-muted',
@@ -377,7 +395,7 @@ export default function MemoryMaintenance() {
                         >
                           {tab.count}
                         </span>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -386,22 +404,20 @@ export default function MemoryMaintenance() {
                   <h4 className="text-xs font-bold text-fg-muted uppercase tracking-wider mb-3">
                     重要度优先权
                   </h4>
-                  <div className="space-y-2">
+                  <RadioGroup
+                    value={importanceFilter}
+                    onValueChange={(v) => setImportanceFilter(v as ImportanceLevel | 'all')}
+                    className="gap-2"
+                  >
                     {importanceFilters.map((lvl) => (
-                      <label
-                        key={lvl.id}
-                        className="flex items-center gap-2 cursor-pointer text-xs text-fg font-medium"
-                      >
-                        <input
-                          type="radio"
-                          name="importance"
-                          checked={importanceFilter === lvl.id}
-                          onChange={() => setImportanceFilter(lvl.id)}
-                        />
-                        <span>{lvl.label}</span>
-                      </label>
+                      <div key={lvl.id} className="flex items-center gap-2">
+                        <RadioGroupItem value={lvl.id} id={`importance-${lvl.id}`} />
+                        <Label htmlFor={`importance-${lvl.id}`} className="text-xs font-medium cursor-pointer">
+                          {lvl.label}
+                        </Label>
+                      </div>
                     ))}
-                  </div>
+                  </RadioGroup>
                 </div>
 
                 <div className="mt-auto pt-4 border-t border-line">
@@ -440,11 +456,11 @@ export default function MemoryMaintenance() {
                 {/* 表格 */}
                 <div className="flex-1 overflow-y-auto">
                   {loading ? (
-                    <div className="h-96 flex items-center justify-center text-fg-muted text-sm">
-                      加载中...
+                    <div className="h-96 flex items-center justify-center">
+                      <Skeleton className="h-8 w-32 rounded-lg" />
                     </div>
                   ) : memories.length === 0 ? (
-                    <div className="h-96 flex flex-col items-center justify-center p-12 text-center text-fg-muted">
+                    <div className="h-96 flex flex-col items-center justify-center p-12 text-center">
                       <div className="p-6 bg-muted rounded-3xl mb-4">
                         <Brain size={48} className="opacity-40" />
                       </div>
@@ -454,25 +470,25 @@ export default function MemoryMaintenance() {
                       </p>
                     </div>
                   ) : (
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-line text-xs font-bold text-fg-muted uppercase tracking-wider bg-muted/30">
-                          <th className="py-4 px-6">记忆档案内容</th>
-                          <th className="py-4 px-4 w-28">认知维度</th>
-                          <th className="py-4 px-4 w-40">关联服务智能体</th>
-                          <th className="py-4 px-4 w-24">重要度</th>
-                          <th className="py-4 px-4 w-20 text-center">召回次数</th>
-                          <th className="py-4 px-4 w-20 text-center">状态</th>
-                          <th className="py-4 px-6 w-32 text-right">管理操作</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-line">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-b border-line text-xs font-bold text-fg-muted uppercase tracking-wider bg-muted/30">
+                          <TableHead className="py-4 px-6">记忆档案内容</TableHead>
+                          <TableHead className="py-4 px-4 w-28">认知维度</TableHead>
+                          <TableHead className="py-4 px-4 w-40">关联服务智能体</TableHead>
+                          <TableHead className="py-4 px-4 w-24">重要度</TableHead>
+                          <TableHead className="py-4 px-4 w-20 text-center">召回次数</TableHead>
+                          <TableHead className="py-4 px-4 w-20 text-center">状态</TableHead>
+                          <TableHead className="py-4 px-6 w-32 text-right">管理操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-line">
                         {memories.map((mem) => (
-                          <tr
+                          <TableRow
                             key={mem.id}
                             className="group hover:bg-muted/30 transition-colors"
                           >
-                            <td className="py-4 px-6 text-xs leading-relaxed max-w-md">
+                            <TableCell className="py-4 px-6 text-xs leading-relaxed max-w-md">
                               <div className="font-semibold text-fg">{mem.content}</div>
                               <div className="flex flex-wrap gap-1.5 mt-2">
                                 {mem.tags.map((tg, idx) => (
@@ -484,8 +500,8 @@ export default function MemoryMaintenance() {
                                   <Calendar size={10} /> {formatDate(mem.updateTime)}
                                 </span>
                               </div>
-                            </td>
-                            <td className="py-4 px-4">
+                            </TableCell>
+                            <TableCell className="py-4 px-4">
                               <Badge
                                 variant={
                                   mem.category === 'preference'
@@ -499,14 +515,14 @@ export default function MemoryMaintenance() {
                               >
                                 {categoryLabel(mem.category)}
                               </Badge>
-                            </td>
-                            <td className="py-4 px-4 text-xs font-bold text-fg">
+                            </TableCell>
+                            <TableCell className="py-4 px-4 text-xs font-bold text-fg">
                               <div className="flex items-center gap-1.5 truncate w-36">
                                 <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                                 {mem.agentName}
                               </div>
-                            </td>
-                            <td className="py-4 px-4">
+                            </TableCell>
+                            <TableCell className="py-4 px-4">
                               <span className="inline-flex items-center gap-1 text-xs font-bold uppercase">
                                 <span
                                   className={cn(
@@ -522,17 +538,17 @@ export default function MemoryMaintenance() {
                                 />
                                 {mem.importance}
                               </span>
-                            </td>
-                            <td className="py-4 px-4 text-center font-mono text-xs font-bold text-fg-muted">
+                            </TableCell>
+                            <TableCell className="py-4 px-4 text-center font-mono text-xs font-bold text-fg-muted">
                               {mem.hitCount}
-                            </td>
-                            <td className="py-4 px-4 text-center">
+                            </TableCell>
+                            <TableCell className="py-4 px-4 text-center">
                               <Switch
                                 checked={mem.status === 'active'}
                                 onCheckedChange={() => handleToggleStatus(mem.id)}
                               />
-                            </td>
-                            <td className="py-4 px-6 text-right">
+                            </TableCell>
+                            <TableCell className="py-4 px-6 text-right">
                               <div className="flex items-center justify-end gap-1">
                                 <Button
                                   variant="ghost"
@@ -551,11 +567,11 @@ export default function MemoryMaintenance() {
                                   <Trash2 size={13} />
                                 </Button>
                               </div>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   )}
                 </div>
 
@@ -569,12 +585,10 @@ export default function MemoryMaintenance() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+        </TabsContent>
 
         {/* ====== Tab 2: 认知提取 ====== */}
-        {activeTab === 'extraction' && (
-          <div className="flex flex-col gap-6">
+        <TabsContent value="extraction" className="flex flex-col gap-6 mt-0">
             <div className="p-6 border border-line rounded-3xl">
               <header className="mb-4">
                 <div className="flex items-center gap-2 text-primary mb-1">
@@ -647,17 +661,15 @@ export default function MemoryMaintenance() {
                     </div>
 
                     {isExtracting ? (
-                      <div className="py-12 flex flex-col items-center justify-center text-fg-muted text-center gap-3">
-                        <RefreshCw size={36} className="text-primary animate-spin" />
-                        <span className="text-xs font-bold">
-                          正在调用语义认知神经网络，提取结构化记录...
-                        </span>
+                      <div className="py-12 flex flex-col items-center justify-center gap-3">
+                        <Skeleton className="h-16 w-64 rounded-xl" />
+                        <Skeleton className="h-4 w-48 rounded-lg" />
                       </div>
                     ) : extractedItems.length === 0 ? (
-                      <div className="py-10 flex flex-col items-center justify-center text-fg-muted text-center">
+                      <div className="py-10 flex flex-col items-center justify-center text-center">
                         <Database size={40} className="opacity-30 mb-2" />
-                        <span className="text-xs font-bold">目前暂未开启凝练，点击左侧按钮进行测试</span>
-                        <p className="text-xs mt-1 max-w-xs">
+                        <span className="text-xs font-bold text-fg">目前暂未开启凝练，点击左侧按钮进行测试</span>
+                        <p className="text-xs text-fg-muted mt-1 max-w-xs">
                           模拟器将会通过 prompt 归纳模式分析其背景，提取最终的倾向性用户偏好或设备变更事实。
                         </p>
                       </div>
@@ -747,12 +759,10 @@ export default function MemoryMaintenance() {
                 ))}
               </div>
             </div>
-          </div>
-        )}
+        </TabsContent>
 
         {/* ====== Tab 3: 记忆测试 ====== */}
-        {activeTab === 'simulation' && (
-          <div className="flex flex-col gap-6">
+        <TabsContent value="simulation" className="flex flex-col gap-6 mt-0">
             <div className="p-6 border border-line rounded-3xl flex flex-col overflow-hidden">
               <header className="mb-4">
                 <div className="flex items-center gap-2 text-primary mb-1">
@@ -784,21 +794,19 @@ export default function MemoryMaintenance() {
                           {recallThreshold}
                         </span>
                       </div>
-                      <input
-                        type="range"
-                        className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
+                      <Slider
                         min={0}
                         max={1}
                         step={0.05}
-                        defaultValue={recallThreshold}
+                        defaultValue={[recallThreshold]}
                         disabled
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-fg-muted uppercase tracking-wider block">
+                      <Label className="text-xs font-bold text-fg-muted uppercase tracking-wider block">
                         嵌入匹配模型 (Embedding)
-                      </label>
+                      </Label>
                       <Select value={recallModel} onValueChange={setRecallModel}>
                         <SelectTrigger>
                           <SelectValue />
@@ -815,9 +823,9 @@ export default function MemoryMaintenance() {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-fg-muted uppercase tracking-wider block">
+                      <Label className="text-xs font-bold text-fg-muted uppercase tracking-wider block">
                         最大召回限制数 (Top-K)
-                      </label>
+                      </Label>
                       <Select
                         value={String(recallTopK)}
                         onValueChange={(v) => setRecallTopK(Number(v))}
@@ -836,9 +844,9 @@ export default function MemoryMaintenance() {
 
                   <div className="pt-4 border-t border-line">
                     <div className="space-y-1.5 mb-4">
-                      <label className="text-xs font-bold text-fg-muted uppercase tracking-wider block">
+                      <Label className="text-xs font-bold text-fg-muted uppercase tracking-wider block">
                         输入模拟的用户消息 (User Query)
-                      </label>
+                      </Label>
                       <Textarea
                         value={recallQuery}
                         onChange={(e) => setRecallQuery(e.target.value)}
@@ -877,19 +885,17 @@ export default function MemoryMaintenance() {
                     </div>
 
                     {isSimulating ? (
-                      <div className="py-24 flex flex-col items-center justify-center text-fg-muted text-center gap-3">
-                        <RefreshCw size={36} className="text-primary animate-spin" />
-                        <span className="text-xs font-bold">
-                          基于高维特征空间进行局部搜索中...
-                        </span>
+                      <div className="py-24 flex flex-col items-center justify-center gap-3">
+                        <Skeleton className="h-16 w-64 rounded-xl" />
+                        <Skeleton className="h-4 w-48 rounded-lg" />
                       </div>
                     ) : recalledList.length === 0 ? (
-                      <div className="py-24 flex flex-col items-center justify-center text-fg-muted p-6 text-center">
+                      <div className="py-24 flex flex-col items-center justify-center text-center p-6">
                         <div className="p-5 bg-muted rounded-3xl mb-4">
                           <Search size={36} className="opacity-30" />
                         </div>
                         <p className="text-xs font-bold text-fg">目前尚未执行匹配测试</p>
-                        <p className="text-xs mt-1 max-w-sm">
+                        <p className="text-xs text-fg-muted mt-1 max-w-sm">
                           在左侧配置好 Query 之后运行。不同的关键字将大幅度改变余弦相似度分数。
                         </p>
                       </div>
@@ -957,8 +963,7 @@ export default function MemoryMaintenance() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+        </TabsContent>
 
         {/* ====== 新增/编辑弹窗 ====== */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -971,9 +976,9 @@ export default function MemoryMaintenance() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-fg-muted uppercase tracking-wider ">
+                <Label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                   记忆事实描述内容 (Fact Body)
-                </label>
+                </Label>
                 <Textarea
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
@@ -984,9 +989,9 @@ export default function MemoryMaintenance() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
+                  <Label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                     认知存储类别
-                  </label>
+                  </Label>
                   <Select
                     value={formCategory}
                     onValueChange={(v) => setFormCategory(v as MemoryCategory)}
@@ -1004,9 +1009,9 @@ export default function MemoryMaintenance() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
+                  <Label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                     召回严重级别 (Priority)
-                  </label>
+                  </Label>
                   <Select
                     value={formImportance}
                     onValueChange={(v) => setFormImportance(v as ImportanceLevel)}
@@ -1025,9 +1030,9 @@ export default function MemoryMaintenance() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
+                <Label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                   挂载服务智能体 (Linked Agent)
-                </label>
+                </Label>
                 <Select value={formAgentName} onValueChange={setFormAgentName}>
                   <SelectTrigger className="w-full mt-1">
                     <SelectValue />
@@ -1043,9 +1048,9 @@ export default function MemoryMaintenance() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
+                <Label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                   检索关键词标签 (以逗号隔开)
-                </label>
+                </Label>
                 <Input
                   value={formTags}
                   onChange={(e) => setFormTags(e.target.value)}
@@ -1069,7 +1074,27 @@ export default function MemoryMaintenance() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+
+        {/* ====== 删除确认弹窗 ====== */}
+        <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>确认删除</DialogTitle>
+              <DialogDescription>
+                确定要删除这条记忆记录吗？删除后智能体在生成式召回中将无法获取该事实。
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 p-3 rounded-md bg-destructive/10">
+              <AlertTriangle size={18} className="text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-muted-foreground">此操作不可撤销，数据将被永久删除。</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button variant="destructive" onClick={confirmDelete}>确认删除</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </Tabs>
     </div>
   );
 }
