@@ -4,6 +4,7 @@ import {
   Search,
   Trash2,
   Activity,
+  AlertTriangle,
   Cpu,
   Clock,
   MoreVertical,
@@ -17,11 +18,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import {
+  Alert,
+  AlertDescription,
+} from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -105,6 +115,7 @@ export default function ModelManagement() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
 
+  const [deleteTarget, setDeleteTarget] = useState<AgentOpenModel | null>(null);
   const [debugTarget, setDebugTarget] = useState<AgentOpenModel | null>(null);
   const [debugPrompt, setDebugPrompt] = useState('你好，请简短回复 OK');
   const [debugTimeout, setDebugTimeout] = useState(30);
@@ -162,23 +173,23 @@ export default function ModelManagement() {
       });
       setIsModalOpen(true);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '获取详情失败');
+      toast.error(e instanceof Error ? e.message : '获取详情失败');
     }
   };
 
   const handleSave = async () => {
     if (!form.model.trim()) {
-      alert('模型名称不能为空');
+      toast.error('模型名称不能为空');
       return;
     }
     const urlErr = validateUrl(form.url);
     if (urlErr) {
-      alert(urlErr);
+      toast.error(urlErr);
       return;
     }
     const paramsErr = validateParamsJson(form.params);
     if (paramsErr) {
-      alert(paramsErr);
+      toast.error(paramsErr);
       return;
     }
 
@@ -208,7 +219,7 @@ export default function ModelManagement() {
       setForm(emptyForm());
       await loadData();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '保存失败');
+      toast.error(e instanceof Error ? e.message : '保存失败');
     } finally {
       setSaving(false);
     }
@@ -232,17 +243,22 @@ export default function ModelManagement() {
       });
       await loadData();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '状态更新失败');
+      toast.error(e instanceof Error ? e.message : '状态更新失败');
     }
   };
 
-  const handleDelete = async (item: AgentOpenModel) => {
-    if (!window.confirm('删除后引用该模型的智能体可能无法调用，是否继续？')) return;
+  const handleDelete = (item: AgentOpenModel) => {
+    setDeleteTarget(item);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteModel(item.id);
+      await deleteModel(deleteTarget.id);
+      setDeleteTarget(null);
       await loadData();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '删除失败');
+      toast.error(e instanceof Error ? e.message : '删除失败');
     }
   };
 
@@ -377,13 +393,19 @@ export default function ModelManagement() {
 
         {/* ====== 错误提示 ====== */}
         {error && (
-          <div className="text-sm text-destructive px-4 py-2 bg-destructive/10 rounded-xl">{error}</div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {/* ====== 模型卡片网格 ====== */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative">
           {loading && (
-            <div className="absolute inset-0 z-10 bg-background/40 rounded-2xl pointer-events-none" />
+            <div className="absolute inset-0 z-10 rounded-2xl pointer-events-none p-6 flex flex-col gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-48 w-full rounded-2xl" />
+              ))}
+            </div>
           )}
           {models.map((model) => {
             const active = isModelActive(model.status);
@@ -494,7 +516,9 @@ export default function ModelManagement() {
 
         {/* ====== 空状态 ====== */}
         {!loading && !models.length && (
-          <div className="text-center py-16 text-fg-muted text-sm">暂无模型配置</div>
+          <Alert className="text-center py-8 justify-center">
+            <AlertDescription>暂无模型配置</AlertDescription>
+          </Alert>
         )}
 
         {/* ====== 分页 ====== */}
@@ -524,16 +548,16 @@ export default function ModelManagement() {
 
         {/* ====== 添加/编辑模型弹窗 ====== */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-[32px]">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-[32px]">
             <DialogHeader>
               <DialogTitle>{editingId ? '编辑模型配置' : '配置新模型资源'}</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 mt-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                   模型名称
-                </label>
+                </Label>
                 <Input
                   value={form.model}
                   onChange={(e) => setForm({ ...form, model: e.target.value })}
@@ -542,9 +566,9 @@ export default function ModelManagement() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                   调用地址
-                </label>
+                </Label>
                 <Input
                   value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })}
@@ -553,9 +577,9 @@ export default function ModelManagement() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                   描述
-                </label>
+                </Label>
                 <Textarea
                   value={form.remark}
                   onChange={(e) => setForm({ ...form, remark: e.target.value })}
@@ -565,9 +589,9 @@ export default function ModelManagement() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                   认证 Token
-                </label>
+                </Label>
                 <Input
                   type="password"
                   value={form.authToken}
@@ -577,9 +601,9 @@ export default function ModelManagement() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                   扩展参数 (JSON)
-                </label>
+                </Label>
                 <Textarea
                   value={form.params}
                   onChange={(e) => setForm({ ...form, params: e.target.value })}
@@ -590,9 +614,9 @@ export default function ModelManagement() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                  <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                     模型类型
-                  </label>
+                  </Label>
                   <Select
                     value={form.type}
                     onValueChange={(v) => setForm({ ...form, type: v as ModelType })}
@@ -607,9 +631,9 @@ export default function ModelManagement() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                  <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                     厂商协议
-                  </label>
+                  </Label>
                   <Select
                     value={form.vendor}
                     onValueChange={(v) => setForm({ ...form, vendor: v as ModelVendor })}
@@ -627,9 +651,9 @@ export default function ModelManagement() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                   状态
-                </label>
+                </Label>
                 <Select
                   value={String(form.status)}
                   onValueChange={(v) => setForm({ ...form, status: Number(v) })}
@@ -669,9 +693,9 @@ export default function ModelManagement() {
 
             <div className="space-y-4 mt-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                   测试提示词
-                </label>
+                </Label>
                 <Textarea
                   value={debugPrompt}
                   onChange={(e) => setDebugPrompt(e.target.value)}
@@ -680,9 +704,9 @@ export default function ModelManagement() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
                   超时 (秒)
-                </label>
+                </Label>
                 <Input
                   type="number"
                   min={5}
@@ -752,6 +776,26 @@ export default function ModelManagement() {
                 {debugLoading ? '测试中...' : '开始测试'}
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* ====== 删除确认弹窗 ====== */}
+        <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>确认删除</DialogTitle>
+              <DialogDescription>
+                删除后引用该模型的智能体可能无法调用，是否继续？
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 p-3 rounded-md bg-destructive/10">
+              <AlertTriangle size={18} className="text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-muted-foreground">此操作不可撤销，数据将被永久删除。</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button variant="destructive" onClick={confirmDelete}>确认删除</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

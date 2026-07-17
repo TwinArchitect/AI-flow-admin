@@ -211,7 +211,7 @@ export async function toggleMemoryStatus(id: string): Promise<MemoryItem | null>
 
 // ====== 模拟认知提取 ======
 
-export async function extractMemories(transcript: string): Promise<ExtractionResult[]> {
+export async function extractMemories(_transcript: string): Promise<ExtractionResult[]> {
   await delay(1000);
   // 基于输入内容模拟提取结果
   const results: ExtractionResult[] = [

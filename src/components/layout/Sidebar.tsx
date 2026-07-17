@@ -25,6 +25,7 @@ const agentslist = [
   { label: '知识库', path: '/agents/knowledge' },
   { label: '模型管理', path: '/agents/models' },
   { label: '记忆维护', path: '/agents/memory' },
+  { label: '移动端', path: '/agents/mobile-overview' },
 ]
 const componentLinks = [
   { label: 'Button', path: '/components/button' },
