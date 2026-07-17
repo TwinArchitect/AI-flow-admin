@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AgentPlazaPage, AgentChatPage } from '@/features/agents/agent-plaza';
 import { ModelManagementPage } from '@/features/agents/model-management';
 import { MemoryMaintenancePage } from '@/features/agents/memory-maintenance';
+import { MobileOverviewPage } from '@/features/agents/mobile-overview';
 
 // Demo 页懒加载，减少首屏 bundle 体积
 const ButtonDemo = lazy(() => import('@/features/components/demos/ButtonDemo').then(m => ({ default: m.ButtonDemo })));
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
           { path: 'agents/AgentPlaza/chat', element: <AgentChatPage /> },
           { path: 'agents/models', element: <ModelManagementPage /> },
           { path: 'agents/memory', element: <MemoryMaintenancePage /> },
+          { path: 'agents/mobile-overview', element: <MobileOverviewPage /> },
           { path: 'workflows', element: <WorkflowsPage /> },
           { path: 'users', element: <UsersPage /> },
           { path: 'settings', element: <SettingsPage /> },

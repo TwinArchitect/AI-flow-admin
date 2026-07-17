@@ -386,7 +386,7 @@ export default function MemoryMaintenance() {
                   <h4 className="text-xs font-bold text-fg-muted uppercase tracking-wider mb-3">
                     重要度优先权
                   </h4>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {importanceFilters.map((lvl) => (
                       <label
                         key={lvl.id}
@@ -969,21 +969,21 @@ export default function MemoryMaintenance() {
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4 mt-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-fg-muted uppercase tracking-wider ">
                   记忆事实描述内容 (Fact Body)
                 </label>
                 <Textarea
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
-                  className="h-28 resize-none"
+                  className="h-28 resize-none mt-1"
                   placeholder="例如: 1号超超临界锅炉的汽侧安全阀整定压力设定为 26.5 MPa，请严格维护反馈规范值。"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                     认知存储类别
                   </label>
@@ -991,7 +991,7 @@ export default function MemoryMaintenance() {
                     value={formCategory}
                     onValueChange={(v) => setFormCategory(v as MemoryCategory)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1003,7 +1003,7 @@ export default function MemoryMaintenance() {
                   </Select>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                     召回严重级别 (Priority)
                   </label>
@@ -1011,7 +1011,7 @@ export default function MemoryMaintenance() {
                     value={formImportance}
                     onValueChange={(v) => setFormImportance(v as ImportanceLevel)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1024,12 +1024,12 @@ export default function MemoryMaintenance() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                   挂载服务智能体 (Linked Agent)
                 </label>
                 <Select value={formAgentName} onValueChange={setFormAgentName}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1042,7 +1042,7 @@ export default function MemoryMaintenance() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label className="text-xs font-bold text-fg-muted uppercase tracking-wider">
                   检索关键词标签 (以逗号隔开)
                 </label>
@@ -1050,6 +1050,7 @@ export default function MemoryMaintenance() {
                   value={formTags}
                   onChange={(e) => setFormTags(e.target.value)}
                   placeholder="例如: 锅炉, 警报器, 临检设定"
+                  className="mt-1"
                 />
               </div>
             </div>
