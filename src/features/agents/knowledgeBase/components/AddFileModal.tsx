@@ -3,6 +3,13 @@ import { Database, FileDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 
 interface AddFileModalProps {
@@ -32,27 +39,60 @@ export function AddFileModal({ open, onClose, onConfirm }: AddFileModalProps) {
             <p className="text-2xs text-muted-foreground">支持 PDF, DOCX, XLSX 最大 150MB</p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">拟定索引文件名</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如: 汽轮机标准.pdf" className="h-10" />
+            <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+              拟定索引文件名
+            </label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如: 汽轮机标准.pdf"
+              className="h-10"
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">解析器</label>
-              <select value={parser} onChange={(e) => setParser(e.target.value)}
-                className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs font-bold outline-none text-foreground">
-                <option value="General">General (内置通用排版)</option>
-                <option value="DeepDOC">DeepDOC (精准图片版面识别)</option>
-              </select>
+              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+                解析器
+              </label>
+              <Select value={parser} onValueChange={setParser}>
+                <SelectTrigger className="w-full h-10 text-xs font-bold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="General">General (内置通用排版)</SelectItem>
+                  <SelectItem value="DeepDOC">DeepDOC (精准图片版面识别)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">元数据标签(个)</label>
-              <Input type="number" min={0} max={20} value={metaCount}
-                onChange={(e) => setMetaCount(+e.target.value)} className="h-10" />
+              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+                元数据标签(个)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={20}
+                value={metaCount}
+                onChange={(e) => setMetaCount(+e.target.value)}
+                className="h-10"
+              />
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1" onClick={onClose}>取消</Button>
-            <Button className="flex-1" onClick={() => { if (name.trim()) { onConfirm(name.trim(), parser, metaCount); onClose(); } else toast.error('请输入文件名'); }}>开始同步建档</Button>
+            <Button variant="outline" className="flex-1" onClick={onClose}>
+              取消
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                if (name.trim()) {
+                  onConfirm(name.trim(), parser, metaCount);
+                  onClose();
+                } else toast.error('请输入文件名');
+              }}
+            >
+              开始同步建档
+            </Button>
           </div>
         </div>
       </DialogContent>

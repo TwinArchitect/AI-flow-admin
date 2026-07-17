@@ -13,12 +13,14 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  AlertTriangle, Bot, Loader2, Shield, Sparkles, TrendingUp, X,
-} from 'lucide-react';
+import { AlertTriangle, Bot, Loader2, Shield, Sparkles, TrendingUp, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { TEST_AGENT_PRESETS, type TestAgentCustomType, type TestAgentPreset } from '../data/testAgents';
+import {
+  TEST_AGENT_PRESETS,
+  type TestAgentCustomType,
+  type TestAgentPreset,
+} from '../data/testAgents';
 
 export interface SelectedPublishedAgent {
   id: string;
@@ -42,38 +44,54 @@ const TEST_AGENT_ICONS: Record<TestAgentCustomType, typeof Sparkles> = {
 
 /* ─── AgentGridItem ─── */
 function AgentGridItem({
-  name, selected, onClick, children,
+  name,
+  selected,
+  onClick,
+  children,
 }: {
-  name: string; selected?: boolean; onClick: () => void; children: React.ReactNode;
+  name: string;
+  selected?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
+      variant="ghost"
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex flex-col items-center gap-2 p-2 rounded-2xl transition-all hover:bg-accent',
-        selected ? 'ring-2 ring-primary bg-primary/5' : '',
+        'flex-col items-center gap-2 p-2 rounded-2xl h-auto w-auto',
+        selected ? 'ring-2 ring-primary bg-primary/5' : ''
       )}
     >
       <div className="w-[52px] h-[52px] flex items-center justify-center">{children}</div>
       <span className="text-[11px] font-semibold text-foreground text-center line-clamp-2 leading-tight max-w-[72px]">
         {name}
       </span>
-    </button>
+    </Button>
   );
 }
 
 function TestAgentIcon({ preset }: { preset: TestAgentPreset }) {
   const Icon = TEST_AGENT_ICONS[preset.customType] ?? Sparkles;
   return (
-    <div className={cn('w-[52px] h-[52px] rounded-2xl flex items-center justify-center border shadow-sm', preset.color)}>
+    <div
+      className={cn(
+        'w-[52px] h-[52px] rounded-2xl flex items-center justify-center border shadow-sm',
+        preset.color
+      )}
+    >
       <Icon size={24} className="shrink-0" />
     </div>
   );
 }
 
 export function AgentPickerModal({
-  open, onClose, onSelectTestAgent, onSelectPublishedAgent, selectedPublishedAgentId,
+  open,
+  onClose,
+  onSelectTestAgent,
+  onSelectPublishedAgent,
+  selectedPublishedAgentId,
 }: AgentPickerModalProps) {
   const [loading] = useState(false);
   /* mock 已发布智能体列表 */

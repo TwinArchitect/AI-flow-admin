@@ -3,6 +3,13 @@ import { Settings2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import type { KBFile } from '../data/kbMock';
 
@@ -29,27 +36,56 @@ export function EditFileModal({ open, file, onClose, onConfirm }: EditFileModalP
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">文档名称</label>
+            <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+              文档名称
+            </label>
             <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">解析器</label>
-              <select value={parser} onChange={(e) => setParser(e.target.value)}
-                className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs font-bold outline-none text-foreground">
-                <option value="General">General</option>
-                <option value="DeepDOC">DeepDOC</option>
-              </select>
+              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+                解析器
+              </label>
+              <Select value={parser} onValueChange={setParser}>
+                <SelectTrigger className="w-full h-10 text-xs font-bold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="General">General</SelectItem>
+                  <SelectItem value="DeepDOC">DeepDOC</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">元数据(个)</label>
-              <Input type="number" min={0} max={20} value={metaCount}
-                onChange={(e) => setMetaCount(+e.target.value)} className="h-10" />
+              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+                元数据(个)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={20}
+                value={metaCount}
+                onChange={(e) => setMetaCount(+e.target.value)}
+                className="h-10"
+              />
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1" onClick={onClose}>取消</Button>
-            <Button className="flex-1" onClick={() => { if (name.trim() && file) { onConfirm({ ...file, name: name.trim(), parser, metadataFields: metaCount }); onClose(); toast.success('文件配置更新成功'); } }}>保存修改</Button>
+            <Button variant="outline" className="flex-1" onClick={onClose}>
+              取消
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                if (name.trim() && file) {
+                  onConfirm({ ...file, name: name.trim(), parser, metadataFields: metaCount });
+                  onClose();
+                  toast.success('文件配置更新成功');
+                }
+              }}
+            >
+              保存修改
+            </Button>
           </div>
         </div>
       </DialogContent>
