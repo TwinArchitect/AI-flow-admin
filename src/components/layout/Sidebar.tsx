@@ -4,6 +4,8 @@ import {
   Bot,
   Workflow,
   Database,
+  Link2,
+  Terminal,
   Puzzle,
   Settings,
   User,
@@ -25,7 +27,9 @@ const agentslist = [
   { label: '知识库', path: '/agents/knowledge' },
   { label: '模型管理', path: '/agents/models' },
   { label: '记忆维护', path: '/agents/memory' },
-]
+  { icon: Link2, label: 'HTTP 工具', path: '/agents/httpTools' },
+  { icon: Terminal, label: 'MCP 工具', path: '/agents/mcpTools' },
+];
 const componentLinks = [
   { label: 'Button', path: '/components/button' },
   { label: 'Card', path: '/components/card' },
@@ -69,8 +73,6 @@ const menuItems: MenuItem[] = [
   { icon: Settings, label: '系统设置', path: '/settings' },
 ];
 
-
-
 export function Sidebar() {
   const location = useLocation();
 
@@ -82,7 +84,9 @@ export function Sidebar() {
           <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
             <Bot size={17} className="text-white" />
           </div>
-          <span className="text-base font-bold text-[var(--color-text-primary)] tracking-wide">智构平台</span>
+          <span className="text-base font-bold text-[var(--color-text-primary)] tracking-wide">
+            智构平台
+          </span>
         </div>
       </div>
 
@@ -90,9 +94,10 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3">
         <ul className="space-y-0.5">
           {menuItems.map((item) => {
-            const isActive = item.path === '/'
-              ? location.pathname === '/'
-              : location.pathname.startsWith(item.path);
+            const isActive =
+              item.path === '/'
+                ? location.pathname === '/'
+                : location.pathname.startsWith(item.path);
             // const showChildren = item.path === '/components' && isActive;
 
             return (
@@ -123,7 +128,7 @@ export function Sidebar() {
                     </span>
                   )}
                 </NavLink>
-                {item.children && isActive&&  (
+                {item.children && isActive && (
                   <div className="mt-1 space-y-0.5 border-l border-[var(--color-border-default)] py-1 pl-4">
                     {item.children.map((child) => (
                       <NavLink
@@ -134,7 +139,7 @@ export function Sidebar() {
                             'block rounded-md px-3 py-1.5 text-xs transition-colors',
                             isChildActive
                               ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                              : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
+                              : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'
                           )
                         }
                       >
