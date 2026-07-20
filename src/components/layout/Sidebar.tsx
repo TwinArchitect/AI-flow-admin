@@ -16,18 +16,17 @@ interface MenuItem {
   label: string;
   path: string;
   badge?: number | string;
+  children?: { label: string; path: string }[];
 }
-
-const menuItems: MenuItem[] = [
-  { icon: LayoutDashboard, label: '工作台', path: '/' },
-  { icon: Bot, label: '智能体', path: '/agents', badge: 8 },
-  { icon: Workflow, label: '工作流', path: '/workflows', badge: 12 },
-  { icon: Component, label: '组件示例', path: '/components' },
-  { icon: Database, label: '知识库', path: '/knowledge' },
-  { icon: Puzzle, label: '插件市场', path: '/plugins' },
-  { icon: Settings, label: '系统设置', path: '/settings' },
-];
-
+const agentslist = [
+  { label: '智能体广场', path: '/agents/AgentPlaza' },
+  { label: '智能体助手', path: '/agents/overview' },
+  { label: '我的智能体', path: '/agents/myAgents' },
+  { label: '知识库', path: '/agents/knowledge' },
+  { label: '模型管理', path: '/agents/models' },
+  { label: '记忆维护', path: '/agents/memory' },
+  { label: '移动端', path: '/agents/mobile-overview' },
+]
 const componentLinks = [
   { label: 'Button', path: '/components/button' },
   { label: 'Card', path: '/components/card' },
@@ -61,6 +60,17 @@ const componentLinks = [
   { label: 'Time Picker', path: '/components/time-picker' },
   { label: 'React Query', path: '/components/react-query' },
 ];
+const menuItems: MenuItem[] = [
+  { icon: LayoutDashboard, label: '工作台', path: '/' },
+  { icon: Bot, label: '智能体', path: '/agents', badge: 8, children: agentslist },
+  { icon: Workflow, label: '工作流', path: '/workflows', badge: 12 },
+  { icon: Component, label: '组件示例', path: '/components', children: componentLinks },
+  { icon: Database, label: '知识库', path: '/agents/knowledge' },
+  { icon: Puzzle, label: '插件市场', path: '/plugins' },
+  { icon: Settings, label: '系统设置', path: '/settings' },
+];
+
+
 
 export function Sidebar() {
   const location = useLocation();
@@ -84,7 +94,7 @@ export function Sidebar() {
             const isActive = item.path === '/'
               ? location.pathname === '/'
               : location.pathname.startsWith(item.path);
-            const showChildren = item.path === '/components' && isActive;
+            // const showChildren = item.path === '/components' && isActive;
 
             return (
               <li key={item.path}>
@@ -114,9 +124,9 @@ export function Sidebar() {
                     </span>
                   )}
                 </NavLink>
-                {showChildren && (
+                {item.children && isActive&&  (
                   <div className="mt-1 space-y-0.5 border-l border-[var(--color-border-default)] py-1 pl-4">
-                    {componentLinks.map((child) => (
+                    {item.children.map((child) => (
                       <NavLink
                         key={child.path}
                         to={child.path}

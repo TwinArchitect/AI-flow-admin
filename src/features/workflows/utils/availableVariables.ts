@@ -1,4 +1,5 @@
-import { LLM_NODE_OUTPUTS, START_NODE_OUTPUTS } from '../config/workflowProtocol';
+import { LLM_NODE_OUTPUTS } from '../contracts/llmNodeContract';
+import { START_NODE_OUTPUTS } from '../contracts/startNodeContract';
 import type {
   StartNodeConfig,
   WorkflowCanvasEdge,

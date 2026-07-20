@@ -91,7 +91,7 @@ export function DashboardPage() {
       <div className="px-6 py-5">
         {/* 页面标题 */}
         <div className="mb-5">
-          <h2 className="text-lg font-semibold  text-foreground">工作台</h2>
+          <h2 className="text-lg font-semibold text-foreground">工作台</h2>
           <p className="text-xs text-muted-foreground mt-0.5">实时监控平台运行状态与关键指标</p>
         </div>
 

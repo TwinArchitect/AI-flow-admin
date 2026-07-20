@@ -1,9 +1,7 @@
-import type {
-  BackendFlowNodeType,
-  WorkflowNodeType,
-  WorkflowOutputSchema,
-  WorkflowValueType,
-} from '../types';
+import type { BackendFlowNodeType, WorkflowNodeType } from '../types';
+export { LLM_NODE_OUTPUTS } from '../contracts/llmNodeContract';
+export { START_NODE_OUTPUTS } from '../contracts/startNodeContract';
+export { valueTypeToRenderType } from '../contracts/shared';
 
 export const WORKFLOW_NODE_TO_FLOW_TYPE: Partial<Record<WorkflowNodeType, BackendFlowNodeType>> = {
   start: 'workflowStart',
@@ -16,45 +14,3 @@ export const FLOW_TYPE_TO_WORKFLOW_NODE: Record<BackendFlowNodeType, WorkflowNod
   chatNode: 'llm',
   workflowEnd: 'end',
 };
-
-export const START_NODE_OUTPUTS: WorkflowOutputSchema[] = [
-  {
-    key: 'userChatInput',
-    label: '用户问题',
-    valueType: 'string',
-  },
-];
-
-export const LLM_NODE_OUTPUTS: WorkflowOutputSchema[] = [
-  {
-    key: 'answerText',
-    label: 'AI 回复内容',
-    valueType: 'string',
-  },
-  {
-    key: 'history',
-    label: '新上下文',
-    valueType: 'chatHistory',
-  },
-  {
-    key: 'reasoningText',
-    label: '推理内容',
-    valueType: 'string',
-  },
-];
-
-export function valueTypeToRenderType(valueType: WorkflowValueType) {
-  switch (valueType) {
-    case 'number':
-      return 'numberInput';
-    case 'boolean':
-      return 'switch';
-    case 'file':
-      return 'file';
-    case 'object':
-    case 'array':
-      return 'textarea';
-    default:
-      return 'input';
-  }
-}
