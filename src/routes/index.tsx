@@ -14,6 +14,7 @@ import { AgentOverviewPage } from '@/features/agents/overview';
 import { MyAgentsPage } from '@/features/agents/myAgents';
 import { KnowledgeBasePage } from '@/features/agents/knowledgeBase';
 import { HttpToolsPage, McpToolsPage } from '@/features/agents/tools';
+import { TagManagementPage } from '@/features/agents/tag-management';
 import { AgentPlazaPage, AgentChatPage } from '@/features/agents/agent-plaza';
 import { ModelManagementPage } from '@/features/agents/model-management';
 import { MemoryMaintenancePage } from '@/features/agents/memory-maintenance';
@@ -147,6 +148,7 @@ export const router = createBrowserRouter([
           { path: 'agents/overview', element: <AgentOverviewPage /> },
           { path: 'agents/myAgents', element: <MyAgentsPage /> },
           { path: 'agents/knowledge', element: <KnowledgeBasePage /> },
+          { path: 'agents/tags', element: <TagManagementPage /> },
           { path: 'agents/AgentPlaza/chat', element: <AgentChatPage /> },
           { path: 'agents/models', element: <ModelManagementPage /> },
           { path: 'agents/memory', element: <MemoryMaintenancePage /> },
