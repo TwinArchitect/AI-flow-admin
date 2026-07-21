@@ -86,7 +86,7 @@ export async function saveWorkflowConfig(
 ): Promise<SaveWorkflowConfigResult> {
   const payload = serializeWorkflowToBackend(request.nodes, request.edges);
   const agentSetting = buildAgentSettingString(request.nodes, request.edges, request.viewport);
-  const response = await http.post<WorkflowAgent>(
+  const response = await http.post<WorkflowAgent | null>(
     request.agentId ? '/gpt/base/agent/update' : '/gpt/base/agent/save',
     {
     ...(request.agentId ? { id: request.agentId } : {}),
@@ -96,9 +96,13 @@ export async function saveWorkflowConfig(
     flowType: 1,
   });
   const savedAgent = response.data;
+  const agentId = savedAgent?.id ?? request.agentId;
+  if (!agentId) {
+    throw new Error('智能体已保存，但后端未返回新建智能体 ID');
+  }
 
   return {
-    agentId: savedAgent.id ?? request.agentId ?? '',
+    agentId,
     agentName: request.agentName,
     remark: request.remark,
     agentSetting,

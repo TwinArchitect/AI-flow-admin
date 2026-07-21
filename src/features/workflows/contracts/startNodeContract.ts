@@ -15,17 +15,45 @@ import {
 export const DEFAULT_START_CONFIG: StartNodeConfig = {
   variables: [
     {
-      id: 'start-var-userChatInput',
-      key: 'userChatInput',
-      label: '用户问题',
-      valueType: 'string',
-      required: true,
-      description: '工作流入口用户输入',
+      id: 'system-start-files',
+      key: 'files',
+      label: 'files',
+      valueType: 'file',
+      required: false,
+      description: '附件',
       defaultValue: '',
+      system: true,
     },
   ],
-  sampleInput: '请帮我总结这段内容',
 };
+
+export const VARIABLE_NODE_ID = 'VARIABLE_NODE_ID';
+
+export function isSystemStartVariable(variable: StartNodeConfig['variables'][number]) {
+  return variable.system === true || variable.key === 'files';
+}
+
+export function ensureSystemStartVariables(
+  variables: StartNodeConfig['variables'],
+): StartNodeConfig['variables'] {
+  const customVariables = variables.filter(
+    (variable) => !isSystemStartVariable(variable) && variable.key !== 'userChatInput',
+  );
+  const existingFiles = variables.find((variable) => variable.key === 'files');
+  return [
+    {
+      ...DEFAULT_START_CONFIG.variables[0],
+      ...existingFiles,
+      id: 'system-start-files',
+      key: 'files',
+      label: existingFiles?.label?.trim() || 'files',
+      description: '附件',
+      valueType: 'file',
+      system: true,
+    },
+    ...customVariables,
+  ];
+}
 
 export const START_NODE_OUTPUTS: WorkflowOutputSchema[] = [
   {
@@ -40,8 +68,12 @@ export function normalizeStartConfig(config: unknown): StartNodeConfig {
   return {
     ...DEFAULT_START_CONFIG,
     ...raw,
-    variables: raw.variables?.length ? raw.variables : DEFAULT_START_CONFIG.variables,
+    variables: ensureSystemStartVariables(raw.variables ?? []),
   };
+}
+
+export function resolveStartNodeOutputs(_node: WorkflowCanvasNode): WorkflowOutputSchema[] {
+  return START_NODE_OUTPUTS;
 }
 
 export function serializeStartVariables(config: StartNodeConfig): WorkflowChatConfigVariable[] {
@@ -55,6 +87,7 @@ export function serializeStartVariables(config: StartNodeConfig): WorkflowChatCo
       required: variable.required ?? false,
       ...(variable.description?.trim() ? { description: variable.description.trim() } : {}),
       defaultValue: variable.defaultValue ?? '',
+      ...(variable.maxLength != null ? { maxLength: variable.maxLength } : {}),
     }));
 }
 
@@ -88,8 +121,8 @@ export function parseStartModule(
 ) {
   return createCanvasNode('start', module, {
     ...DEFAULT_START_CONFIG,
-    variables: variables.length
-      ? variables.map((variable, index) => ({
+    variables: ensureSystemStartVariables(
+      variables.map((variable, index) => ({
           id: `start-var-${variable.key || index}`,
           key: variable.key,
           label: variable.label || variable.key,
@@ -97,16 +130,21 @@ export function parseStartModule(
           required: variable.required,
           description: variable.description,
           defaultValue: variable.defaultValue,
-        }))
-      : DEFAULT_START_CONFIG.variables,
+          maxLength: variable.maxLength,
+          system: variable.key === 'files',
+        })),
+    ),
   });
 }
 
 export function validateStartNode(node: WorkflowCanvasNode) {
   const config = normalizeStartConfig(node.data.config);
-  const keys = config.variables.map((variable) => variable.key.trim()).filter(Boolean);
+  const customVariables = config.variables.filter((variable) => !isSystemStartVariable(variable));
+  const keys = customVariables.map((variable) => variable.key.trim()).filter(Boolean);
   const errors: string[] = [];
-  if (keys.length === 0) errors.push('开始节点至少需要一个输入变量');
+  if (customVariables.some((variable) => !variable.key.trim())) {
+    errors.push('开始节点自定义变量名不能为空');
+  }
   if (new Set(keys).size !== keys.length) errors.push('开始节点输入变量名不能重复');
   return errors;
 }

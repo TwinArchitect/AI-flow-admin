@@ -2,49 +2,10 @@ import { Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { NODE_DEF_MAP, NODE_FALLBACK_ICON, NODE_ICON_MAP } from '../config/nodeDefs';
+import { getNodeModule } from '../nodes/registry';
 import { useWorkflowCanvasStore } from '../store/useWorkflowCanvasStore';
-import type { WorkflowCanvasEdge, WorkflowCanvasNode, WorkflowNodeConfig } from '../types';
 import { getAvailableVariablesForNode } from '../utils/availableVariables';
-import { EndConfigPanel } from './config-panels/EndConfigPanel';
-import { HttpConfigPanel } from './config-panels/HttpConfigPanel';
-import { LlmConfigPanel } from './config-panels/LlmConfigPanel';
-import { PlaceholderConfigPanel } from './config-panels/PlaceholderConfigPanel';
-import { StartConfigPanel } from './config-panels/StartConfigPanel';
 import { Field } from './config-panels/shared/Field';
-
-function NodeSpecificConfig({
-  nodeId,
-  nodeType,
-  config,
-  def,
-  nodes,
-  edges,
-}: {
-  nodeId: string;
-  nodeType: string;
-  config: WorkflowNodeConfig;
-  def: (typeof NODE_DEF_MAP)[keyof typeof NODE_DEF_MAP];
-  nodes: WorkflowCanvasNode[];
-  edges: WorkflowCanvasEdge[];
-}) {
-  const updateNodeConfig = useWorkflowCanvasStore((state) => state.updateNodeConfig);
-  const onUpdate = (patch: Record<string, unknown>) => updateNodeConfig(nodeId, patch);
-  const variables = getAvailableVariablesForNode(nodeId, nodes, edges);
-
-  switch (nodeType) {
-    case 'start':
-      return <StartConfigPanel config={config as Record<string, unknown>} onUpdate={onUpdate} />;
-    case 'llm':
-      return <LlmConfigPanel config={config as Record<string, unknown>} variables={variables} onUpdate={onUpdate} />;
-    case 'end':
-      return <EndConfigPanel config={config as Record<string, unknown>} variables={variables} onUpdate={onUpdate} />;
-    case 'http':
-      return <HttpConfigPanel config={config as Record<string, unknown>} onUpdate={onUpdate} />;
-    default:
-      return <PlaceholderConfigPanel def={def} />;
-  }
-}
 
 export function NodeConfigPanel() {
   const {
@@ -54,14 +15,19 @@ export function NodeConfigPanel() {
     setSelectedNodeId,
     deleteNode,
     updateNodeLabel,
+    updateNodeConfig,
+    removeEdgesBySourceHandle,
   } = useWorkflowCanvasStore();
   const node = nodes.find((item) => item.id === selectedNodeId);
 
   if (!node) return null;
 
-  const def = NODE_DEF_MAP[node.data.nodeType];
-  const Icon = NODE_ICON_MAP[node.data.nodeType] ?? NODE_FALLBACK_ICON;
-  const isProtected = node.data.nodeType === 'start' || node.data.nodeType === 'end';
+  const module = getNodeModule(node.data.nodeType);
+  const def = module.definition;
+  const Icon = module.icon;
+  const ConfigPanel = module.ConfigPanel;
+  const isProtected = !module.connection.deletable;
+  const variables = getAvailableVariablesForNode(node.id, nodes, edges);
 
   return (
     <aside className="absolute bottom-0 right-0 top-0 z-20 flex w-[360px] flex-col border-l border-border bg-card shadow-xl">
@@ -109,13 +75,12 @@ export function NodeConfigPanel() {
           />
         </Field>
 
-        <NodeSpecificConfig
+        <ConfigPanel
           nodeId={node.id}
-          nodeType={node.data.nodeType}
           config={node.data.config}
-          def={def}
-          nodes={nodes}
-          edges={edges}
+          variables={variables}
+          onUpdate={(patch) => updateNodeConfig(node.id, patch)}
+          onRemoveSourceHandle={removeEdgesBySourceHandle}
         />
       </div>
     </aside>

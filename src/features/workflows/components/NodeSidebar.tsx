@@ -3,7 +3,7 @@ import { PanelLeftClose, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { NODE_CATEGORIES, NODE_FALLBACK_ICON, NODE_ICON_MAP } from '../config/nodeDefs';
+import { getNodeModule, REGISTERED_NODE_CATEGORIES } from '../nodes/registry';
 import type { WorkflowNodeDef } from '../types';
 
 interface NodeSidebarProps {
@@ -16,9 +16,9 @@ export function NodeSidebar({ isOpen, onClose }: NodeSidebarProps) {
 
   const filteredCategories = useMemo(() => {
     const normalized = keyword.trim().toLowerCase();
-    if (!normalized) return NODE_CATEGORIES;
+    if (!normalized) return REGISTERED_NODE_CATEGORIES;
 
-    return NODE_CATEGORIES.map((category) => ({
+    return REGISTERED_NODE_CATEGORIES.map((category) => ({
       ...category,
       items: category.items.filter(
         (item) =>
@@ -73,7 +73,7 @@ export function NodeSidebar({ isOpen, onClose }: NodeSidebarProps) {
             </div>
             <div className="space-y-1">
               {category.items.map((node) => {
-                const Icon = NODE_ICON_MAP[node.type] ?? NODE_FALLBACK_ICON;
+                const Icon = getNodeModule(node.type).icon;
 
                 return (
                   <div

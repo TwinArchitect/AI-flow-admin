@@ -9,8 +9,8 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
-import type { NodeChange, NodeMouseHandler, NodeTypes } from '@xyflow/react';
-import { Copy, Map, Maximize2, PanelLeftOpen, Play, Redo2, Save, Square, Trash2, Undo2 } from 'lucide-react';
+import type { FitViewOptions, NodeChange, NodeMouseHandler, NodeTypes } from '@xyflow/react';
+import { Loader2, Map, Maximize2, PanelLeftOpen, Play, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,43 +22,52 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useThemeStore } from '@/stores/theme';
-import { useDeleteWorkflowAgent, useRunWorkflowStream, useSaveWorkflowConfig } from '../hooks/useWorkflowRuntime';
+import { WorkflowExecutionProvider } from '../context/WorkflowExecutionContext';
+import { useWorkflowCanvasExecution } from '../hooks/useWorkflowCanvasExecution';
+import { useDeleteWorkflowAgent, useSaveWorkflowConfig } from '../hooks/useWorkflowRuntime';
+import { getNodeModule, WORKFLOW_NODE_MODULES } from '../nodes/registry';
 import { createConnectionValidator } from '../utils/connectionRules';
 import { serializeWorkflowToBackend } from '../utils/workflowSerialization';
 import { validateWorkflowForBackend } from '../utils/workflowValidation';
+import { getWorkflowDebugContext } from '../utils/workflowDebugContext';
 import { useWorkflowCanvasStore } from '../store/useWorkflowCanvasStore';
-import type { StartNodeConfig, WorkflowBackendPayload, WorkflowCanvasNode, WorkflowNodeType } from '../types';
+import type { WorkflowBackendPayload, WorkflowCanvasNode, WorkflowNodeType } from '../types';
+import type { WorkflowNodeExecutionStates } from '../types/execution';
 import type { SaveWorkflowConfigResult } from '../api/workflowApi';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { NodeSidebar } from './NodeSidebar';
 import { WorkflowNode } from './WorkflowNode';
+import { WorkflowDebugDrawer } from './debug/WorkflowDebugDrawer';
 
-const nodeTypes: NodeTypes = {
-  start: WorkflowNode,
-  end: WorkflowNode,
-  llm: WorkflowNode,
-  knowledge: WorkflowNode,
-  http: WorkflowNode,
-  reply: WorkflowNode,
-  condition: WorkflowNode,
-  code: WorkflowNode,
-  plugin: WorkflowNode,
-  mcp: WorkflowNode,
-};
+const nodeTypes = Object.fromEntries(
+  WORKFLOW_NODE_MODULES.map((module) => [module.type, WorkflowNode]),
+) as NodeTypes;
+
+const WORKFLOW_FIT_VIEW_OPTIONS = {
+  padding: 0.2,
+  maxZoom: 0.9,
+  duration: 280,
+} satisfies FitViewOptions;
 
 interface WorkflowToolbarProps {
   agentId?: string;
   agentName: string;
   savedBaseline: WorkflowBackendPayload | null;
   initialViewport?: { x: number; y: number; zoom: number };
+  loadedAgentId?: string;
   onSaved: (result: SaveWorkflowConfigResult) => void;
   onDeleted: () => void;
   isSidebarOpen: boolean;
   onOpenSidebar: () => void;
+}
+
+interface WorkflowToolbarExecutionProps {
+  nodeStates: WorkflowNodeExecutionStates;
+  isRunning: boolean;
+  onOpenDebug: () => void;
 }
 
 function WorkflowToolbar({
@@ -70,34 +79,26 @@ function WorkflowToolbar({
   onDeleted,
   isSidebarOpen,
   onOpenSidebar,
-}: WorkflowToolbarProps) {
+  nodeStates,
+  isRunning,
+  onOpenDebug,
+}: WorkflowToolbarProps & WorkflowToolbarExecutionProps) {
   const { fitView, getViewport } = useReactFlow();
   const saveWorkflowMutation = useSaveWorkflowConfig();
   const deleteWorkflowMutation = useDeleteWorkflowAgent();
-  const runWorkflowMutation = useRunWorkflowStream();
   const {
     undo,
     redo,
     past,
     future,
     toJSON,
-    resetRunState,
-    setNodeRunState,
-    setNodeRunDetails,
-    markUnfinishedNodesSkipped,
     nodes,
     edges,
   } = useWorkflowCanvasStore();
-  const isRunning = runWorkflowMutation.isPending;
-  const runAbortRef = useRef<AbortController | null>(null);
-  const [runDialogOpen, setRunDialogOpen] = useState(false);
-  const [resultDialogOpen, setResultDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [runInput, setRunInput] = useState('');
-  const [lastRunOutputs, setLastRunOutputs] = useState<Record<string, unknown> | null>(null);
-  const activeNode = nodes.find((node) => node.data.runStatus === 'running');
+  const activeNode = nodes.find((node) => nodeStates[node.id]?.status === 'running');
   const completedCount = nodes.filter((node) =>
-    node.data.runStatus === 'success' || node.data.runStatus === 'error' || node.data.runStatus === 'skipped'
+    nodeStates[node.id] && nodeStates[node.id]?.status !== 'idle' && nodeStates[node.id]?.status !== 'running'
   ).length;
   const currentPayload = useMemo(
     () => serializeWorkflowToBackend(nodes, edges),
@@ -110,7 +111,6 @@ function WorkflowToolbar({
       ? '当前配置有未保存的修改，请先保存配置后再运行'
       : null;
 
-  useEffect(() => () => runAbortRef.current?.abort(), []);
   useEffect(() => {
     function warnBeforeLeave(event: BeforeUnloadEvent) {
       if (!isDirty) return;
@@ -162,92 +162,6 @@ function WorkflowToolbar({
     });
   }
 
-  function openRunDialog() {
-    const startNode = toJSON().nodes.find((node) => node.data.nodeType === 'start');
-    const startConfig = startNode?.data.config as Partial<StartNodeConfig> | undefined;
-    setRunInput(startConfig?.sampleInput ?? '');
-    setRunDialogOpen(true);
-  }
-
-  function handleRun() {
-    if (isRunning) return;
-    const result = buildValidatedPayload('运行');
-    if (!result) return;
-
-    const { nodes, edges, payload } = result;
-    const startNode = nodes.find((node) => node.data.nodeType === 'start');
-    const userInput = runInput;
-    setRunDialogOpen(false);
-    setLastRunOutputs(null);
-    resetRunState();
-    if (startNode) setNodeRunState(startNode.id, 'running', '正在启动工作流');
-    runAbortRef.current?.abort();
-    const controller = new AbortController();
-    runAbortRef.current = controller;
-
-    runWorkflowMutation.mutate({
-      request: {
-        appId: agentId!,
-        message: [
-          {
-            role: 'user',
-            content: userInput,
-          },
-        ],
-        variables: Object.fromEntries(
-          payload.chatConfig.variables.map((variable) => [
-            variable.key,
-            variable.defaultValue ?? '',
-          ]),
-        ),
-        debug: true,
-      },
-      nodes,
-      edges,
-      payload,
-      signal: controller.signal,
-      onNodeEvent: (event) => {
-        setNodeRunState(event.nodeId, event.status, event.message);
-        setNodeRunDetails(event.nodeId, {
-          runDurationMs: event.durationMs,
-          runInputs: event.inputs,
-          runOutputs: event.outputs,
-        });
-
-        if (event.status === 'success') {
-          edges
-            .filter((edge) => edge.source === event.nodeId)
-            .forEach((edge) => setNodeRunState(edge.target, 'running', '正在执行'));
-        }
-      },
-    }, {
-      onSuccess: (runResult) => {
-        setLastRunOutputs(runResult.outputs);
-        nodes
-          .filter((node) => node.data.nodeType === 'end')
-          .forEach((node) => {
-            setNodeRunState(node.id, 'success', '工作流执行完成');
-            setNodeRunDetails(node.id, { runOutputs: runResult.outputs });
-          });
-        console.log('工作流运行结果:', JSON.stringify(runResult, null, 2));
-        toast.success('工作流运行完成', { description: '最终结果已生成。' });
-      },
-      onError: (error) => {
-        markUnfinishedNodesSkipped(error instanceof DOMException && error.name === 'AbortError' ? '用户停止运行' : undefined);
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          toast.info('工作流运行已停止');
-        } else {
-          toast.error('工作流运行失败', {
-            description: error instanceof Error ? error.message : '未知错误',
-          });
-        }
-      },
-      onSettled: () => {
-        runAbortRef.current = null;
-      },
-    });
-  }
-
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-card px-3">
       <div className="flex items-center gap-1">
@@ -271,7 +185,7 @@ function WorkflowToolbar({
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={() => fitView({ padding: 0.18, duration: 240 })}
+          onClick={() => fitView(WORKFLOW_FIT_VIEW_OPTIONS)}
           aria-label="视图自适应"
         >
           <Maximize2 size={15} />
@@ -311,80 +225,20 @@ function WorkflowToolbar({
           <Save size={14} />
           {saveWorkflowMutation.isPending ? '保存中' : '保存'}
         </Button>
-        {isRunning ? (
-          <Button variant="destructive" size="sm" onClick={() => runAbortRef.current?.abort()}>
-            <Square size={13} fill="currentColor" />
-            停止
-          </Button>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">
-                <Button size="sm" onClick={openRunDialog} disabled={Boolean(runDisabledReason)}>
-                  <Play size={14} fill="currentColor" />
-                  运行
-                </Button>
-              </span>
-            </TooltipTrigger>
-            {runDisabledReason && <TooltipContent>{runDisabledReason}</TooltipContent>}
-          </Tooltip>
-        )}
-        {lastRunOutputs && !isRunning && (
-          <Button variant="outline" size="sm" onClick={() => setResultDialogOpen(true)}>
-            查看结果
-          </Button>
-        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex">
+              <Button size="sm" onClick={onOpenDebug} disabled={Boolean(runDisabledReason) || isRunning}>
+                {isRunning
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : <Play size={14} fill="currentColor" />}
+                {isRunning ? '运行中' : '运行'}
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {runDisabledReason && <TooltipContent>{runDisabledReason}</TooltipContent>}
+        </Tooltip>
       </div>
-      <Dialog open={runDialogOpen} onOpenChange={setRunDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>调试运行</DialogTitle>
-            <DialogDescription>输入本次工作流的用户问题。</DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={runInput}
-            onChange={(event) => setRunInput(event.target.value)}
-            placeholder="请输入用户问题"
-            className="min-h-32"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRunDialogOpen(false)}>取消</Button>
-            <Button onClick={handleRun} disabled={!runInput.trim()}>
-              <Play size={14} fill="currentColor" />
-              开始运行
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={resultDialogOpen} onOpenChange={setResultDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>工作流运行结果</DialogTitle>
-            <DialogDescription>本次 Start -&gt; LLM -&gt; End 的最终输出。</DialogDescription>
-          </DialogHeader>
-          <pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-sm text-foreground">
-            {typeof lastRunOutputs?.answer === 'string'
-              ? lastRunOutputs.answer
-              : JSON.stringify(lastRunOutputs, null, 2)}
-          </pre>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                void navigator.clipboard.writeText(
-                  typeof lastRunOutputs?.answer === 'string'
-                    ? lastRunOutputs.answer
-                    : JSON.stringify(lastRunOutputs, null, 2),
-                );
-                toast.success('结果已复制');
-              }}
-            >
-              <Copy size={14} />
-              复制
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -422,6 +276,7 @@ function WorkflowCanvasInner({
   agentName,
   savedBaseline,
   initialViewport,
+  loadedAgentId,
   onSaved,
   onDeleted,
   isSidebarOpen,
@@ -442,8 +297,22 @@ function WorkflowCanvasInner({
     redo,
   } = useWorkflowCanvasStore();
   const isDark = useThemeStore((state) => state.isDark);
-  const { screenToFlowPosition } = useReactFlow();
+  const { fitView, screenToFlowPosition } = useReactFlow();
+  const canvasExecution = useWorkflowCanvasExecution();
   const [showMiniMap, setShowMiniMap] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugRunning, setDebugRunning] = useState(false);
+  const fittedAgentIdRef = useRef<string>();
+  const debugContext = useMemo(() => getWorkflowDebugContext(nodes), [nodes]);
+  useEffect(() => {
+    if (!loadedAgentId || fittedAgentIdRef.current === loadedAgentId || nodes.length === 0) return;
+
+    fittedAgentIdRef.current = loadedAgentId;
+    const frame = window.requestAnimationFrame(() => {
+      void fitView(WORKFLOW_FIT_VIEW_OPTIONS);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [fitView, loadedAgentId, nodes.length]);
 
   const edgeStyle = useMemo(
     () => ({
@@ -459,16 +328,16 @@ function WorkflowCanvasInner({
       edges.map((edge) => ({
         ...edge,
         animated:
-          nodes.some((node) => node.data.runStatus === 'running')
-            ? nodes.find((node) => node.id === edge.source)?.data.runStatus === 'success'
-              && nodes.find((node) => node.id === edge.target)?.data.runStatus === 'running'
+          nodes.some((node) => canvasExecution.nodeStates[node.id]?.status === 'running')
+            ? canvasExecution.nodeStates[edge.source]?.status === 'success'
+              && canvasExecution.nodeStates[edge.target]?.status === 'running'
             : edgeLineMode === 'animated',
         style: {
           ...(edge.style ?? {}),
           ...edgeStyle,
         },
       })),
-    [edgeLineMode, edgeStyle, edges, nodes],
+    [canvasExecution.nodeStates, edgeLineMode, edgeStyle, edges, nodes],
   );
 
   useEffect(() => {
@@ -494,12 +363,13 @@ function WorkflowCanvasInner({
   const handleDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
+      if (debugRunning) return;
       const type = event.dataTransfer.getData('application/workflow-node-type') as WorkflowNodeType;
       if (!type) return;
 
       addNode(type, screenToFlowPosition({ x: event.clientX, y: event.clientY }));
     },
-    [addNode, screenToFlowPosition],
+    [addNode, debugRunning, screenToFlowPosition],
   );
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -517,7 +387,7 @@ function WorkflowCanvasInner({
       const filtered = changes.filter((change) => {
         if (change.type !== 'remove') return true;
         const node = nodes.find((item) => item.id === change.id);
-        return node?.data.nodeType !== 'start' && node?.data.nodeType !== 'end';
+        return node ? getNodeModule(node.data.nodeType).connection.deletable : true;
       });
 
       onNodesChange(filtered);
@@ -536,9 +406,13 @@ function WorkflowCanvasInner({
         onDeleted={onDeleted}
         isSidebarOpen={isSidebarOpen}
         onOpenSidebar={onOpenSidebar}
+        nodeStates={canvasExecution.nodeStates}
+        isRunning={debugRunning}
+        onOpenDebug={() => setDebugOpen(true)}
       />
       <div className="relative flex-1 overflow-hidden" onDrop={handleDrop} onDragOver={handleDragOver}>
-        <ReactFlow
+        <WorkflowExecutionProvider value={canvasExecution.nodeStates}>
+          <ReactFlow
           nodes={nodes}
           edges={displayEdges}
           nodeTypes={nodeTypes}
@@ -550,7 +424,7 @@ function WorkflowCanvasInner({
           onNodeDragStart={saveSnapshot}
           fitView={!initialViewport}
           defaultViewport={initialViewport}
-          fitViewOptions={{ padding: 0.25, maxZoom: 0.9 }}
+          fitViewOptions={WORKFLOW_FIT_VIEW_OPTIONS}
           minZoom={0.25}
           maxZoom={1.6}
           snapToGrid
@@ -558,7 +432,7 @@ function WorkflowCanvasInner({
           deleteKeyCode={['Delete', 'Backspace']}
           multiSelectionKeyCode="Shift"
           selectionKeyCode={null}
-          isValidConnection={createConnectionValidator(edges)}
+          isValidConnection={createConnectionValidator(nodes, edges)}
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{
             animated: edgeLineMode === 'animated',
@@ -566,23 +440,27 @@ function WorkflowCanvasInner({
           }}
           connectionLineStyle={edgeStyle}
           colorMode={isDark ? 'dark' : 'light'}
+          nodesDraggable={!debugRunning}
+          nodesConnectable={!debugRunning}
+          elementsSelectable={!debugRunning}
           className="workflow-canvas bg-background"
-        >
-          <Background variant={BackgroundVariant.Dots} gap={18} size={1} className="text-border" />
-          <Controls />
-          {showMiniMap && (
-            <MiniMap
-              pannable
-              zoomable
-              maskColor="var(--color-bg-muted)"
-              bgColor="var(--color-bg-card)"
-              className="!border !border-border !bg-card !shadow-sm"
-              nodeClassName={(node) =>
-                cn(node.id === selectedNodeId ? '!fill-primary' : '!fill-muted-foreground')
-              }
-            />
-          )}
-        </ReactFlow>
+          >
+            <Background variant={BackgroundVariant.Dots} gap={18} size={1} className="text-border" />
+            <Controls />
+            {showMiniMap && (
+              <MiniMap
+                pannable
+                zoomable
+                maskColor="var(--color-bg-muted)"
+                bgColor="var(--color-bg-card)"
+                className="!border !border-border !bg-card !shadow-sm"
+                nodeClassName={(node) =>
+                  cn(node.id === selectedNodeId ? '!fill-primary' : '!fill-muted-foreground')
+                }
+              />
+            )}
+          </ReactFlow>
+        </WorkflowExecutionProvider>
         <Button
           type="button"
           variant={showMiniMap ? 'secondary' : 'outline'}
@@ -593,7 +471,28 @@ function WorkflowCanvasInner({
         >
           <Map size={14} />
         </Button>
-        {selectedNodeId && <NodeConfigPanel />}
+        {selectedNodeId && !debugOpen && <NodeConfigPanel />}
+        {agentId && (
+          <WorkflowDebugDrawer
+            open={debugOpen}
+            onClose={() => setDebugOpen(false)}
+            agentId={agentId}
+            agentName={agentName}
+            context={debugContext}
+            onExecutionReset={canvasExecution.reset}
+            onExecutionStart={() => {
+              const startNode = nodes.find((node) => node.data.nodeType === 'start');
+              if (startNode) canvasExecution.startExecution(startNode.id);
+            }}
+            onExecutionFinish={(outcome, message) =>
+              canvasExecution.finishExecution(nodes.map((node) => node.id), outcome, message)
+            }
+            onNodeExecutionEvent={(eventName, payload) =>
+              canvasExecution.applyNodeEvent(eventName, payload, edges)
+            }
+            onRunningChange={setDebugRunning}
+          />
+        )}
       </div>
     </div>
   );

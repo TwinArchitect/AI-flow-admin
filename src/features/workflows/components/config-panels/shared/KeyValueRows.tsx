@@ -1,20 +1,27 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { HttpKeyValue } from '../../../types';
+import type { HttpParamRow, WorkflowVariableOption } from '../../../types';
+import { VariablePicker } from './VariablePicker';
 
 export function KeyValueRows({
   rows,
   keyPlaceholder,
   valuePlaceholder,
+  variables = [],
   onChange,
 }: {
-  rows: HttpKeyValue[];
+  rows: HttpParamRow[];
   keyPlaceholder: string;
   valuePlaceholder: string;
-  onChange: (rows: HttpKeyValue[]) => void;
+  variables?: WorkflowVariableOption[];
+  onChange: (rows: HttpParamRow[]) => void;
 }) {
-  function updateRow(index: number, patch: Partial<HttpKeyValue>) {
+  function createRow(value = ''): HttpParamRow {
+    return { id: `http-row-${Date.now()}`, key: '', type: 'string', value };
+  }
+
+  function updateRow(index: number, patch: Partial<HttpParamRow>) {
     onChange(rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
   }
 
@@ -27,7 +34,7 @@ export function KeyValueRows({
           </div>
         ) : (
           rows.map((row, index) => (
-            <div key={`${index}-${row.key}`} className="grid grid-cols-[1fr_1fr_28px] gap-2">
+            <div key={row.id} className="grid grid-cols-[1fr_1fr_28px] gap-2">
               <Input
                 value={row.key}
                 onChange={(event) => updateRow(index, { key: event.target.value })}
@@ -58,11 +65,15 @@ export function KeyValueRows({
         variant="outline"
         size="sm"
         className="w-full text-xs"
-        onClick={() => onChange([...rows, { key: '', value: '' }])}
+        onClick={() => onChange([...rows, createRow()])}
       >
         <Plus size={13} />
         添加一行
       </Button>
+      <VariablePicker
+        variables={variables}
+        onSelect={(ref) => onChange([...rows, createRow(ref)])}
+      />
     </div>
   );
 }

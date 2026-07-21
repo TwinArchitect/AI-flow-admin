@@ -1,13 +1,14 @@
-import { LLM_NODE_OUTPUTS } from '../contracts/llmNodeContract';
-import { START_NODE_OUTPUTS } from '../contracts/startNodeContract';
+import { getNodeModule } from '../nodes/registry';
 import type {
-  StartNodeConfig,
   WorkflowCanvasEdge,
   WorkflowCanvasNode,
-  WorkflowOutputSchema,
   WorkflowVariableOption,
 } from '../types';
 import { buildVariableRef } from './variableRefs';
+import {
+  normalizeStartConfig,
+  VARIABLE_NODE_ID,
+} from '../contracts/startNodeContract';
 
 function getUpstreamNodes(
   nodeId: string,
@@ -39,23 +40,8 @@ function getUpstreamNodes(
   return ordered;
 }
 
-function getStartOutputs(node: WorkflowCanvasNode): WorkflowOutputSchema[] {
-  const config = node.data.config as Partial<StartNodeConfig>;
-  const variables = config.variables?.filter((variable) => variable.key.trim()) ?? [];
-
-  if (variables.length === 0) return START_NODE_OUTPUTS;
-
-  return variables.map((variable) => ({
-    key: variable.key.trim(),
-    label: variable.label?.trim() || variable.description?.trim() || variable.key.trim(),
-    valueType: variable.valueType,
-  }));
-}
-
-export function resolveNodeOutputs(node: WorkflowCanvasNode): WorkflowOutputSchema[] {
-  if (node.data.nodeType === 'start') return getStartOutputs(node);
-  if (node.data.nodeType === 'llm') return LLM_NODE_OUTPUTS;
-  return [];
+export function resolveNodeOutputs(node: WorkflowCanvasNode) {
+  return getNodeModule(node.data.nodeType).getOutputs(node);
 }
 
 export function getAvailableVariablesForNode(
@@ -64,6 +50,27 @@ export function getAvailableVariablesForNode(
   edges: WorkflowCanvasEdge[],
 ): WorkflowVariableOption[] {
   const options = new Map<string, WorkflowVariableOption>();
+
+  const startNode = nodes.find((node) => node.data.nodeType === 'start');
+  if (startNode) {
+    normalizeStartConfig(startNode.data.config).variables
+      .filter((variable) => variable.key.trim())
+      .forEach((variable) => {
+        const outputKey = variable.key.trim();
+        const ref = buildVariableRef(VARIABLE_NODE_ID, outputKey);
+        options.set(ref, {
+          ref,
+          nodeId: VARIABLE_NODE_ID,
+          nodeLabel: '全局变量',
+          nodeType: 'global',
+          outputKey,
+          outputLabel: variable.key === 'files'
+            ? '用户附件'
+            : variable.description?.trim() || variable.label.trim() || outputKey,
+          valueType: variable.valueType,
+        });
+      });
+  }
 
   getUpstreamNodes(nodeId, nodes, edges).forEach((node) => {
     resolveNodeOutputs(node).forEach((output) => {

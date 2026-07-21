@@ -7,13 +7,7 @@ import type {
 import { createCanvasNode, DEFAULT_MODULE_VERSION } from './shared';
 
 export const DEFAULT_END_CONFIG: EndNodeConfig = {
-  outputVariables: [
-    {
-      id: 'end-var-answer',
-      key: 'answer',
-      value: '{{llm-demo.answerText}}',
-    },
-  ],
+  outputVariables: [],
 };
 
 export function normalizeEndConfig(config: unknown): EndNodeConfig {
@@ -21,7 +15,7 @@ export function normalizeEndConfig(config: unknown): EndNodeConfig {
   return {
     ...DEFAULT_END_CONFIG,
     ...raw,
-    outputVariables: raw.outputVariables?.length
+    outputVariables: Array.isArray(raw.outputVariables)
       ? raw.outputVariables
       : DEFAULT_END_CONFIG.outputVariables,
   };
@@ -75,7 +69,7 @@ export function parseEndModule(module: WorkflowModule) {
     }));
   return createCanvasNode('end', module, {
     ...DEFAULT_END_CONFIG,
-    outputVariables: outputVariables.length ? outputVariables : DEFAULT_END_CONFIG.outputVariables,
+    outputVariables,
   });
 }
 
@@ -83,7 +77,6 @@ export function validateEndNode(node: WorkflowCanvasNode) {
   const variables = normalizeEndConfig(node.data.config).outputVariables;
   const keys = variables.map((variable) => variable.key.trim()).filter(Boolean);
   const errors: string[] = [];
-  if (keys.length === 0) errors.push('结束节点至少需要一个输出字段');
   if (new Set(keys).size !== keys.length) errors.push('结束节点输出字段名不能重复');
   variables.forEach((variable) => {
     if (variable.key.trim() && !variable.value.trim()) {

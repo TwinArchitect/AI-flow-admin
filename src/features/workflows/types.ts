@@ -17,18 +17,11 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   nodeType: WorkflowNodeType;
   description: string;
   config: WorkflowNodeConfig;
-  runStatus?: WorkflowNodeRunStatus;
-  runMessage?: string;
-  runStartedAt?: number;
-  runDurationMs?: number;
-  runInputs?: Record<string, unknown>;
-  runOutputs?: Record<string, unknown>;
 }
 
 export type WorkflowCanvasNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowCanvasEdge = Edge;
 export type EdgeLineMode = 'solid' | 'animated';
-export type WorkflowNodeRunStatus = 'idle' | 'running' | 'success' | 'error' | 'skipped';
 
 export interface WorkflowNodeDef {
   type: WorkflowNodeType;
@@ -44,7 +37,23 @@ export interface WorkflowNodeCategory {
   items: WorkflowNodeDef[];
 }
 
-export type WorkflowValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'file';
+export type WorkflowValueType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'object'
+  | 'array'
+  | 'arrayString'
+  | 'arrayNumber'
+  | 'arrayBoolean'
+  | 'arrayObject'
+  | 'arrayAny'
+  | 'file'
+  | 'any'
+  | 'datasetQuote'
+  | 'dynamic'
+  | 'selectDataset'
+  | 'selectApp';
 
 export interface WorkflowOutputSchema {
   key: string;
@@ -56,7 +65,7 @@ export interface WorkflowVariableOption {
   ref: string;
   nodeId: string;
   nodeLabel: string;
-  nodeType: WorkflowNodeType;
+  nodeType: WorkflowNodeType | 'global';
   outputKey: string;
   outputLabel: string;
   valueType: WorkflowOutputSchema['valueType'];
@@ -64,7 +73,6 @@ export interface WorkflowVariableOption {
 
 export interface StartNodeConfig {
   variables: StartVariable[];
-  sampleInput: string;
 }
 
 export interface StartVariable {
@@ -75,6 +83,8 @@ export interface StartVariable {
   required?: boolean;
   description?: string;
   defaultValue?: string;
+  maxLength?: number;
+  system?: boolean;
 }
 
 export interface LlmModelValue {
@@ -89,6 +99,13 @@ export interface LlmAdvancedConfig {
   temperature: number;
   maxToken: number;
   isResponseAnswerText: boolean;
+  aiChatQuoteRole: string;
+  quoteTemplate: string;
+  quotePrompt: string;
+  aiChatVision: boolean;
+  aiChatAudio: boolean;
+  aiChatVideo: boolean;
+  aiChatExtractFiles: boolean;
   aiChatReasoning: boolean;
   aiChatTopP?: number;
 }
@@ -99,6 +116,9 @@ export interface LlmNodeConfig {
   userChatInput: string;
   history: number;
   memoryEnabled: boolean;
+  multimodalEnabled: boolean;
+  fileUrlRefs: string[];
+  catchError: boolean;
   advanced: LlmAdvancedConfig;
 }
 
@@ -112,20 +132,43 @@ export interface EndOutputVariable {
   value: string;
 }
 
-export interface HttpKeyValue {
+export interface HttpParamRow {
+  id: string;
   key: string;
+  type: string;
   value: string;
+  required?: boolean;
+}
+
+export interface HttpInputVariable {
+  id: string;
+  key: string;
+  label: string;
+  value: string;
+  required: boolean;
+  valueType: WorkflowOutputSchema['valueType'];
+}
+
+export interface HttpOutputExtract {
+  id: string;
+  key: string;
+  jsonPath: string;
+  valueType: WorkflowOutputSchema['valueType'];
 }
 
 export interface HttpNodeConfig {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   url: string;
   timeout: number;
-  params: HttpKeyValue[];
-  headers: HttpKeyValue[];
-  body: string;
-  captureError: boolean;
-  outputField: string;
+  headerSecret: Record<string, unknown> | null;
+  params: HttpParamRow[];
+  headers: HttpParamRow[];
+  contentType: 'json' | 'form' | 'none';
+  jsonBody: string;
+  formBody: HttpParamRow[];
+  inputVariables: HttpInputVariable[];
+  outputExtracts: HttpOutputExtract[];
+  catchError: boolean;
 }
 
 export type WorkflowNodeConfig =
@@ -135,7 +178,7 @@ export type WorkflowNodeConfig =
   | HttpNodeConfig
   | Record<string, unknown>;
 
-export type BackendFlowNodeType = 'workflowStart' | 'chatNode' | 'workflowEnd';
+export type BackendFlowNodeType = 'workflowStart' | 'chatNode' | 'workflowEnd' | 'httpRequest468';
 
 export interface WorkflowModuleInput {
   key: string;
@@ -151,6 +194,10 @@ export interface WorkflowModuleInput {
   max?: number;
   min?: number;
   description?: string;
+  placeholder?: string;
+  customInputConfig?: Record<string, unknown>;
+  deprecated?: boolean;
+  canEdit?: boolean;
 }
 
 export interface WorkflowModuleOutput {
@@ -162,6 +209,8 @@ export interface WorkflowModuleOutput {
   description?: string;
   valueDesc?: string;
   required?: boolean;
+  customFieldConfig?: Record<string, unknown>;
+  invalid?: boolean;
 }
 
 export interface WorkflowModule {
@@ -186,6 +235,7 @@ export interface WorkflowChatConfigVariable {
   required: boolean;
   description?: string;
   defaultValue?: string;
+  maxLength?: number;
 }
 
 export interface WorkflowBackendPayload {

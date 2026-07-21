@@ -1,9 +1,10 @@
+import { Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { DEFAULT_END_CONFIG } from '../../config/nodeDefaults';
+import { normalizeEndConfig } from '../../contracts/endNodeContract';
 import type { EndNodeConfig, WorkflowVariableOption } from '../../types';
-import { Field } from './shared/Field';
 import { VariablePicker } from './shared/VariablePicker';
 
 export function EndConfigPanel({
@@ -15,78 +16,80 @@ export function EndConfigPanel({
   variables: WorkflowVariableOption[];
   onUpdate: (config: Partial<EndNodeConfig>) => void;
 }) {
-  const value = {
-    ...DEFAULT_END_CONFIG,
-    ...(config as Partial<EndNodeConfig>),
-    outputVariables:
-      (config as Partial<EndNodeConfig>).outputVariables ?? DEFAULT_END_CONFIG.outputVariables,
-  };
-  const primaryOutput = value.outputVariables[0] ?? DEFAULT_END_CONFIG.outputVariables[0];
+  const value = normalizeEndConfig(config);
+
+  function updateOutputs(outputVariables: EndNodeConfig['outputVariables']) {
+    onUpdate({ outputVariables });
+  }
+
+  function addOutput() {
+    updateOutputs([
+      ...value.outputVariables,
+      { id: `end-var-${Date.now()}`, key: '', value: '' },
+    ]);
+  }
 
   return (
     <div className="space-y-5">
-      <p className="rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-        结束节点负责组织最终响应。本周先使用模板引用 LLM 输出，后续可扩展多字段输出和结构化响应。
-      </p>
-
-      <div className="rounded-md border border-border bg-background px-3 py-2">
-        <div className="text-xs font-medium text-foreground">当前输出变量</div>
-        <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-          {primaryOutput.key || 'answer'} = {primaryOutput.value || '{{llm-demo.answerText}}'}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xs font-semibold text-foreground">输出变量</h3>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">将上游节点的结果组织为工作流最终输出。</p>
         </div>
+        <Button variant="outline" size="sm" onClick={addOutput}><Plus size={13} />添加输出</Button>
       </div>
 
-      <Field
-        label={
-          <div className="flex items-center justify-between gap-2">
-            <span>输出引用</span>
-            <VariablePicker
-              variables={variables}
-              onSelect={(ref) =>
-                onUpdate({
-                  outputVariables: value.outputVariables.map((variable, index) =>
-                    index === 0 ? { ...variable, value: ref } : variable,
-                  ),
-                })
-              }
-            />
+      {value.outputVariables.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">暂无输出变量</div>
+      ) : (
+        <div className="space-y-3">
+          {value.outputVariables.map((output, index) => (
+            <div key={output.id} className="space-y-2 rounded-md border border-border bg-background p-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={output.key}
+                  onChange={(event) => updateOutputs(value.outputVariables.map((item) =>
+                    item.id === output.id ? { ...item, key: event.target.value } : item,
+                  ))}
+                  placeholder="输出变量名"
+                  className="h-8 flex-1"
+                />
+                <VariablePicker
+                  variables={variables}
+                  onSelect={(ref) => updateOutputs(value.outputVariables.map((item) =>
+                    item.id === output.id ? { ...item, value: ref } : item,
+                  ))}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => updateOutputs(value.outputVariables.filter((item) => item.id !== output.id))}
+                  aria-label={`删除输出变量${index + 1}`}
+                ><Trash2 size={13} /></Button>
+              </div>
+              <Textarea
+                value={output.value}
+                onChange={(event) => updateOutputs(value.outputVariables.map((item) =>
+                  item.id === output.id ? { ...item, value: event.target.value } : item,
+                ))}
+                placeholder="输入固定值或插入上游变量"
+                className="min-h-20 font-mono text-xs"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {value.outputVariables.length > 0 && (
+        <div className="border-t border-border pt-4">
+          <div className="mb-2 text-xs font-semibold text-foreground">最终输出</div>
+          <div className="flex flex-wrap gap-2">
+            {value.outputVariables.filter((output) => output.key.trim()).map((output) => (
+              <Badge key={output.id} variant="outline" className="font-mono text-[10px]">{output.key}: string</Badge>
+            ))}
           </div>
-        }
-      >
-        <Textarea
-          value={primaryOutput.value}
-          onChange={(event) =>
-            onUpdate({
-              outputVariables: value.outputVariables.map((variable, index) =>
-                index === 0 ? { ...variable, value: event.target.value } : variable,
-              ),
-            })
-          }
-          placeholder="{{llm-demo.answerText}}"
-          className="min-h-28 font-mono text-xs"
-        />
-      </Field>
-
-      <Field label="最终输出字段">
-        <Input
-          value={primaryOutput.key}
-          onChange={(event) =>
-            onUpdate({
-              outputVariables: value.outputVariables.map((variable, index) =>
-                index === 0 ? { ...variable, key: event.target.value } : variable,
-              ),
-            })
-          }
-          placeholder="answer"
-        />
-      </Field>
-
-      <div className="border-t border-border pt-4">
-        <div className="mb-2 text-xs font-semibold text-foreground">输出</div>
-        <Badge variant="outline" className="font-mono text-[10px]">
-          {primaryOutput.key || 'answer'}: string
-        </Badge>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,11 +5,9 @@ import type {
   EdgeLineMode,
   WorkflowCanvasEdge,
   WorkflowCanvasNode,
-  WorkflowNodeRunStatus,
   WorkflowNodeType,
 } from '../types';
-import { NODE_DEF_MAP } from '../config/nodeDefs';
-import { DEFAULT_LLM_CONFIG, getDefaultNodeConfig } from '../config/nodeDefaults';
+import { getNodeModule } from '../nodes/registry';
 
 interface Snapshot {
   nodes: WorkflowCanvasNode[];
@@ -25,44 +23,23 @@ const initialNodes: WorkflowCanvasNode[] = [
       label: '开始',
       nodeType: 'start',
       description: '接收用户输入并启动流程',
-      config: getDefaultNodeConfig('start'),
-    },
-  },
-  {
-    id: 'llm-demo',
-    type: 'llm',
-    position: { x: 380, y: 160 },
-    data: {
-      label: '意图理解',
-      nodeType: 'llm',
-      description: '识别用户问题并生成结构化意图',
-      config: {
-        ...DEFAULT_LLM_CONFIG,
-        advanced: {
-          ...DEFAULT_LLM_CONFIG.advanced,
-          temperature: 0.4,
-        },
-        systemPrompt: '你是一个严谨的业务助手，请识别用户意图并输出简洁结论。',
-      },
+      config: getNodeModule('start').createDefaultConfig(),
     },
   },
   {
     id: 'end',
     type: 'end',
-    position: { x: 700, y: 180 },
+    position: { x: 420, y: 180 },
     data: {
       label: '结束',
       nodeType: 'end',
       description: '返回最终响应',
-      config: getDefaultNodeConfig('end'),
+      config: getNodeModule('end').createDefaultConfig(),
     },
   },
 ];
 
-const initialEdges: WorkflowCanvasEdge[] = [
-  { id: 'start-llm-demo', source: 'start', target: 'llm-demo', animated: true },
-  { id: 'llm-demo-end', source: 'llm-demo', target: 'end' },
-];
+const initialEdges: WorkflowCanvasEdge[] = [];
 
 const MAX_HISTORY = 50;
 
@@ -80,13 +57,7 @@ interface WorkflowCanvasState {
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
   updateNodeLabel: (nodeId: string, label: string) => void;
   deleteNode: (nodeId: string) => void;
-  resetRunState: () => void;
-  setNodeRunState: (nodeId: string, status: WorkflowNodeRunStatus, message?: string) => void;
-  setNodeRunDetails: (
-    nodeId: string,
-    details: Pick<WorkflowCanvasNode['data'], 'runDurationMs' | 'runInputs' | 'runOutputs'>,
-  ) => void;
-  markUnfinishedNodesSkipped: (message?: string) => void;
+  removeEdgesBySourceHandle: (handleId: string) => void;
   setEdgeLineMode: (mode: EdgeLineMode) => void;
   setSelectedNodeId: (id: string | null) => void;
   saveSnapshot: () => void;
@@ -123,9 +94,7 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
   }),
 
   resetToNewWorkflow: () => set({
-    nodes: initialNodes.filter(
-      (node) => node.data.nodeType === 'start' || node.data.nodeType === 'end',
-    ),
+    nodes: initialNodes,
     edges: [],
     selectedNodeId: null,
     past: [],
@@ -175,7 +144,8 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
 
   addNode: (type, position) => {
     const { nodes, edges, past } = get();
-    const def = NODE_DEF_MAP[type];
+    const module = getNodeModule(type);
+    const def = module.definition;
     const node: WorkflowCanvasNode = {
       id: `${type}-${Date.now()}`,
       type,
@@ -184,7 +154,7 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
         label: def.name,
         nodeType: type,
         description: def.description,
-        config: getDefaultNodeConfig(type),
+        config: module.createDefaultConfig(),
       },
     };
 
@@ -231,75 +201,14 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
     });
   },
 
-  resetRunState: () => {
-    const { nodes } = get();
+  removeEdgesBySourceHandle: (handleId) => {
+    const { nodes, edges, past } = get();
+    const nextEdges = edges.filter((edge) => edge.sourceHandle !== handleId);
+    if (nextEdges.length === edges.length) return;
     set({
-      nodes: nodes.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          runStatus: 'idle',
-          runMessage: undefined,
-          runStartedAt: undefined,
-          runDurationMs: undefined,
-          runInputs: undefined,
-          runOutputs: undefined,
-        },
-      })),
-    });
-  },
-
-  setNodeRunState: (nodeId, runStatus, runMessage) => {
-    const { nodes } = get();
-    const now = Date.now();
-    set({
-      nodes: nodes.map((node) =>
-        node.id === nodeId
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                runStatus,
-                runMessage,
-                runStartedAt: runStatus === 'running' ? now : node.data.runStartedAt,
-                runDurationMs:
-                  runStatus !== 'running' && node.data.runStartedAt
-                    ? now - node.data.runStartedAt
-                    : node.data.runDurationMs,
-              },
-            }
-          : node,
-      ),
-    });
-  },
-
-  setNodeRunDetails: (nodeId, details) => {
-    const { nodes } = get();
-    set({
-      nodes: nodes.map((node) =>
-        node.id === nodeId
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                runDurationMs: details.runDurationMs ?? node.data.runDurationMs,
-                runInputs: details.runInputs ?? node.data.runInputs,
-                runOutputs: details.runOutputs ?? node.data.runOutputs,
-              },
-            }
-          : node,
-      ),
-    });
-  },
-
-  markUnfinishedNodesSkipped: (message = '上游执行失败，未执行') => {
-    const { nodes } = get();
-    set({
-      nodes: nodes.map((node) =>
-        node.data.runStatus === 'idle' || node.data.runStatus === 'running'
-          ? { ...node, data: { ...node.data, runStatus: 'skipped', runMessage: message } }
-          : node,
-      ),
+      edges: nextEdges,
+      past: pushSnapshot(past, nodes, edges),
+      future: [],
     });
   },
 

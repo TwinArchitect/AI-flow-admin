@@ -1,9 +1,9 @@
+import { useAuthStore } from '@/stores/auth';
 import type {
-  WorkflowBackendPayload,
-  WorkflowCanvasEdge,
-  WorkflowCanvasNode,
-} from '../types';
-import type { WorkflowRunEvent, WorkflowRunResult } from '../utils/workflowExecution';
+  WorkflowFinishedSsePayload,
+  WorkflowNodeSsePayload,
+  WorkflowRunResult,
+} from '../types/execution';
 
 export interface WorkflowRunRequest {
   appId: string;
@@ -11,35 +11,42 @@ export interface WorkflowRunRequest {
   chatGroupId?: string;
   message: Array<{ role: string; content: string }>;
   variables?: Record<string, unknown>;
+  files?: Array<{
+    type: 'image' | 'document' | 'video';
+    fileId: string;
+    content: null;
+  }>;
   debug?: boolean;
 }
 
 export interface RunWorkflowStreamRequest {
   request: WorkflowRunRequest;
-  nodes: WorkflowCanvasNode[];
-  edges: WorkflowCanvasEdge[];
-  payload: WorkflowBackendPayload;
-  onNodeEvent: (event: WorkflowRunEvent) => void;
+  onNodeEvent: (eventName: string, payload: WorkflowNodeSsePayload) => void;
+  onWorkflowFinished?: (payload: WorkflowFinishedSsePayload) => void;
+  onMessageDelta?: (text: string) => void;
+  onReasoningDelta?: (text: string) => void;
   signal?: AbortSignal;
 }
 
 export async function runWorkflowStream({
   request,
   onNodeEvent,
+  onWorkflowFinished,
+  onMessageDelta,
+  onReasoningDelta,
   signal,
 }: RunWorkflowStreamRequest): Promise<WorkflowRunResult> {
-  const raw = localStorage.getItem('auth-storage');
-  const state = raw ? JSON.parse(raw).state : {};
+  const { token, tenantId, clear } = useAuthStore.getState();
   const headers = new Headers({
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
   });
 
-  if (state?.token) {
-    headers.set('token', state.token);
-    headers.set('Authorization', `Bearer ${state.token}`);
+  if (token) {
+    headers.set('token', token);
+    headers.set('Authorization', `Bearer ${token}`);
   }
-  if (state?.tenantId) headers.set('tenant_id', state.tenantId);
+  if (tenantId) headers.set('tenant_id', tenantId);
 
   const response = await fetch('/gpt/base/workflows/run', {
     method: 'POST',
@@ -49,6 +56,7 @@ export async function runWorkflowStream({
   });
 
   if (!response.ok) {
+    if (response.status === 401) clear();
     const message = await response.text().catch(() => '');
     throw new Error(message || `HTTP ${response.status}`);
   }
@@ -60,7 +68,9 @@ export async function runWorkflowStream({
   const nodeOutputs: Record<string, Record<string, unknown>> = {};
   let buffer = '';
   let answerText = '';
-  let executionError = '';
+  let reasoningText = '';
+  let fatalNodeError = '';
+  let finishedPayload: WorkflowFinishedSsePayload | undefined;
 
   function handleEvent(eventName: string, data: string) {
     if (!data || data === '[DONE]') return;
@@ -68,45 +78,51 @@ export async function runWorkflowStream({
     if (eventName === 'message') {
       try {
         const message = JSON.parse(data) as {
-          choices?: Array<{ delta?: { content?: string } }>;
+          choices?: Array<{ delta?: { content?: string; reasoning_content?: string } }>;
         };
-        answerText += message.choices?.[0]?.delta?.content ?? '';
+        const delta = message.choices?.[0]?.delta?.content ?? '';
+        const reasoningDelta = message.choices?.[0]?.delta?.reasoning_content ?? '';
+        answerText += delta;
+        reasoningText += reasoningDelta;
+        if (delta) onMessageDelta?.(delta);
+        if (reasoningDelta) onReasoningDelta?.(reasoningDelta);
       } catch {
-        answerText += data;
+        // 非 JSON message 不属于当前后端契约，忽略而不猜测其含义。
       }
       return;
     }
 
     try {
-      const payload = JSON.parse(data) as {
-        nodeId?: string;
-        status?: WorkflowRunEvent['status'];
-        statusCode?: number;
-        message?: string;
-        log?: string;
-        ts?: number;
-        inputs?: Record<string, unknown>;
-        outputs?: Record<string, unknown>;
-      };
-      if (payload.nodeId) {
-        const status = payload.status
-          ?? (payload.statusCode && payload.statusCode >= 400 ? 'error' : 'success');
-        const eventMessage = payload.message ?? payload.log ?? eventName;
-        if (status === 'error' || eventName.toLowerCase().includes('error')) {
-          executionError = eventMessage;
+      const payload = JSON.parse(data) as unknown;
+      if (eventName === 'workflow_finished') {
+        const finished = payload as WorkflowFinishedSsePayload;
+        if (finished?.event === 'workflow_finished' && finished.data?.status) {
+          finishedPayload = finished;
+          onWorkflowFinished?.(finished);
         }
-        onNodeEvent({
-          nodeId: payload.nodeId,
-          status,
-          message: eventMessage,
-          durationMs: payload.ts,
-          inputs: payload.inputs,
-          outputs: payload.outputs,
-        });
-        nodeOutputs[payload.nodeId] = payload.outputs ?? payload;
+        return;
+      }
+      if (!payload || typeof payload !== 'object') return;
+      const nodePayload = payload as Partial<WorkflowNodeSsePayload>;
+      if (
+        typeof nodePayload.nodeId !== 'string'
+        || typeof nodePayload.flowNodeType !== 'string'
+        || typeof nodePayload.statusCode !== 'number'
+      ) {
+        return;
+      }
+      const strictPayload = nodePayload as WorkflowNodeSsePayload;
+      onNodeEvent(eventName, strictPayload);
+      const outputs = strictPayload.outputs
+        ?? (strictPayload.flowNodeResponse && typeof strictPayload.flowNodeResponse === 'object'
+          ? strictPayload.flowNodeResponse as Record<string, unknown>
+          : undefined);
+      if (outputs) nodeOutputs[strictPayload.nodeId] = outputs;
+      if (strictPayload.statusCode === 503) {
+        fatalNodeError = strictPayload.log || `${strictPayload.flowNodeType} 执行失败`;
       }
     } catch {
-      // ignore non-json debug events
+      // 无法解析的事件不参与运行状态判断。
     }
   }
 
@@ -138,12 +154,21 @@ export async function runWorkflowStream({
     flushEvents(true);
   }
 
-  if (executionError) {
-    throw new Error(executionError);
+  if (fatalNodeError) {
+    throw new Error(fatalNodeError);
+  }
+  if (!finishedPayload) {
+    throw new Error('工作流连接已结束，但未收到 workflow_finished 终态事件');
+  }
+  if (finishedPayload.data.status !== 'succeeded') {
+    throw new Error(finishedPayload.data.error || '工作流执行失败');
   }
 
   return {
-    outputs: { answer: answerText },
+    outputs: finishedPayload.data.outputs ?? {},
     nodeOutputs,
+    answerText,
+    reasoningText,
+    workflowRunId: finishedPayload.workflow_run_id ?? finishedPayload.data.id,
   };
 }
