@@ -19,8 +19,11 @@ build/
 
 # 编辑器
 .vscode/
+.claude/
+docs/
 .history
 .idea/
+.husky/
 *.suo
 *.ntvs*
 *.njsproj
