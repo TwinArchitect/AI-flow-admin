@@ -26,6 +26,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 // ====== 智能体配置类型 ======
@@ -506,21 +512,29 @@ export function AgentChatPage() {
             </div>
 
             {/* System Prompt 悬浮提示 */}
-            <div className="relative group max-w-sm hidden md:block">
-              <div className="flex items-center gap-1.5 text-xs text-primary font-bold bg-primary/10 px-2.5 py-1 rounded-lg cursor-help">
-                <Settings size={13} />
-                <span>查看 System Prompt 规则</span>
-              </div>
-              <div className="absolute right-0 bottom-8 w-80 p-4 bg-slate-900 border border-slate-700 text-slate-100 rounded-xl shadow-2xl opacity-0 scale-95 origin-bottom-right group-hover:opacity-100 group-hover:scale-100 transition-all z-40 pointer-events-none space-y-2">
-                <div className="flex items-center gap-1.5 font-mono text-[10.5px] text-indigo-300 font-bold">
-                  <Terminal size={12} />
-                  <span>SYSTEM REGISTRATION PROMPT</span>
-                </div>
-                <p className="text-[11px] leading-relaxed select-text text-slate-300">
-                  "{activeAgent.systemPrompt}"
-                </p>
-              </div>
-            </div>
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5 text-xs text-primary font-bold bg-primary/10 px-2.5 py-1 rounded-lg cursor-help hidden md:flex">
+                    <Settings size={13} />
+                    <span>查看 System Prompt 规则</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  align="end"
+                  className="w-80 p-4 bg-slate-900 border-slate-700 text-slate-100 shadow-2xl space-y-2"
+                >
+                  <div className="flex items-center gap-1.5 font-mono text-[10.5px] text-indigo-300 font-bold">
+                    <Terminal size={12} />
+                    <span>SYSTEM REGISTRATION PROMPT</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed select-text text-slate-300">
+                    "{activeAgent.systemPrompt}"
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* 对话区域 */}

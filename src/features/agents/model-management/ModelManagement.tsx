@@ -781,7 +781,7 @@ export default function ModelManagement() {
 
         {/* ====== 删除确认弹窗 ====== */}
         <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-          <DialogContent className="sm:max-w-sm">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>确认删除</DialogTitle>
               <DialogDescription>
