@@ -3,6 +3,7 @@ import { Database, FileDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -39,9 +40,9 @@ export function AddFileModal({ open, onClose, onConfirm }: AddFileModalProps) {
             <p className="text-2xs text-muted-foreground">支持 PDF, DOCX, XLSX 最大 150MB</p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+            <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
               拟定索引文件名
-            </label>
+            </Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -51,9 +52,9 @@ export function AddFileModal({ open, onClose, onConfirm }: AddFileModalProps) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
                 解析器
-              </label>
+              </Label>
               <Select value={parser} onValueChange={setParser}>
                 <SelectTrigger className="w-full h-10 text-xs font-bold">
                   <SelectValue />
@@ -65,9 +66,9 @@ export function AddFileModal({ open, onClose, onConfirm }: AddFileModalProps) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
                 元数据标签(个)
-              </label>
+              </Label>
               <Input
                 type="number"
                 min={0}

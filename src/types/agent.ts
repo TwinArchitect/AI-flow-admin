@@ -34,6 +34,33 @@ export interface AgentOpenSysAgent {
 export interface AgentLabel {
   id: string;
   name: string;
+  status?: number;
+  category?: string;
+  description?: string;
+  sort?: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export type AgentLabelCategory = 'mine' | 'system' | 'business';
+
+export const AGENT_LABEL_CATEGORY_OPTIONS: { value: AgentLabelCategory; label: string }[] = [
+  { value: 'mine', label: '我的标签' },
+  { value: 'system', label: '系统标签' },
+  { value: 'business', label: '业务标签' },
+];
+
+export function agentLabelCategoryLabel(category?: string) {
+  return AGENT_LABEL_CATEGORY_OPTIONS.find((o) => o.value === category)?.label ?? category ?? '未知';
+}
+
+export function agentLabelStatusLabel(status?: number) {
+  return status === 1 ? '已开启' : '已关闭';
+}
+
+export function formatAgentLabelTime(time?: string) {
+  if (!time) return '-';
+  return time.replace('T', ' ').slice(0, 16);
 }
 
 export function agentStatusLabel(status?: number) {
