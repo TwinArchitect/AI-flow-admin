@@ -29,6 +29,7 @@ function JsonNode({ name, value, depth, defaultExpanded }: JsonNodeProps) {
 
   if (!isObject) {
     return (
+      // eslint-disable-next-line no-restricted-syntax
       <div className="leading-5" style={{ paddingLeft: depth * 12 }}>
         {name != null && (
           <>
@@ -46,6 +47,7 @@ function JsonNode({ name, value, depth, defaultExpanded }: JsonNodeProps) {
   }
 
   return (
+    // eslint-disable-next-line no-restricted-syntax
     <div style={{ paddingLeft: depth > 0 ? depth * 12 : 0 }}>
       <button
         type="button"

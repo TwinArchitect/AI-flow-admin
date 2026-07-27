@@ -1,4 +1,5 @@
-import { Trash2, X } from 'lucide-react';
+import { useState } from 'react';
+import { Braces, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -6,8 +7,10 @@ import { getNodeModule } from '../nodes/registry';
 import { useWorkflowCanvasStore } from '../store/useWorkflowCanvasStore';
 import { getAvailableVariablesForNode } from '../utils/availableVariables';
 import { Field } from './config-panels/shared/Field';
+import { JsonViewDialog } from './JsonViewDialog';
 
 export function NodeConfigPanel() {
+  const [jsonOpen, setJsonOpen] = useState(false);
   const {
     nodes,
     edges,
@@ -28,10 +31,12 @@ export function NodeConfigPanel() {
   const ConfigPanel = module.ConfigPanel;
   const isProtected = !module.connection.deletable;
   const variables = getAvailableVariablesForNode(node.id, nodes, edges);
+  const nodeJson = module.serialize?.(node) ?? node;
 
   return (
-    <aside className="absolute bottom-0 right-0 top-0 z-20 flex w-[360px] flex-col border-l border-border bg-card shadow-xl">
-      <div className="flex h-14 items-center gap-3 border-b border-border px-4">
+    <>
+      <aside className="flex h-full w-[420px] max-w-[45%] shrink-0 flex-col border-l border-border bg-card">
+        <div className="flex h-14 items-center gap-3 border-b border-border px-4">
         <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-md', def.iconTone)}>
           <Icon size={15} />
         </div>
@@ -39,6 +44,15 @@ export function NodeConfigPanel() {
           <div className="truncate text-sm font-semibold text-foreground">{node.data.label}</div>
           <div className="text-[10px] uppercase text-muted-foreground">{node.data.nodeType}</div>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setJsonOpen(true)}
+          aria-label="查看节点 JSON 配置"
+        >
+          <Braces size={14} />
+        </Button>
         {!isProtected && (
           <Button
             type="button"
@@ -59,9 +73,9 @@ export function NodeConfigPanel() {
         >
           <X size={14} />
         </Button>
-      </div>
+        </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto p-4">
+        <div className="flex-1 space-y-5 overflow-y-auto p-4">
         <Field label="节点 ID">
           <div className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
             {node.id}
@@ -82,7 +96,15 @@ export function NodeConfigPanel() {
           onUpdate={(patch) => updateNodeConfig(node.id, patch)}
           onRemoveSourceHandle={removeEdgesBySourceHandle}
         />
-      </div>
-    </aside>
+        </div>
+      </aside>
+      <JsonViewDialog
+        open={jsonOpen}
+        onOpenChange={setJsonOpen}
+        title="节点 JSON 配置"
+        description={`nodeId: ${node.id} · 后端 Module 协议`}
+        value={nodeJson}
+      />
+    </>
   );
 }

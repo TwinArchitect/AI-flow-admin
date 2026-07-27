@@ -22,11 +22,15 @@ import {
 import { cn } from '@/lib/utils';
 import { getNodeModule } from '../nodes/registry';
 import { useNodeExecution } from '../context/WorkflowExecutionContext';
+import { useWorkflowCanvasStore } from '../store/useWorkflowCanvasStore';
 import { buildErrorCatchHandle, buildSourceHandle, buildTargetHandle } from '../utils/edgeHandles';
 import type { WorkflowCanvasNode } from '../types';
+import { JsonViewDialog } from './JsonViewDialog';
 
 export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNode>) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const [jsonOpen, setJsonOpen] = useState(false);
+  const node = useWorkflowCanvasStore((state) => state.nodes.find((item) => item.id === id));
   const module = getNodeModule(data.nodeType);
   const def = module.definition;
   const Icon = module.icon;
@@ -44,11 +48,13 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
   }[runStatus];
   const StatusIcon = statusMeta.icon;
   const canOpenExecutionDetails = Boolean(execution && execution.status !== 'idle');
+  const nodeJson = node ? module.serialize?.(node) ?? node : { id, data };
 
   return (
     <div
       className={cn(
-        'w-[220px] select-none overflow-hidden rounded-lg border bg-card shadow-sm transition-all',
+        'select-none overflow-hidden rounded-lg border bg-card shadow-sm transition-all',
+        catchError ? 'w-[260px]' : 'w-[220px]',
         selected ? 'border-primary shadow-md ring-2 ring-primary/20' : 'border-border hover:border-border/80',
         runStatus === 'running' && 'border-primary shadow-md ring-2 ring-primary/25',
         runStatus === 'success' && 'border-success/70',
@@ -64,7 +70,17 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
           <div className="truncate text-sm font-semibold text-foreground">{data.label}</div>
           <div className="truncate text-[10px] text-foreground/55">{def.category}</div>
         </div>
-        <Settings size={13} className="text-foreground/55" />
+        <button
+          type="button"
+          className="nodrag rounded p-1 text-foreground/55 hover:bg-muted hover:text-foreground"
+          onClick={(event) => {
+            event.stopPropagation();
+            setJsonOpen(true);
+          }}
+          aria-label={`查看${data.label}节点 JSON 配置`}
+        >
+          <Settings size={13} />
+        </button>
       </div>
 
       <div className="space-y-3 px-3 py-3">
@@ -106,8 +122,15 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
           </div>
         )}
         {catchError && (
-          <div className="border-t border-border pt-2 text-[10px] text-muted-foreground">
-            当异常时
+          <div className="space-y-1.5 border-t border-border pt-2 text-[10px]">
+            <div className="flex items-center justify-between rounded bg-primary/5 px-2 py-1.5">
+              <span className="text-muted-foreground">请求成功时</span>
+              <span className="font-medium text-primary">成功分支</span>
+            </div>
+            <div className="flex items-center justify-between rounded bg-destructive/5 px-2 py-1.5">
+              <span className="text-muted-foreground">请求异常时</span>
+              <span className="font-medium text-destructive">异常分支</span>
+            </div>
           </div>
         )}
       </div>
@@ -126,7 +149,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
           type="source"
           position={Position.Right}
           className="!size-3 !border-2 !border-primary !bg-background"
-          style={catchError ? { top: '68%' } : undefined}
+          style={catchError ? { top: '76%' } : undefined}
         />
       )}
       {module.connection.allowOutgoing && catchError && (
@@ -135,7 +158,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
           type="source"
           position={Position.Right}
           className="!size-3 !border-2 !border-destructive !bg-background"
-          style={{ top: '88%' }}
+          style={{ top: '91%' }}
         />
       )}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
@@ -150,6 +173,13 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
           <ExecutionDetails data={data} execution={execution} />
         </DialogContent>
       </Dialog>
+      <JsonViewDialog
+        open={jsonOpen}
+        onOpenChange={setJsonOpen}
+        title="节点 JSON 配置"
+        description={`nodeId: ${id} · 后端 Module 协议`}
+        value={nodeJson}
+      />
     </div>
   );
 }

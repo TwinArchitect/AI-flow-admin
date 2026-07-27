@@ -11,7 +11,7 @@ import {
 } from '../contracts/llmNodeContract';
 import type { LlmNodeConfig } from '../types';
 import { buildErrorCatchHandle, buildSourceHandle } from '../utils/edgeHandles';
-import type { NodeConfigPanelProps, WorkflowNodeModule } from './types';
+import type { NodeConfigPanelProps, NodeReferenceValue, WorkflowNodeModule } from './types';
 
 function ConfigPanel({ nodeId, config, variables, onUpdate, onRemoveSourceHandle }: NodeConfigPanelProps) {
   return (
@@ -46,7 +46,7 @@ export const llmNodeModule: WorkflowNodeModule = {
   ConfigPanel,
   ExecutionDetails: DefaultNodeExecutionDetails,
   getOutputs: () => LLM_NODE_OUTPUTS,
-  getReferences: (node) => {
+  getReferences: (node): NodeReferenceValue[] => {
     const config = normalizeLlmConfig(node.data.config);
     return [
       {
@@ -59,7 +59,7 @@ export const llmNodeModule: WorkflowNodeModule = {
         context: `节点 ${node.data.label} 的用户输入`,
         acceptedValueTypes: ['string'],
       },
-      ...config.fileUrlRefs.map((value) => ({
+      ...config.fileUrlRefs.map((value): NodeReferenceValue => ({
         value,
         context: `节点 ${node.data.label} 的文件输入`,
         acceptedValueTypes: ['file', 'array', 'arrayString'],

@@ -1,4 +1,4 @@
-import { Code2, Database, GitBranch, Layers, MessageSquare, PlugZap } from 'lucide-react';
+import { Code2, Database, GitBranch, Layers, PlugZap } from 'lucide-react';
 import type { ElementType } from 'react';
 import { PlaceholderConfigPanel } from '../components/config-panels/PlaceholderConfigPanel';
 import { DefaultNodeExecutionDetails } from '../components/node-execution/DefaultNodeExecutionDetails';
@@ -41,14 +41,6 @@ const definitions: Array<[WorkflowNodeDef, ElementType]> = [
     tone: 'bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400',
     iconTone: 'bg-sky-500 text-white',
   }, Database],
-  [{
-    type: 'reply',
-    name: '指定回复',
-    description: '输出固定文本或变量内容',
-    category: '工具',
-    tone: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400',
-    iconTone: 'bg-emerald-500 text-white',
-  }, MessageSquare],
   [{
     type: 'plugin',
     name: '插件',

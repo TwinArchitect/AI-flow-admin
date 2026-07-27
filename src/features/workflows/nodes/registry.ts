@@ -8,6 +8,7 @@ import { endNodeModule } from './endNodeModule';
 import { httpNodeModule } from './httpNodeModule';
 import { llmNodeModule } from './llmNodeModule';
 import { placeholderNodeModules } from './placeholderNodeModules';
+import { replyNodeModule } from './replyNodeModule';
 import { startNodeModule } from './startNodeModule';
 import type { WorkflowNodeModule } from './types';
 
@@ -16,6 +17,7 @@ export const WORKFLOW_NODE_MODULES: WorkflowNodeModule[] = [
   endNodeModule,
   llmNodeModule,
   httpNodeModule,
+  replyNodeModule,
   ...placeholderNodeModules,
 ];
 

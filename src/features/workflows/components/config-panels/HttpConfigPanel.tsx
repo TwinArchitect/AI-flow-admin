@@ -291,8 +291,8 @@ export function HttpConfigPanel({
       <div className="space-y-3 border-t border-border pt-4">
         <div className="flex items-center justify-between">
           <div>
-            <Label className="text-xs text-foreground">错误捕获</Label>
-            <p className="text-[10px] text-muted-foreground">保留 error 输出供后续节点处理</p>
+            <Label className="text-xs text-foreground">启用异常分支</Label>
+            <p className="text-[10px] text-muted-foreground">请求失败时进入独立分支，并提供 error 输出</p>
           </div>
           <Switch
             size="sm"

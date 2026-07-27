@@ -126,6 +126,10 @@ export interface EndNodeConfig {
   outputVariables: EndOutputVariable[];
 }
 
+export interface ReplyNodeConfig {
+  content: string;
+}
+
 export interface EndOutputVariable {
   id: string;
   key: string;
@@ -175,10 +179,16 @@ export type WorkflowNodeConfig =
   | StartNodeConfig
   | LlmNodeConfig
   | EndNodeConfig
+  | ReplyNodeConfig
   | HttpNodeConfig
   | Record<string, unknown>;
 
-export type BackendFlowNodeType = 'workflowStart' | 'chatNode' | 'workflowEnd' | 'httpRequest468';
+export type BackendFlowNodeType =
+  | 'workflowStart'
+  | 'chatNode'
+  | 'workflowEnd'
+  | 'httpRequest468'
+  | 'answerNode';
 
 export interface WorkflowModuleInput {
   key: string;

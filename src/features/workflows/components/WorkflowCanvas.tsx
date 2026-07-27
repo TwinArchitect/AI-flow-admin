@@ -10,7 +10,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import type { FitViewOptions, NodeChange, NodeMouseHandler, NodeTypes } from '@xyflow/react';
-import { Loader2, Map, Maximize2, PanelLeftOpen, Play, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
+import { Braces, Loader2, Map, Maximize2, PanelLeftOpen, Play, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,6 +41,7 @@ import { NodeConfigPanel } from './NodeConfigPanel';
 import { NodeSidebar } from './NodeSidebar';
 import { WorkflowNode } from './WorkflowNode';
 import { WorkflowDebugDrawer } from './debug/WorkflowDebugDrawer';
+import { JsonViewDialog } from './JsonViewDialog';
 
 const nodeTypes = Object.fromEntries(
   WORKFLOW_NODE_MODULES.map((module) => [module.type, WorkflowNode]),
@@ -96,6 +97,7 @@ function WorkflowToolbar({
     edges,
   } = useWorkflowCanvasStore();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [flowJsonOpen, setFlowJsonOpen] = useState(false);
   const activeNode = nodes.find((node) => nodeStates[node.id]?.status === 'running');
   const completedCount = nodes.filter((node) =>
     nodeStates[node.id] && nodeStates[node.id]?.status !== 'idle' && nodeStates[node.id]?.status !== 'running'
@@ -110,6 +112,11 @@ function WorkflowToolbar({
     : isDirty
       ? '当前配置有未保存的修改，请先保存配置后再运行'
       : null;
+  const flowJson = useMemo(() => ({
+    agentId: agentId ?? null,
+    agentName,
+    ...currentPayload,
+  }), [agentId, agentName, currentPayload]);
 
   useEffect(() => {
     function warnBeforeLeave(event: BeforeUnloadEvent) {
@@ -216,6 +223,19 @@ function WorkflowToolbar({
             <TooltipContent>删除当前智能体</TooltipContent>
           </Tooltip>
         )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setFlowJsonOpen(true)}
+              aria-label="查看流程 JSON 配置"
+            >
+              <Braces size={14} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>查看流程 JSON</TooltipContent>
+        </Tooltip>
         <Button
           variant="outline"
           size="sm"
@@ -267,6 +287,13 @@ function WorkflowToolbar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <JsonViewDialog
+        open={flowJsonOpen}
+        onOpenChange={setFlowJsonOpen}
+        title="智能体流程配置"
+        description="当前画布序列化后的 modules、edges 与 chatConfig.variables"
+        value={flowJson}
+      />
     </header>
   );
 }
@@ -302,6 +329,7 @@ function WorkflowCanvasInner({
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugRunning, setDebugRunning] = useState(false);
+  const [debugResetVersion, setDebugResetVersion] = useState(0);
   const fittedAgentIdRef = useRef<string>();
   const debugContext = useMemo(() => getWorkflowDebugContext(nodes), [nodes]);
   useEffect(() => {
@@ -402,7 +430,11 @@ function WorkflowCanvasInner({
         agentName={agentName}
         savedBaseline={savedBaseline}
         initialViewport={initialViewport}
-        onSaved={onSaved}
+        onSaved={(result) => {
+          onSaved(result);
+          canvasExecution.reset();
+          setDebugResetVersion((version) => version + 1);
+        }}
         onDeleted={onDeleted}
         isSidebarOpen={isSidebarOpen}
         onOpenSidebar={onOpenSidebar}
@@ -410,9 +442,10 @@ function WorkflowCanvasInner({
         isRunning={debugRunning}
         onOpenDebug={() => setDebugOpen(true)}
       />
-      <div className="relative flex-1 overflow-hidden" onDrop={handleDrop} onDragOver={handleDragOver}>
-        <WorkflowExecutionProvider value={canvasExecution.nodeStates}>
-          <ReactFlow
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="relative min-w-0 flex-1 overflow-hidden" onDrop={handleDrop} onDragOver={handleDragOver}>
+          <WorkflowExecutionProvider value={canvasExecution.nodeStates}>
+            <ReactFlow
           nodes={nodes}
           edges={displayEdges}
           nodeTypes={nodeTypes}
@@ -444,37 +477,40 @@ function WorkflowCanvasInner({
           nodesConnectable={!debugRunning}
           elementsSelectable={!debugRunning}
           className="workflow-canvas bg-background"
+            >
+              <Background variant={BackgroundVariant.Dots} gap={18} size={1} className="text-border" />
+              <Controls />
+              {showMiniMap && (
+                <MiniMap
+                  pannable
+                  zoomable
+                  maskColor="var(--color-bg-muted)"
+                  bgColor="var(--color-bg-card)"
+                  className="!border !border-border !bg-card !shadow-sm"
+                  nodeClassName={(node) =>
+                    cn(node.id === selectedNodeId ? '!fill-primary' : '!fill-muted-foreground')
+                  }
+                />
+              )}
+            </ReactFlow>
+          </WorkflowExecutionProvider>
+          <Button
+            type="button"
+            variant={showMiniMap ? 'secondary' : 'outline'}
+            size="icon-sm"
+            className="absolute bottom-4 right-4 z-10 bg-card shadow-sm"
+            onClick={() => setShowMiniMap((value) => !value)}
+            aria-label={showMiniMap ? '隐藏小地图' : '显示小地图'}
           >
-            <Background variant={BackgroundVariant.Dots} gap={18} size={1} className="text-border" />
-            <Controls />
-            {showMiniMap && (
-              <MiniMap
-                pannable
-                zoomable
-                maskColor="var(--color-bg-muted)"
-                bgColor="var(--color-bg-card)"
-                className="!border !border-border !bg-card !shadow-sm"
-                nodeClassName={(node) =>
-                  cn(node.id === selectedNodeId ? '!fill-primary' : '!fill-muted-foreground')
-                }
-              />
-            )}
-          </ReactFlow>
-        </WorkflowExecutionProvider>
-        <Button
-          type="button"
-          variant={showMiniMap ? 'secondary' : 'outline'}
-          size="icon-sm"
-          className="absolute bottom-4 right-4 z-10 bg-card shadow-sm"
-          onClick={() => setShowMiniMap((value) => !value)}
-          aria-label={showMiniMap ? '隐藏小地图' : '显示小地图'}
-        >
-          <Map size={14} />
-        </Button>
+            <Map size={14} />
+          </Button>
+        </div>
         {selectedNodeId && !debugOpen && <NodeConfigPanel />}
         {agentId && (
           <WorkflowDebugDrawer
+            key={agentId}
             open={debugOpen}
+            resetVersion={debugResetVersion}
             onClose={() => setDebugOpen(false)}
             agentId={agentId}
             agentName={agentName}

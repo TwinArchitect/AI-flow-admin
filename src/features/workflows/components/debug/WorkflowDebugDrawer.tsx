@@ -42,6 +42,7 @@ interface DebugMessage {
 
 interface WorkflowDebugDrawerProps {
   open: boolean;
+  resetVersion: number;
   onClose: () => void;
   agentId: string;
   agentName: string;
@@ -105,6 +106,7 @@ function DebugVariableField({
 
 export function WorkflowDebugDrawer({
   open,
+  resetVersion,
   onClose,
   agentId,
   agentName,
@@ -117,8 +119,10 @@ export function WorkflowDebugDrawer({
 }: WorkflowDebugDrawerProps) {
   const runMutation = useRunWorkflowStream();
   const uploadMutation = useUploadWorkflowDebugFile();
-  const [phase, setPhase] = useState<'variables' | 'chat'>('chat');
-  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [phase, setPhase] = useState<'variables' | 'chat'>(context.needsVariableForm ? 'variables' : 'chat');
+  const [variableValues, setVariableValues] = useState<Record<string, string>>(
+    () => buildDebugVariableDefaults(context.customStartVariables),
+  );
   const [variableError, setVariableError] = useState<string>();
   const [messages, setMessages] = useState<DebugMessage[]>([]);
   const [input, setInput] = useState('');
@@ -146,9 +150,13 @@ export function WorkflowDebugDrawer({
 
   useEffect(() => {
     if (!open) return;
-    resetSession();
     setExpanded(false);
   }, [open]);
+
+  useEffect(() => {
+    if (resetVersion === 0) return;
+    resetSession();
+  }, [resetVersion]);
 
   useEffect(() => onRunningChange(isRunning), [isRunning, onRunningChange]);
   useEffect(() => {
@@ -290,8 +298,8 @@ export function WorkflowDebugDrawer({
 
   return (
     <aside className={cn(
-      'absolute inset-y-0 right-0 z-40 flex flex-col border-l border-border bg-card shadow-xl',
-      expanded ? 'left-4 w-auto' : 'w-[420px] max-w-[calc(100%-1rem)]',
+      'flex h-full max-w-[70%] shrink-0 flex-col border-l border-border bg-card',
+      expanded ? 'w-[720px]' : 'w-[420px]',
     )}>
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-3">
@@ -411,7 +419,7 @@ export function WorkflowDebugDrawer({
                 disabled={isRunning}
                 rows={1}
                 placeholder="输入调试问题，Enter 发送"
-                className="max-h-28 min-h-9 flex-1 resize-none border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0"
+                className="max-h-28 min-h-9 flex-1 resize-none rounded-none !border-0 !bg-transparent px-1 py-2 !shadow-none focus-visible:ring-0"
               />
               {isRunning ? (
                 <Button variant="destructive" size="icon-sm" onClick={stopRun} aria-label="终止生成">
