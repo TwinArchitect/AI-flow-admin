@@ -346,39 +346,41 @@ export default function AgentMobileOverview() {
               { key: 'iphone-dark' as PhoneTheme, label: '太空灰' },
               { key: 'huaneng-blue' as PhoneTheme, label: '华能蓝' },
             ].map((t) => (
-              <button
+              <Button
                 key={t.key}
+                variant="ghost"
                 onClick={() => setPhoneTheme(t.key)}
                 className={cn(
-                  'px-2.5 py-1 rounded-lg text-[10.5px] font-black transition-all cursor-pointer flex items-center gap-1.5',
+                  'px-2.5 py-1 rounded-lg text-[10.5px] font-black cursor-pointer h-auto',
                   phoneTheme === t.key
                     ? t.key === 'iphone-dark'
-                      ? 'bg-slate-900 text-white shadow-sm'
+                      ? 'bg-slate-900 text-white shadow-sm hover:bg-slate-900'
                       : t.key === 'huaneng-blue'
-                        ? 'bg-[#2559F6] text-white shadow-sm'
+                        ? 'bg-[#2559F6] text-white shadow-sm hover:bg-[#2559F6]'
                         : 'bg-white text-slate-800 shadow-sm border border-slate-100'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                 )}
               >
                 {t.label}
-              </button>
+              </Button>
             ))}
           </div>
 
           <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-700/60 hidden sm:block" />
 
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setHidePhoneFrame(!hidePhoneFrame)}
             className={cn(
-              'px-3 py-1.5 rounded-xl text-[10.5px] font-black transition-all cursor-pointer flex items-center gap-1.5 border',
+              'px-3 py-1.5 rounded-xl text-[10.5px] font-black cursor-pointer h-auto border',
               hidePhoneFrame
-                ? 'bg-brand-600 border-brand-600 text-white shadow-md shadow-brand-500/15'
+                ? 'bg-brand-600 border-brand-600 text-white shadow-md shadow-brand-500/15 hover:bg-brand-600'
                 : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-750 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
             )}
           >
             <Smartphone size={12} className={hidePhoneFrame ? 'animate-pulse' : ''} />
             {hidePhoneFrame ? '显示手机外框' : '隐藏手机外框'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -402,10 +404,11 @@ export default function AgentMobileOverview() {
 
               <div className="space-y-2.5">
                 {quickActions.map((act) => (
-                  <button
+                  <Button
                     key={act.label}
+                    variant="ghost"
                     onClick={() => handleSendText(act.prompt)}
-                    className="w-full text-left p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 hover:bg-white dark:bg-slate-900/40 dark:hover:bg-slate-900 hover:shadow-md transition-all group flex items-start justify-between cursor-pointer"
+                    className="w-full text-left p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 hover:bg-white dark:bg-slate-900/40 dark:hover:bg-slate-900 hover:shadow-md transition-all group flex items-start justify-between cursor-pointer h-auto"
                   >
                     <div className="space-y-0.5">
                       <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 group-hover:text-brand-600 transition-colors">
@@ -417,19 +420,20 @@ export default function AgentMobileOverview() {
                       size={14}
                       className="text-slate-350 mt-1 transition-transform group-hover:translate-x-1"
                     />
-                  </button>
+                  </Button>
                 ))}
               </div>
 
               {/* Reset button */}
               <div className="flex gap-3 pt-2">
-                <button
+                <Button
+                  variant="ghost"
                   onClick={handleResetChat}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-650 dark:text-slate-350 text-[11px] font-black rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-650 dark:text-slate-350 text-[11px] font-black rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer h-auto"
                 >
                   <RefreshCw size={12} />
                   重置演示会话
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -541,17 +545,18 @@ export default function AgentMobileOverview() {
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
+                      variant="ghost"
                       onClick={handleResetChat}
                       className={cn(
-                        'p-1 rounded-lg transition-colors',
+                        'p-1 rounded-lg transition-colors h-auto',
                         phoneTheme === 'huaneng-blue'
                           ? 'text-white/80 hover:bg-[#1141df] hover:text-white'
                           : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'
                       )}
                     >
                       <ArrowLeft size={16} />
-                    </button>
+                    </Button>
                     <div
                       className={cn(
                         'w-8 h-8 rounded-full flex items-center justify-center border shrink-0 transition-colors',
@@ -597,12 +602,22 @@ export default function AgentMobileOverview() {
                         'h-auto rounded-lg text-[9px] font-black pl-2 pr-5 py-1 border gap-0 [&>svg]:size-3',
                         phoneTheme === 'huaneng-blue'
                           ? 'bg-[#1141df] border-[#0e35bb] text-white'
-                          : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-850 text-slate-650 dark:text-slate-350'
+                          : phoneTheme === 'iphone-dark'
+                            ? 'bg-slate-200 border-slate-300 text-slate-900'
+                            : 'bg-slate-50 border-slate-100 text-slate-650'
                       )}
                     >
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                      className={cn(
+                        phoneTheme === 'iphone-dark'
+                          ? 'bg-slate-200 text-slate-900 border-slate-300'
+                          : phoneTheme === 'huaneng-blue'
+                            ? 'bg-[#2559F6] text-white border-[#0e35bb]'
+                            : ''
+                      )}
+                    >
                       <SelectItem value="Gemini 1.5 Pro">Gemini 1.5</SelectItem>
                       <SelectItem value="Gemini Flash">Gemini Flash</SelectItem>
                     </SelectContent>
@@ -737,18 +752,21 @@ export default function AgentMobileOverview() {
                     { label: '🚨 违章占比', prompt: '今天有哪些违章情况？' },
                     { label: '📜 安全红线', prompt: '查看电力安规十条禁令' },
                   ].map((chip) => (
-                    <button
+                    <Button
                       key={chip.label}
+                      variant="ghost"
                       onClick={() => handleSendText(chip.prompt)}
                       className={cn(
-                        'px-3 py-1 rounded-full text-[10px] font-black border whitespace-nowrap cursor-pointer transition-all',
+                        'px-3 py-1 rounded-full text-[10px] font-black border whitespace-nowrap cursor-pointer transition-all h-auto',
                         phoneTheme === 'huaneng-blue'
                           ? 'bg-white text-[#2559F6] border-[#2559F6]/25 hover:bg-[#2559F6]/5'
-                          : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-850 text-slate-650 dark:text-slate-300 border-slate-100 dark:border-slate-850'
+                          : phoneTheme === 'iphone-dark'
+                            ? 'bg-white text-slate-900 border-slate-300 hover:bg-slate-100'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-650 border-slate-100'
                       )}
                     >
                       {chip.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
 

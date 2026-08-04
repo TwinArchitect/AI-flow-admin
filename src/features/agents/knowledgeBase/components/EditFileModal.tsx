@@ -3,6 +3,7 @@ import { Settings2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -36,16 +37,16 @@ export function EditFileModal({ open, file, onClose, onConfirm }: EditFileModalP
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+            <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
               文档名称
-            </label>
+            </Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
                 解析器
-              </label>
+              </Label>
               <Select value={parser} onValueChange={setParser}>
                 <SelectTrigger className="w-full h-10 text-xs font-bold">
                   <SelectValue />
@@ -57,9 +58,9 @@ export function EditFileModal({ open, file, onClose, onConfirm }: EditFileModalP
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1">
                 元数据(个)
-              </label>
+              </Label>
               <Input
                 type="number"
                 min={0}
