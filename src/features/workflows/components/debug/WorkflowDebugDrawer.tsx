@@ -5,6 +5,8 @@ import {
   Maximize2,
   Minimize2,
   Paperclip,
+  PanelRightClose,
+  PanelRightOpen,
   Play,
   RotateCcw,
   SendHorizontal,
@@ -24,8 +26,11 @@ import { useRunWorkflowStream, useUploadWorkflowDebugFile } from '../../hooks/us
 import type {
   StartVariable,
 } from '../../types';
-import type { WorkflowNodeSsePayload } from '../../types/execution';
-import type { WorkflowExecutionOutcome } from '../../types/execution';
+import type {
+  WorkflowExecutionOutcome,
+  WorkflowNodeSsePayload,
+  WorkflowRunResult,
+} from '../../types/execution';
 import type { WorkflowDebugContext } from '../../utils/workflowDebugContext';
 import {
   buildDebugVariableDefaults,
@@ -42,6 +47,9 @@ interface DebugMessage {
 
 interface WorkflowDebugDrawerProps {
   open: boolean;
+  active: boolean;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
   resetVersion: number;
   onClose: () => void;
   agentId: string;
@@ -58,6 +66,27 @@ const ALLOWED_EXTENSIONS = new Set([
   'txt', 'doc', 'docx', 'csv', 'xls', 'xlsx', 'zip', 'pdf', 'ppt', 'pptx',
   'bmp', 'mp3', 'mp4', 'flv', 'svg', 'jpg', 'jpeg', 'png',
 ]);
+
+function formatWorkflowOutput(value: unknown) {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  if (typeof value === 'object') return JSON.stringify(value, null, 2);
+  return String(value);
+}
+
+function resolveWorkflowReply(result: WorkflowRunResult) {
+  if (result.answerText.trim()) return result.answerText;
+
+  const conventionalAnswer = formatWorkflowOutput(result.outputs.answer);
+  if (conventionalAnswer.trim()) return conventionalAnswer;
+
+  const entries = Object.entries(result.outputs);
+  if (entries.length === 1) {
+    return formatWorkflowOutput(entries[0][1]) || '（未收到回复内容）';
+  }
+  if (entries.length > 1) return JSON.stringify(result.outputs, null, 2);
+  return '（未收到回复内容）';
+}
 
 function DebugVariableField({
   variable,
@@ -106,6 +135,9 @@ function DebugVariableField({
 
 export function WorkflowDebugDrawer({
   open,
+  active,
+  collapsed,
+  onCollapsedChange,
   resetVersion,
   onClose,
   agentId,
@@ -278,7 +310,7 @@ export function WorkflowDebugDrawer({
       });
       setMessages((current) => current.map((message) =>
         message.id === assistantId && !message.content.trim()
-          ? { ...message, content: String(result.answerText || result.outputs.answer || '（未收到回复内容）') }
+          ? { ...message, content: resolveWorkflowReply(result) }
           : message,
       ));
       onExecutionFinish('success');
@@ -296,9 +328,40 @@ export function WorkflowDebugDrawer({
 
   if (!open) return null;
 
+  if (collapsed) {
+    return (
+      <aside className={cn(
+        'h-full w-12 shrink-0 flex-col items-center border-l border-border bg-card py-2',
+        active ? 'flex' : 'hidden',
+      )}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onCollapsedChange(false)}
+          aria-label="展开调试运行面板"
+        >
+          <PanelRightOpen size={15} />
+        </Button>
+        <span className="mt-2 flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <Play size={15} fill="currentColor" />
+        </span>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="mt-auto"
+          onClick={closeDrawer}
+          aria-label="关闭调试运行面板"
+        >
+          <X size={15} />
+        </Button>
+      </aside>
+    );
+  }
+
   return (
     <aside className={cn(
-      'flex h-full max-w-[70%] shrink-0 flex-col border-l border-border bg-card',
+      'h-full max-w-[70%] shrink-0 flex-col border-l border-border bg-card',
+      active ? 'flex' : 'hidden',
       expanded ? 'w-[720px]' : 'w-[420px]',
     )}>
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4">
@@ -312,6 +375,17 @@ export function WorkflowDebugDrawer({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => {
+              setExpanded(false);
+              onCollapsedChange(true);
+            }}
+            aria-label="收缩调试运行面板"
+          >
+            <PanelRightClose size={15} />
+          </Button>
           <Button variant="ghost" size="icon-sm" onClick={resetSession} aria-label="重置调试会话">
             <RotateCcw size={15} />
           </Button>

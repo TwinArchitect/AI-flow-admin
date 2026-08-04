@@ -328,6 +328,8 @@ function WorkflowCanvasInner({
   const canvasExecution = useWorkflowCanvasExecution();
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [activeSidePanel, setActiveSidePanel] = useState<'node' | 'debug' | null>(null);
+  const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
   const [debugRunning, setDebugRunning] = useState(false);
   const [debugResetVersion, setDebugResetVersion] = useState(0);
   const fittedAgentIdRef = useRef<string>();
@@ -396,6 +398,8 @@ function WorkflowCanvasInner({
       if (!type) return;
 
       addNode(type, screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+      setActiveSidePanel('node');
+      setSidePanelCollapsed(false);
     },
     [addNode, debugRunning, screenToFlowPosition],
   );
@@ -406,9 +410,21 @@ function WorkflowCanvasInner({
   }, []);
 
   const handleNodeClick: NodeMouseHandler<WorkflowCanvasNode> = useCallback(
-    (_event, node) => setSelectedNodeId(node.id),
+    (_event, node) => {
+      setSelectedNodeId(node.id);
+      setActiveSidePanel('node');
+      setSidePanelCollapsed(false);
+    },
     [setSelectedNodeId],
   );
+
+  useEffect(() => {
+    if (activeSidePanel === 'node' && !selectedNodeId) {
+      setActiveSidePanel(debugOpen ? 'debug' : null);
+    } else if (activeSidePanel === 'debug' && !debugOpen) {
+      setActiveSidePanel(selectedNodeId ? 'node' : null);
+    }
+  }, [activeSidePanel, debugOpen, selectedNodeId]);
 
   const guardedOnNodesChange = useCallback(
     (changes: NodeChange<WorkflowCanvasNode>[]) => {
@@ -440,7 +456,11 @@ function WorkflowCanvasInner({
         onOpenSidebar={onOpenSidebar}
         nodeStates={canvasExecution.nodeStates}
         isRunning={debugRunning}
-        onOpenDebug={() => setDebugOpen(true)}
+        onOpenDebug={() => {
+          setDebugOpen(true);
+          setActiveSidePanel('debug');
+          setSidePanelCollapsed(false);
+        }}
       />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="relative min-w-0 flex-1 overflow-hidden" onDrop={handleDrop} onDragOver={handleDragOver}>
@@ -452,7 +472,10 @@ function WorkflowCanvasInner({
           onNodesChange={guardedOnNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onPaneClick={() => setSelectedNodeId(null)}
+          onPaneClick={() => {
+            setSelectedNodeId(null);
+            setActiveSidePanel(debugOpen ? 'debug' : null);
+          }}
           onNodeClick={handleNodeClick}
           onNodeDragStart={saveSnapshot}
           fitView={!initialViewport}
@@ -505,13 +528,31 @@ function WorkflowCanvasInner({
             <Map size={14} />
           </Button>
         </div>
-        {selectedNodeId && !debugOpen && <NodeConfigPanel />}
+        {selectedNodeId && (
+          <NodeConfigPanel
+            active={activeSidePanel === 'node'}
+            collapsed={sidePanelCollapsed}
+            onCollapsedChange={setSidePanelCollapsed}
+            onClose={() => {
+              setSelectedNodeId(null);
+              setActiveSidePanel(debugOpen ? 'debug' : null);
+              setSidePanelCollapsed(false);
+            }}
+          />
+        )}
         {agentId && (
           <WorkflowDebugDrawer
             key={agentId}
             open={debugOpen}
+            active={activeSidePanel === 'debug'}
+            collapsed={sidePanelCollapsed}
+            onCollapsedChange={setSidePanelCollapsed}
             resetVersion={debugResetVersion}
-            onClose={() => setDebugOpen(false)}
+            onClose={() => {
+              setDebugOpen(false);
+              setActiveSidePanel(selectedNodeId ? 'node' : null);
+              setSidePanelCollapsed(false);
+            }}
             agentId={agentId}
             agentName={agentName}
             context={debugContext}

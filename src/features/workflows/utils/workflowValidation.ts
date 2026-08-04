@@ -140,19 +140,25 @@ export function validateWorkflowForBackend(
   const starts = nodes.filter((node) => node.data.nodeType === 'start');
   const ends = nodes.filter((node) => node.data.nodeType === 'end');
   if (starts.length !== 1) errors.push('工作流必须有且仅有一个开始节点');
-  if (ends.length !== 1) errors.push('工作流必须有且仅有一个结束节点');
+  if (ends.length < 1) errors.push('工作流必须至少有一个结束节点');
 
   edges.forEach((edge) => {
     if (!nodeMap.has(edge.source)) errors.push(`连线 ${edge.id} 的源节点不存在`);
     if (!nodeMap.has(edge.target)) errors.push(`连线 ${edge.id} 的目标节点不存在`);
     if (edge.source === edge.target) errors.push(`节点不能连接自身：${edge.id}`);
   });
+  nodes.forEach((node) => {
+    const hasConnection = edges.some((edge) => edge.source === node.id || edge.target === node.id);
+    if (!hasConnection) errors.push(`节点 ${node.data.label} 不能是孤立节点`);
+  });
   if (hasCycle(edges)) errors.push('工作流存在环路，请检查连线');
 
-  if (starts.length === 1 && ends.length === 1) {
+  if (starts.length === 1 && ends.length > 0) {
     const reachableFromStart = getReachableNodeIds(starts[0].id, edges);
-    const canReachEnd = getReachableNodeIds(ends[0].id, edges, true);
-    if (!reachableFromStart.has(ends[0].id)) {
+    const canReachEnd = new Set(
+      ends.flatMap((end) => [...getReachableNodeIds(end.id, edges, true)]),
+    );
+    if (!ends.some((end) => reachableFromStart.has(end.id))) {
       errors.push('开始节点与结束节点之间不存在可执行路径');
     }
     nodes.forEach((node) => {

@@ -21,7 +21,6 @@ const TYPE_OPTIONS: Array<{ value: WorkflowValueType; label: string }> = [
   { value: 'boolean', label: 'Boolean' },
   { value: 'object', label: 'JSON 对象' },
   { value: 'array', label: '数组' },
-  { value: 'file', label: '文件' },
 ];
 
 function createVariable(): StartVariable {

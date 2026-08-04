@@ -37,6 +37,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
   const ExecutionDetails = module.ExecutionDetails;
   const execution = useNodeExecution(id);
   const catchError = Boolean((data.config as { catchError?: boolean }).catchError);
+  const branchHandles = node ? module.getBranchHandles?.(node) ?? [] : [];
   const runStatus = execution?.status ?? 'idle';
   const statusMeta = {
     idle: { label: '待运行', className: 'text-muted-foreground', icon: Play },
@@ -53,8 +54,9 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
   return (
     <div
       className={cn(
-        'select-none overflow-hidden rounded-lg border bg-card shadow-sm transition-all',
-        catchError ? 'w-[260px]' : 'w-[220px]',
+        'select-none rounded-lg border bg-card shadow-sm transition-all',
+        branchHandles.length > 0 ? 'overflow-visible' : 'overflow-hidden',
+        catchError || branchHandles.length > 0 ? 'w-[260px]' : 'w-[220px]',
         selected ? 'border-primary shadow-md ring-2 ring-primary/20' : 'border-border hover:border-border/80',
         runStatus === 'running' && 'border-primary shadow-md ring-2 ring-primary/25',
         runStatus === 'success' && 'border-success/70',
@@ -133,6 +135,37 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
             </div>
           </div>
         )}
+        {branchHandles.length > 0 && (
+          <div className="space-y-1.5 border-t border-border pt-2 text-[10px]">
+            {branchHandles.map((handle) => (
+              <div
+                key={handle.id}
+                className={cn(
+                  'relative flex items-center justify-between rounded px-2 py-1.5',
+                  handle.tone === 'muted' ? 'bg-muted' : 'bg-primary/5',
+                )}
+              >
+                <span className={cn(
+                  'font-medium',
+                  handle.tone === 'muted' ? 'text-muted-foreground' : 'text-primary',
+                )}>
+                  {handle.label}
+                </span>
+                <span className="text-muted-foreground">{handle.description}</span>
+                <Handle
+                  id={handle.id}
+                  type="source"
+                  position={Position.Right}
+                  className={cn(
+                    '!size-3 !border-2 !bg-background',
+                    handle.tone === 'muted' ? '!border-muted-foreground' : '!border-primary',
+                  )}
+                  style={{ right: '-16px', top: '50%' }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {module.connection.allowIncoming && (
@@ -143,7 +176,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
           className="!size-3 !border-2 !border-muted-foreground !bg-background"
         />
       )}
-      {module.connection.allowOutgoing && (
+      {module.connection.allowOutgoing && branchHandles.length === 0 && (
         <Handle
           id={buildSourceHandle(id)}
           type="source"
@@ -152,7 +185,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
           style={catchError ? { top: '76%' } : undefined}
         />
       )}
-      {module.connection.allowOutgoing && catchError && (
+      {module.connection.allowOutgoing && branchHandles.length === 0 && catchError && (
         <Handle
           id={buildErrorCatchHandle(id)}
           type="source"

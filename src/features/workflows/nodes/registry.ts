@@ -4,6 +4,8 @@ import type {
   WorkflowNodeCategory,
   WorkflowNodeType,
 } from '../types';
+import { concatNodeModule } from './concatNodeModule';
+import { conditionNodeModule } from './conditionNodeModule';
 import { endNodeModule } from './endNodeModule';
 import { httpNodeModule } from './httpNodeModule';
 import { llmNodeModule } from './llmNodeModule';
@@ -15,6 +17,8 @@ import type { WorkflowNodeModule } from './types';
 export const WORKFLOW_NODE_MODULES: WorkflowNodeModule[] = [
   startNodeModule,
   endNodeModule,
+  concatNodeModule,
+  conditionNodeModule,
   llmNodeModule,
   httpNodeModule,
   replyNodeModule,

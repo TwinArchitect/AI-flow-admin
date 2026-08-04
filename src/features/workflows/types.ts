@@ -7,6 +7,7 @@ export type WorkflowNodeType =
   | 'knowledge'
   | 'http'
   | 'reply'
+  | 'concat'
   | 'condition'
   | 'code'
   | 'plugin'
@@ -130,6 +131,44 @@ export interface ReplyNodeConfig {
   content: string;
 }
 
+export interface ConcatNodeConfig {
+  template: string;
+}
+
+export type ConditionBranchLogic = 'AND' | 'OR';
+
+export type ConditionOperator =
+  | 'equalTo'
+  | 'notEqual'
+  | 'isEmpty'
+  | 'include'
+  | 'notInclude'
+  | 'startWith'
+  | 'endWith'
+  | 'reg'
+  | 'greaterThan'
+  | 'greaterThanOrEqualTo'
+  | 'lessThan'
+  | 'lessThanOrEqualTo';
+
+export interface ConditionRule {
+  id: string;
+  variableRef: string;
+  condition: ConditionOperator;
+  valueMode: 'input' | 'reference';
+  value: string;
+}
+
+export interface ConditionBranch {
+  id: string;
+  condition: ConditionBranchLogic;
+  rules: ConditionRule[];
+}
+
+export interface ConditionNodeConfig {
+  branches: ConditionBranch[];
+}
+
 export interface EndOutputVariable {
   id: string;
   key: string;
@@ -180,6 +219,8 @@ export type WorkflowNodeConfig =
   | LlmNodeConfig
   | EndNodeConfig
   | ReplyNodeConfig
+  | ConcatNodeConfig
+  | ConditionNodeConfig
   | HttpNodeConfig
   | Record<string, unknown>;
 
@@ -188,7 +229,9 @@ export type BackendFlowNodeType =
   | 'chatNode'
   | 'workflowEnd'
   | 'httpRequest468'
-  | 'answerNode';
+  | 'answerNode'
+  | 'textEditor'
+  | 'ifElseNode';
 
 export interface WorkflowModuleInput {
   key: string;

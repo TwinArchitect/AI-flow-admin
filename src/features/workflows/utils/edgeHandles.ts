@@ -12,6 +12,18 @@ export function buildTargetHandle(nodeId: string) {
   return `${nodeId}-target-left`;
 }
 
+export function getConditionBranchLabel(index: number) {
+  return index === 0 ? 'IF' : `ELSE IF ${index}`;
+}
+
+export function buildConditionSourceHandle(nodeId: string, index: number) {
+  return `${nodeId}-source-${getConditionBranchLabel(index)}`;
+}
+
+export function buildConditionElseHandle(nodeId: string) {
+  return `${nodeId}-source-ELSE`;
+}
+
 export function normalizeEdgeForCanvas(edge: WorkflowCanvasEdge): WorkflowCanvasEdge {
   return {
     ...edge,

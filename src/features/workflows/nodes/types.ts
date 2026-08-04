@@ -52,6 +52,13 @@ export interface NodeExecutionDetailsProps {
   execution?: NodeExecutionState;
 }
 
+export interface NodeBranchHandle {
+  id: string;
+  label: string;
+  description: string;
+  tone?: 'primary' | 'muted';
+}
+
 export interface WorkflowNodeModule {
   type: WorkflowNodeType;
   definition: WorkflowNodeDef;
@@ -74,6 +81,7 @@ export interface WorkflowNodeModule {
   ) => string[];
   connection: NodeConnectionRules;
   resolveConnectionRules?: (node: WorkflowCanvasNode) => NodeConnectionRules;
+  getBranchHandles?: (node: WorkflowCanvasNode) => NodeBranchHandle[];
   validateConnection?: (
     node: WorkflowCanvasNode,
     direction: 'incoming' | 'outgoing',

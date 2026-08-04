@@ -1,4 +1,4 @@
-import { Code2, Database, GitBranch, Layers, PlugZap } from 'lucide-react';
+import { Code2, Database, Layers, PlugZap } from 'lucide-react';
 import type { ElementType } from 'react';
 import { PlaceholderConfigPanel } from '../components/config-panels/PlaceholderConfigPanel';
 import { DefaultNodeExecutionDetails } from '../components/node-execution/DefaultNodeExecutionDetails';
@@ -57,14 +57,6 @@ const definitions: Array<[WorkflowNodeDef, ElementType]> = [
     tone: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400',
     iconTone: 'bg-amber-500 text-white',
   }, PlugZap],
-  [{
-    type: 'condition',
-    name: '条件判断',
-    description: '根据表达式选择执行分支',
-    category: '逻辑',
-    tone: 'bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400',
-    iconTone: 'bg-orange-500 text-white',
-  }, GitBranch],
   [{
     type: 'code',
     name: '代码执行',

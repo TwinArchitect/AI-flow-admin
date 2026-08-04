@@ -5,7 +5,10 @@ import type {
   WorkflowNodeExecutionStates,
   WorkflowNodeSsePayload,
 } from '../types/execution';
-import { buildErrorCatchHandle, buildSourceHandle } from '../utils/edgeHandles';
+import {
+  buildErrorCatchHandle,
+  buildSourceHandle,
+} from '../utils/edgeHandles';
 import {
   applyWorkflowNodeSseEvent,
   markNodesRunning,
@@ -28,8 +31,11 @@ export function useWorkflowCanvasExecution() {
   ) => {
     setNodeStates((current) => {
       const next = applyWorkflowNodeSseEvent(current, eventName, payload);
+      const branchResult = payload.outputs?.ifElseResult;
       const sourceHandle = payload.statusCode === 200
-        ? buildSourceHandle(payload.nodeId)
+        ? payload.flowNodeType === 'ifElseNode' && typeof branchResult === 'string'
+          ? `${payload.nodeId}-${branchResult}`
+          : buildSourceHandle(payload.nodeId)
         : payload.statusCode === 500
           ? buildErrorCatchHandle(payload.nodeId)
           : undefined;

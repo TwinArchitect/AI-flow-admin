@@ -30,7 +30,7 @@ export const endNodeModule: WorkflowNodeModule = {
     type: 'end',
     name: '结束',
     description: '工作流出口',
-    category: '系统',
+    category: '基础',
     tone: 'bg-muted text-muted-foreground border-border',
     iconTone: 'bg-muted-foreground text-background',
   },
@@ -53,7 +53,7 @@ export const endNodeModule: WorkflowNodeModule = {
   connection: {
     allowIncoming: true,
     allowOutgoing: false,
-    deletable: false,
+    deletable: true,
     requireIncoming: true,
     maxOutgoing: 0,
   },
