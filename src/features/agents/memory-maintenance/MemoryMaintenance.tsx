@@ -165,8 +165,15 @@ export default function MemoryMaintenance() {
   // ====== 操作 ======
 
   const handleToggleStatus = async (id: string) => {
-    const result = await toggleMemoryStatus(id);
-    if (result) loadData();
+    // 先乐观更新本地状态，避免表格闪烁
+    setMemories((prev) =>
+      prev.map((m) =>
+        m.id === id
+          ? { ...m, status: m.status === 'active' ? 'inactive' : 'active' }
+          : m,
+      ),
+    );
+    await toggleMemoryStatus(id);
   };
 
   const handleDelete = (id: string) => {
@@ -1077,7 +1084,7 @@ export default function MemoryMaintenance() {
 
         {/* ====== 删除确认弹窗 ====== */}
         <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-          <DialogContent className="sm:max-w-sm">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>确认删除</DialogTitle>
               <DialogDescription>
