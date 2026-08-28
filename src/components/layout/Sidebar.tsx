@@ -2,7 +2,6 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Bot,
-  Workflow,
   Database,
   Link2,
   Terminal,
@@ -68,7 +67,6 @@ const componentLinks = [
 const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: '工作台', path: '/' },
   { icon: Bot, label: '智能体', path: '/agents', badge: 8, children: agentslist },
-  { icon: Workflow, label: '工作流', path: '/workflows', badge: 12 },
   { icon: Component, label: '组件示例', path: '/components', children: componentLinks },
   { icon: Database, label: '知识库', path: '/agents/knowledge' },
   { icon: Puzzle, label: '插件市场', path: '/plugins' },

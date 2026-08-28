@@ -4,6 +4,14 @@
 
 export type ChatMessageLikes = 0 | 1 | 2;
 
+export type ChatContentBlockType = 'echarts' | 'reference';
+
+export interface ChatContentBlock {
+  type: ChatContentBlockType;
+  nodeId?: string;
+  data: Record<string, unknown>;
+}
+
 export interface AgentOpenChatGroup {
   id: string;
   groupName: string;
@@ -21,6 +29,7 @@ export interface AgentOpenChatMessage {
   agentId?: string;
   question: string;
   answer: string;
+  contents?: ChatContentBlock[] | null;
   likes?: ChatMessageLikes;
   messageId?: string;
   tokenCount?: number;
@@ -33,6 +42,7 @@ export interface ChatMessageSavePayload {
   agentId?: string;
   question: string;
   answer: string;
+  contents?: ChatContentBlock[];
   responseTime?: number;
   likes?: ChatMessageLikes;
 }

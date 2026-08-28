@@ -1,6 +1,7 @@
 import { getNodeConnectionRules, getNodeModule } from '../nodes/registry';
 import type { WorkflowCanvasEdge, WorkflowCanvasNode } from '../types';
-import { parseVariableRefs } from './variableRefs';
+import { parseVariableRef, parseVariableRefs } from './variableRefs';
+import { normalizeLoopConfig } from '../contracts/loopNodeContract';
 import {
   normalizeStartConfig,
   VARIABLE_NODE_ID,
@@ -149,19 +150,21 @@ export function validateWorkflowForBackend(
   });
   nodes.forEach((node) => {
     const hasConnection = edges.some((edge) => edge.source === node.id || edge.target === node.id);
-    if (!hasConnection) errors.push(`节点 ${node.data.label} 不能是孤立节点`);
+    if (!hasConnection && node.data.nodeType !== 'loopBreak') errors.push(`节点 ${node.data.label} 不能是孤立节点`);
   });
   if (hasCycle(edges)) errors.push('工作流存在环路，请检查连线');
 
   if (starts.length === 1 && ends.length > 0) {
-    const reachableFromStart = getReachableNodeIds(starts[0].id, edges);
+    const topLevelIds = new Set(nodes.filter((node) => !node.parentId).map((node) => node.id));
+    const topLevelEdges = edges.filter((edge) => topLevelIds.has(edge.source) && topLevelIds.has(edge.target));
+    const reachableFromStart = getReachableNodeIds(starts[0].id, topLevelEdges);
     const canReachEnd = new Set(
-      ends.flatMap((end) => [...getReachableNodeIds(end.id, edges, true)]),
+      ends.flatMap((end) => [...getReachableNodeIds(end.id, topLevelEdges, true)]),
     );
     if (!ends.some((end) => reachableFromStart.has(end.id))) {
       errors.push('开始节点与结束节点之间不存在可执行路径');
     }
-    nodes.forEach((node) => {
+    nodes.filter((node) => !node.parentId).forEach((node) => {
       if (!reachableFromStart.has(node.id)) {
         errors.push(`节点 ${node.data.label} 无法从开始节点到达`);
       } else if (!canReachEnd.has(node.id)) {
@@ -169,6 +172,44 @@ export function validateWorkflowForBackend(
       }
     });
   }
+
+  nodes.filter((node) => node.data.nodeType === 'loop').forEach((loop) => {
+    const children = nodes.filter((node) => node.parentId === loop.id);
+    const startsInLoop = children.filter((node) => node.data.nodeType === 'loopStart');
+    if (startsInLoop.length !== 1) errors.push(`循环体 ${loop.data.label} 必须有且仅有一个循环开始节点`);
+    if (children.some((node) => node.data.nodeType === 'loop')) errors.push(`循环体 ${loop.data.label} 不支持嵌套循环`);
+    if (startsInLoop.length === 1) {
+      const childIds = new Set(children.map((node) => node.id));
+      const childEdges = edges.filter((edge) => childIds.has(edge.source) && childIds.has(edge.target));
+      const reachable = getReachableNodeIds(startsInLoop[0].id, childEdges);
+      children.filter((node) => node.data.nodeType !== 'loopBreak').forEach((node) => {
+        if (!reachable.has(node.id)) errors.push(`循环体 ${loop.data.label} 内的节点 ${node.data.label} 无法从循环开始节点到达`);
+      });
+    }
+    const config = normalizeLoopConfig(loop.data.config);
+    const arrayRef = parseVariableRef(config.loopRunInputArray);
+    if (arrayRef && nodeMap.get(arrayRef.nodeId)?.parentId === loop.id) {
+      errors.push(`循环体 ${loop.data.label} 的输入数组不能引用自身内部节点`);
+    }
+    config.customOutputs.forEach((output) => {
+      const ref = parseVariableRef(output.value);
+      if (ref && nodeMap.get(ref.nodeId)?.parentId !== loop.id) {
+        errors.push(`循环体 ${loop.data.label} 的输出 ${output.key || '未命名'} 必须引用本循环体内节点`);
+      }
+    });
+  });
+
+  nodes.filter((node) => node.parentId).forEach((node) => {
+    const parent = nodeMap.get(node.parentId!);
+    if (parent?.data.nodeType !== 'loop') errors.push(`节点 ${node.data.label} 的父容器不是有效循环体`);
+  });
+  nodes.filter((node) => (node.data.nodeType === 'loopStart' || node.data.nodeType === 'loopBreak') && !node.parentId)
+    .forEach((node) => errors.push(`内部节点 ${node.data.label} 必须位于循环体内`));
+  edges.forEach((edge) => {
+    const sourceParent = nodeMap.get(edge.source)?.parentId ?? null;
+    const targetParent = nodeMap.get(edge.target)?.parentId ?? null;
+    if (sourceParent !== targetParent) errors.push(`连线 ${edge.id} 不能跨越循环体边界`);
+  });
 
   nodes.forEach((node) => {
     const module = getNodeModule(node.data.nodeType);
@@ -187,7 +228,10 @@ export function validateWorkflowForBackend(
     if (rules.requireIncoming && incoming.length === 0) {
       errors.push(`节点 ${node.data.label} 必须连接上游节点`);
     }
-    if (rules.requireOutgoing && outgoing.length === 0) {
+    const canEndLoopIteration = Boolean(node.parentId)
+      && node.data.nodeType !== 'loopStart'
+      && node.data.nodeType !== 'loopBreak';
+    if (rules.requireOutgoing && outgoing.length === 0 && !canEndLoopIteration) {
       errors.push(`节点 ${node.data.label} 必须连接下游节点`);
     }
     if (rules.maxIncoming != null && incoming.length > rules.maxIncoming) {
@@ -201,6 +245,11 @@ export function validateWorkflowForBackend(
   const outputs = buildOutputMap(nodes);
   nodes.forEach((node) => {
     const upstream = getUpstreamNodeIds(node.id, edges);
+    if (node.data.nodeType === 'loop') {
+      nodes.filter((item) => item.parentId === node.id).forEach((item) => upstream.add(item.id));
+    } else if (node.parentId) {
+      getUpstreamNodeIds(node.parentId, edges).forEach((item) => upstream.add(item));
+    }
     getNodeModule(node.data.nodeType).getReferences(node).forEach((reference) => {
       validateReference(
         reference.value,

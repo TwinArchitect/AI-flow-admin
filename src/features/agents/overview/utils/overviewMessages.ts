@@ -5,7 +5,7 @@
 
 import type { AgentOpenChatMessage, OverviewUiMessage, MessageBlock } from '@/types';
 import { parseStringToBlocks } from './blockHelpers';
-import { resolveCustomTypeFromQuestion } from '../data/testAgents';
+import { restorePersistedRichBlocks } from './chatContents';
 
 export function formatChatTime(value?: string): string {
   if (!value) {
@@ -20,7 +20,6 @@ export function apiMessagesToUiMessages(records: AgentOpenChatMessage[]): Overvi
   const result: OverviewUiMessage[] = [];
   for (const record of records) {
     const ts = formatChatTime(record.createTime);
-    const customType = resolveCustomTypeFromQuestion(record.question);
     result.push({
       id: `${record.id}-q`,
       role: 'user',
@@ -31,8 +30,10 @@ export function apiMessagesToUiMessages(records: AgentOpenChatMessage[]): Overvi
       id: `${record.id}-a`,
       backendId: record.id,
       role: 'assistant',
-      blocks: parseStringToBlocks(record.answer, 'assistant'),
-      customType,
+      blocks: restorePersistedRichBlocks(
+        parseStringToBlocks(record.answer === '（无文本回复）' ? '' : record.answer, 'assistant'),
+        record.contents,
+      ),
       likes: record.likes ?? 0,
       timestamp: ts
     });

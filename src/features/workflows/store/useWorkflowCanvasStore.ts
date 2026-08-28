@@ -8,6 +8,7 @@ import type {
   WorkflowNodeType,
 } from '../types';
 import { getNodeModule } from '../nodes/registry';
+import { createLoopBundle, syncLoopMetadata } from '../utils/loopLayout';
 
 interface Snapshot {
   nodes: WorkflowCanvasNode[];
@@ -53,7 +54,8 @@ interface WorkflowCanvasState {
   onNodesChange: (changes: NodeChange<WorkflowCanvasNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<WorkflowCanvasEdge>[]) => void;
   onConnect: (connection: Connection) => void;
-  addNode: (type: WorkflowNodeType, position: XYPosition) => void;
+  addNode: (type: WorkflowNodeType, position: XYPosition, parentId?: string) => void;
+  updateNodeParent: (nodeId: string, parentId: string | undefined, position: XYPosition) => void;
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
   updateNodeLabel: (nodeId: string, label: string) => void;
   deleteNode: (nodeId: string) => void;
@@ -105,16 +107,48 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
     const { nodes, edges, past } = get();
     const hasStructuralChange = changes.some((change) => change.type === 'remove' || change.type === 'add');
 
+    const applyChanges = () => {
+      const resizedLoops = new Map(
+        changes.flatMap((change) => {
+          if (change.type !== 'dimensions' || !change.dimensions) return [];
+          const node = nodes.find((item) => item.id === change.id);
+          if (node?.data.nodeType !== 'loop') return [];
+          return [[change.id, change.dimensions] as const];
+        }),
+      );
+
+      return applyNodeChanges(changes, nodes).map((node) => {
+        const dimensions = resizedLoops.get(node.id);
+        if (!dimensions) return node;
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            width: dimensions.width,
+            height: dimensions.height,
+          },
+          data: {
+            ...node.data,
+            config: {
+              ...node.data.config,
+              nodeWidth: dimensions.width,
+              nodeHeight: dimensions.height,
+            },
+          },
+        };
+      });
+    };
+
     if (hasStructuralChange) {
       set({
-        nodes: applyNodeChanges(changes, nodes),
+        nodes: applyChanges(),
         past: pushSnapshot(past, nodes, edges),
         future: [],
       });
       return;
     }
 
-    set({ nodes: applyNodeChanges(changes, nodes) });
+    set({ nodes: applyChanges() });
   },
 
   onEdgesChange: (changes) => {
@@ -142,14 +176,26 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
     });
   },
 
-  addNode: (type, position) => {
+  addNode: (type, position, parentId) => {
     const { nodes, edges, past } = get();
+    if (type === 'loop') {
+      const bundle = createLoopBundle(position);
+      set({
+        nodes: [...nodes, ...bundle],
+        selectedNodeId: bundle[0].id,
+        past: pushSnapshot(past, nodes, edges),
+        future: [],
+      });
+      return;
+    }
     const module = getNodeModule(type);
     const def = module.definition;
     const node: WorkflowCanvasNode = {
       id: `${type}-${Date.now()}`,
       type,
       position,
+      parentId,
+      zIndex: parentId ? 1 : undefined,
       data: {
         label: def.name,
         nodeType: type,
@@ -159,8 +205,19 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
     };
 
     set({
-      nodes: [...nodes, node],
+      nodes: syncLoopMetadata([...nodes, node]),
       selectedNodeId: node.id,
+      past: pushSnapshot(past, nodes, edges),
+      future: [],
+    });
+  },
+
+  updateNodeParent: (nodeId, parentId, position) => {
+    const { nodes, edges, past } = get();
+    const current = nodes.find((node) => node.id === nodeId);
+    if (!current || (current.parentId === parentId && current.position.x === position.x && current.position.y === position.y)) return;
+    set({
+      nodes: syncLoopMetadata(nodes.map((node) => node.id === nodeId ? { ...node, parentId, position, zIndex: parentId ? 1 : undefined } : node)),
       past: pushSnapshot(past, nodes, edges),
       future: [],
     });
@@ -192,10 +249,11 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
 
   deleteNode: (nodeId) => {
     const { nodes, edges, past, selectedNodeId } = get();
+    const removing = new Set([nodeId, ...nodes.filter((node) => node.parentId === nodeId).map((node) => node.id)]);
     set({
-      nodes: nodes.filter((node) => node.id !== nodeId),
-      edges: edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
-      selectedNodeId: selectedNodeId === nodeId ? null : selectedNodeId,
+      nodes: syncLoopMetadata(nodes.filter((node) => !removing.has(node.id))),
+      edges: edges.filter((edge) => !removing.has(edge.source) && !removing.has(edge.target)),
+      selectedNodeId: selectedNodeId && removing.has(selectedNodeId) ? null : selectedNodeId,
       past: pushSnapshot(past, nodes, edges),
       future: [],
     });

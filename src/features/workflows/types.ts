@@ -9,7 +9,15 @@ export type WorkflowNodeType =
   | 'reply'
   | 'concat'
   | 'condition'
+  | 'variableUpdate'
+  | 'classify'
+  | 'readFiles'
   | 'code'
+  | 'database'
+  | 'baseChart'
+  | 'loop'
+  | 'loopStart'
+  | 'loopBreak'
   | 'plugin'
   | 'mcp';
 
@@ -51,6 +59,7 @@ export type WorkflowValueType =
   | 'arrayAny'
   | 'file'
   | 'any'
+  | 'chatHistory'
   | 'datasetQuote'
   | 'dynamic'
   | 'selectDataset'
@@ -59,7 +68,7 @@ export type WorkflowValueType =
 export interface WorkflowOutputSchema {
   key: string;
   label: string;
-  valueType: WorkflowValueType | 'chatHistory';
+  valueType: WorkflowValueType;
 }
 
 export interface WorkflowVariableOption {
@@ -70,6 +79,7 @@ export interface WorkflowVariableOption {
   outputKey: string;
   outputLabel: string;
   valueType: WorkflowOutputSchema['valueType'];
+  scope?: 'upstream' | 'loopChild';
 }
 
 export interface StartNodeConfig {
@@ -141,6 +151,7 @@ export type ConditionOperator =
   | 'equalTo'
   | 'notEqual'
   | 'isEmpty'
+  | 'isNotEmpty'
   | 'include'
   | 'notInclude'
   | 'startWith'
@@ -149,7 +160,13 @@ export type ConditionOperator =
   | 'greaterThan'
   | 'greaterThanOrEqualTo'
   | 'lessThan'
-  | 'lessThanOrEqualTo';
+  | 'lessThanOrEqualTo'
+  | 'lengthEqualTo'
+  | 'lengthNotEqualTo'
+  | 'lengthGreaterThan'
+  | 'lengthGreaterThanOrEqualTo'
+  | 'lengthLessThan'
+  | 'lengthLessThanOrEqualTo';
 
 export interface ConditionRule {
   id: string;
@@ -167,6 +184,146 @@ export interface ConditionBranch {
 
 export interface ConditionNodeConfig {
   branches: ConditionBranch[];
+}
+
+export interface VariableUpdateItem {
+  id: string;
+  variableRef: string;
+  valueMode: 'input' | 'reference';
+  value: string;
+  valueType: WorkflowValueType;
+}
+
+export interface VariableUpdateNodeConfig {
+  updateList: VariableUpdateItem[];
+}
+
+export interface ClassifyAgent {
+  key: string;
+  value: string;
+}
+
+export interface ClassifyNodeConfig {
+  model: LlmModelValue | null;
+  systemPrompt: string;
+  history: number;
+  memoryEnabled: boolean;
+  userChatInput: string;
+  agents: ClassifyAgent[];
+}
+
+export interface ReadFilesNodeConfig {
+  filePathRefs: string[];
+  smartParse: boolean;
+  catchError: boolean;
+}
+
+export type DatasetSearchMode = 'embedding' | 'fullTextRecall' | 'mixedRecall';
+
+export interface DatasetSearchSelectedItem {
+  datasetId: string;
+  name?: string;
+  avatar?: string;
+  isDeleted?: boolean;
+}
+
+export interface DatasetSearchInput {
+  valueMode: 'input' | 'reference';
+  value: string;
+}
+
+export interface DatasetSearchNodeConfig {
+  datasets: DatasetSearchSelectedItem[];
+  similarity: number;
+  limit: number;
+  searchMode: DatasetSearchMode;
+  embeddingWeight: number;
+  usingReRank: boolean;
+  rerankModel: string;
+  rerankWeight: number;
+  searchInput: DatasetSearchInput;
+  catchError: boolean;
+}
+
+export interface CodeInputVariable {
+  id: string;
+  key: string;
+  label: string;
+  value: string;
+  required: boolean;
+  valueType: WorkflowValueType;
+}
+
+export interface CodeOutputVariable {
+  id: string;
+  key: string;
+  label: string;
+  valueType: WorkflowValueType;
+}
+
+export interface CodeNodeConfig {
+  codeType: 'js' | 'py';
+  code: string;
+  inputVariables: CodeInputVariable[];
+  outputVariables: CodeOutputVariable[];
+  catchError: boolean;
+}
+
+export type DatabaseType = 'mysql' | 'oracle' | 'kingbase';
+
+export interface DatabaseSqlInput {
+  valueMode: 'input' | 'reference';
+  value: string;
+}
+
+export interface DatabaseNodeConfig {
+  dbType: DatabaseType;
+  databaseName: string;
+  host: string;
+  username: string;
+  password: string;
+  connectTimeout: number;
+  sql: DatabaseSqlInput;
+  catchError: boolean;
+}
+
+export interface BaseChartField {
+  valueMode: 'input' | 'reference';
+  value: string;
+}
+
+export interface BaseChartNodeConfig {
+  title: BaseChartField;
+  xAxis: BaseChartField;
+  yAxis: BaseChartField;
+  chartType: BaseChartField;
+  outputChart: boolean;
+  catchError: boolean;
+}
+
+export interface LoopCustomOutput {
+  id: string;
+  key: string;
+  label: string;
+  valueType: WorkflowValueType;
+  value: string;
+}
+
+export interface LoopNodeConfig {
+  loopRunMode: 'array';
+  loopRunInputArray: string;
+  customOutputs: LoopCustomOutput[];
+  childrenNodeIds: string[];
+  nodeWidth: number;
+  nodeHeight: number;
+  loopNodeInputHeight: number;
+  catchError: false;
+}
+
+export interface LoopStartNodeConfig {
+  loopRunMode: 'array';
+  loopStartInput: string;
+  loopStartIndex?: number;
 }
 
 export interface EndOutputVariable {
@@ -221,6 +378,15 @@ export type WorkflowNodeConfig =
   | ReplyNodeConfig
   | ConcatNodeConfig
   | ConditionNodeConfig
+  | VariableUpdateNodeConfig
+  | ClassifyNodeConfig
+  | ReadFilesNodeConfig
+  | DatasetSearchNodeConfig
+  | CodeNodeConfig
+  | DatabaseNodeConfig
+  | BaseChartNodeConfig
+  | LoopNodeConfig
+  | LoopStartNodeConfig
   | HttpNodeConfig
   | Record<string, unknown>;
 
@@ -231,7 +397,17 @@ export type BackendFlowNodeType =
   | 'httpRequest468'
   | 'answerNode'
   | 'textEditor'
-  | 'ifElseNode';
+  | 'ifElseNode'
+  | 'variableUpdate'
+  | 'classifyQuestion'
+  | 'readFiles'
+  | 'datasetSearchNode'
+  | 'code'
+  | 'databaseQuery'
+  | 'chartVisual'
+  | 'loopRun'
+  | 'loopRunStart'
+  | 'loopRunBreak';
 
 export interface WorkflowModuleInput {
   key: string;
@@ -239,6 +415,7 @@ export interface WorkflowModuleInput {
   valueType?: string;
   required?: boolean;
   renderTypeList?: string[];
+  selectedTypeIndex?: number;
   value?: unknown;
   debugLabel?: string;
   toolDescription?: string;
@@ -278,6 +455,7 @@ export interface WorkflowModule {
   position: { x: number; y: number };
   showStatus?: boolean;
   catchError?: boolean;
+  parentNodeId?: string;
 }
 
 export interface WorkflowChatConfigVariable {

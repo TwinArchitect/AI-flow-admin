@@ -1,4 +1,5 @@
 import type { ComponentType, ElementType } from 'react';
+import type { NodeProps } from '@xyflow/react';
 import type {
   BackendFlowNodeType,
   WorkflowCanvasNode,
@@ -63,8 +64,10 @@ export interface WorkflowNodeModule {
   type: WorkflowNodeType;
   definition: WorkflowNodeDef;
   icon: ElementType;
+  CanvasComponent?: ComponentType<NodeProps<WorkflowCanvasNode>>;
   backendType?: BackendFlowNodeType;
   backendRunnable: boolean;
+  paletteVisible?: boolean;
   createDefaultConfig: () => Record<string, unknown>;
   ConfigPanel: ComponentType<NodeConfigPanelProps>;
   ExecutionDetails: ComponentType<NodeExecutionDetailsProps>;

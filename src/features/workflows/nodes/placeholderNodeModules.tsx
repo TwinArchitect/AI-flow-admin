@@ -1,4 +1,4 @@
-import { Code2, Database, Layers, PlugZap } from 'lucide-react';
+import { Layers, PlugZap } from 'lucide-react';
 import type { ElementType } from 'react';
 import { PlaceholderConfigPanel } from '../components/config-panels/PlaceholderConfigPanel';
 import { DefaultNodeExecutionDetails } from '../components/node-execution/DefaultNodeExecutionDetails';
@@ -34,14 +34,6 @@ function createPlaceholderNodeModule(
 
 const definitions: Array<[WorkflowNodeDef, ElementType]> = [
   [{
-    type: 'knowledge',
-    name: '知识库',
-    description: '检索知识库并返回相关片段',
-    category: '基础',
-    tone: 'bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400',
-    iconTone: 'bg-sky-500 text-white',
-  }, Database],
-  [{
     type: 'plugin',
     name: '插件',
     description: '调用内置插件完成动作',
@@ -57,14 +49,6 @@ const definitions: Array<[WorkflowNodeDef, ElementType]> = [
     tone: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400',
     iconTone: 'bg-amber-500 text-white',
   }, PlugZap],
-  [{
-    type: 'code',
-    name: '代码执行',
-    description: '执行自定义脚本处理数据',
-    category: '逻辑',
-    tone: 'bg-rose-500/10 text-rose-600 border-rose-500/20 dark:text-rose-400',
-    iconTone: 'bg-rose-500 text-white',
-  }, Code2],
 ];
 
 export const placeholderNodeModules = definitions.map(([definition, icon]) =>

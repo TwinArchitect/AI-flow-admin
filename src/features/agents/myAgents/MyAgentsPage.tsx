@@ -16,9 +16,12 @@
  *   text-[11px] / text-[10px] → text-xs / text-2xs
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CircleHelp, Filter, Loader2, Plus, RefreshCw, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleHelp, Filter, Loader2, Plus, RefreshCw, Search } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -37,11 +40,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { deleteAgent, isWorkflowAgent, queryAgents } from '../api/agentApi';
 import { AgentListCard } from './components/AgentListCard';
-import { CreateAgentDialog } from './components/CreateAgentDialog';
-import { MOCK_AGENTS, MOCK_LABELS } from './data/agentsMock';
+import { CreateAgentDialog, type CreateAgentDraft } from './components/CreateAgentDialog';
 import type { AgentOpenSysAgent } from '@/types/agent';
-import { resolveAgentTagNames, parseAgentTagIds } from '@/types/agent';
+
+const PAGE_SIZE = 20;
 
 const statusOptions = [
   { value: 'all' as const, label: '全部状态' },
@@ -50,50 +54,61 @@ const statusOptions = [
 ];
 
 export function MyAgentsPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | '0' | '1'>('all');
-  const [selectedTagId, setSelectedTagId] = useState<string>('all');
+  const [pageNum, setPageNum] = useState(1);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [loading] = useState(false);
-  const [agents] = useState<AgentOpenSysAgent[]>(MOCK_AGENTS);
   const [deleteTarget, setDeleteTarget] = useState<AgentOpenSysAgent | null>(null);
-  const [editTarget, setEditTarget] = useState<AgentOpenSysAgent | null>(null);
 
-  /* ─── 搜索过滤 ─── */
-  const agentsAfterSearch = useMemo(() => {
-    const keyword = appliedSearch.trim().toLowerCase();
-    if (!keyword)
-      return agents.filter((a) => selectedStatus === 'all' || String(a.status) === selectedStatus);
-    return agents.filter((agent) => {
-      if (selectedStatus !== 'all' && String(agent.status) !== selectedStatus) return false;
-      const tagText = resolveAgentTagNames(agent.type, MOCK_LABELS).join(' ').toLowerCase();
-      return (
-        agent.agentName?.toLowerCase().includes(keyword) ||
-        agent.remark?.toLowerCase().includes(keyword) ||
-        tagText.includes(keyword)
-      );
-    });
-  }, [agents, appliedSearch, selectedStatus]);
+  const agentsQuery = useQuery({
+    queryKey: ['agents', 'mine', pageNum, selectedStatus, appliedSearch],
+    queryFn: () => queryAgents({
+      pageNum,
+      pageSize: PAGE_SIZE,
+      status: selectedStatus === 'all' ? undefined : Number(selectedStatus),
+      agentName: appliedSearch || undefined,
+    }),
+  });
+  const agents = agentsQuery.data?.records ?? [];
+  const total = agentsQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const labelCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    agentsAfterSearch.forEach((agent) => {
-      parseAgentTagIds(agent.type).forEach((id) => {
-        counts.set(id, (counts.get(id) ?? 0) + 1);
-      });
-    });
-    return counts;
-  }, [agentsAfterSearch]);
+  const deleteMutation = useMutation({
+    mutationFn: deleteAgent,
+    onSuccess: async () => {
+      toast.success('智能体已删除');
+      setDeleteTarget(null);
+      await agentsQuery.refetch();
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : '删除失败'),
+  });
 
-  const filteredAgents = useMemo(() => {
-    if (selectedTagId === 'all') return agentsAfterSearch;
-    return agentsAfterSearch.filter((agent) =>
-      parseAgentTagIds(agent.type).includes(selectedTagId)
-    );
-  }, [agentsAfterSearch, selectedTagId]);
+  useEffect(() => {
+    setPageNum(1);
+  }, [selectedStatus, appliedSearch]);
 
   const handleSearch = () => setAppliedSearch(searchTerm.trim());
+
+  const openAgent = (agent: AgentOpenSysAgent) => {
+    if (!isWorkflowAgent(agent)) {
+      toast.info('对话式智能体编辑入口将在正式会话阶段接入');
+      return;
+    }
+    navigate(`/workflows?id=${encodeURIComponent(agent.id)}`);
+  };
+
+  const createAgent = (draft: CreateAgentDraft) => {
+    navigate('/workflows?new=1', {
+      state: {
+        workflowDraft: {
+          agentName: draft.name.trim(),
+          remark: draft.remark.trim(),
+        },
+      },
+    });
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-y-auto bg-background">
@@ -125,9 +140,9 @@ export function MyAgentsPage() {
               variant="outline"
               size="sm"
               className="text-xs gap-2 rounded-2xl h-9"
-              onClick={() => {}}
+              onClick={() => void agentsQuery.refetch()}
             >
-              <RefreshCw size={15} className={cn(loading && 'animate-spin')} />
+              <RefreshCw size={15} className={cn(agentsQuery.isFetching && 'animate-spin')} />
               刷新
             </Button>
             <Button
@@ -147,55 +162,17 @@ export function MyAgentsPage() {
             {/* 标签筛选 */}
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               <Button
-                variant={selectedTagId === 'all' ? 'default' : 'outline'}
+                variant="default"
                 size="xs"
-                onClick={() => setSelectedTagId('all')}
-                className={cn(
-                  'rounded-full gap-1.5 text-xs font-bold',
-                  selectedTagId !== 'all' && 'border-border text-muted-foreground'
-                )}
+                className="rounded-full gap-1.5 text-xs font-bold"
               >
                 全部
                 <span
-                  className={cn(
-                    'min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-2xs font-bold tabular-nums',
-                    selectedTagId === 'all' ? 'bg-primary-foreground/20' : 'bg-accent'
-                  )}
+                  className="min-w-[1.25rem] rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-2xs font-bold tabular-nums"
                 >
-                  {agentsAfterSearch.length}
+                  {total}
                 </span>
               </Button>
-
-              {MOCK_LABELS.map((label) => {
-                const count = labelCounts.get(label.id) ?? 0;
-                const active = selectedTagId === label.id;
-                return (
-                  <Button
-                    key={label.id}
-                    variant={active ? 'default' : 'outline'}
-                    size="xs"
-                    onClick={() => setSelectedTagId(label.id)}
-                    className={cn(
-                      'rounded-full gap-1.5 text-xs font-bold',
-                      !active && 'border-border text-muted-foreground'
-                    )}
-                  >
-                    {label.name}
-                    <span
-                      className={cn(
-                        'min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-2xs font-bold tabular-nums',
-                        active ? 'bg-primary-foreground/20' : 'bg-accent'
-                      )}
-                    >
-                      {count}
-                    </span>
-                  </Button>
-                );
-              })}
-
-              {MOCK_LABELS.length === 0 && (
-                <span className="text-xs text-muted-foreground px-2">暂无标签</span>
-              )}
             </div>
 
             {/* 搜索 + 状态 */}
@@ -242,15 +219,15 @@ export function MyAgentsPage() {
 
       {/* 列表区域 */}
       <div className="flex-1 min-h-0 overflow-y-auto mt-6 px-6 pb-6">
-        {loading && agents.length === 0 ? (
+        {agentsQuery.isLoading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
             <Loader2 size={20} className="animate-spin" />
             加载中...
           </div>
-        ) : filteredAgents.length > 0 ? (
+        ) : agents.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-2">
             <AnimatePresence mode="popLayout">
-              {filteredAgents.map((agent) => (
+              {agents.map((agent) => (
                 <motion.div
                   layout
                   key={agent.id}
@@ -261,11 +238,8 @@ export function MyAgentsPage() {
                 >
                   <AgentListCard
                     agent={agent}
-                    onOpen={() => {
-                      /* navigate to orchestration */
-                    }}
+                    onOpen={() => openAgent(agent)}
                     onDelete={() => setDeleteTarget(agent)}
-                    onEdit={() => setEditTarget(agent)}
                   />
                 </motion.div>
               ))}
@@ -284,19 +258,25 @@ export function MyAgentsPage() {
 
       {/* 底部统计 */}
       <div className="shrink-0 px-6 py-4 border-t border-border">
-        <p className="text-xs text-muted-foreground">
-          当前显示 {filteredAgents.length} / 共 {agents.length} 个智能体
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            共 {total} 个，第 {pageNum}/{totalPages} 页
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={pageNum <= 1 || agentsQuery.isFetching} onClick={() => setPageNum((page) => Math.max(1, page - 1))}>
+              <ChevronLeft size={14} />上一页
+            </Button>
+            <Button variant="outline" size="sm" disabled={pageNum >= totalPages || agentsQuery.isFetching} onClick={() => setPageNum((page) => Math.min(totalPages, page + 1))}>
+              下一页<ChevronRight size={14} />
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* 创建弹窗 */}
-      <CreateAgentDialog isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
-
-      {/* 编辑弹窗 */}
       <CreateAgentDialog
-        isOpen={Boolean(editTarget)}
-        agent={editTarget}
-        onClose={() => setEditTarget(null)}
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSubmit={createAgent}
       />
 
       {/* 删除确认 */}
@@ -320,8 +300,12 @@ export function MyAgentsPage() {
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               取消
             </Button>
-            <Button variant="destructive" onClick={() => setDeleteTarget(null)}>
-              确认删除
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? '删除中' : '确认删除'}
             </Button>
           </DialogFooter>
         </DialogContent>

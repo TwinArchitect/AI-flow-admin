@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import {
   Bell,
-  Search,
-  Globe,
+  // Search,
+  // Globe,
   Clock,
   CheckCheck,
   Sun,
@@ -12,7 +12,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+// import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useThemeStore } from '@/stores/theme';
 import { useLogout } from '@/hooks/useAuth';
@@ -87,22 +87,15 @@ export function Header() {
       {/* 右侧操作 */}
       <div className="flex items-center gap-2">
         {/* 全局搜索 */}
-        <div className="relative w-56">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10 pointer-events-none" />
-          <Input
-            type="text"
-            placeholder="全局搜索..."
-            className="pl-9 h-9 bg-muted border-transparent rounded-lg text-sm focus-visible:border-ring focus-visible:bg-background"
-          />
-        </div>
+        {/*<div className="relative w-56">*/}
+        {/*  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10 pointer-events-none" />*/}
+        {/*  <Input*/}
+        {/*    type="text"*/}
+        {/*    placeholder="全局搜索..."*/}
+        {/*    className="pl-9 h-9 bg-muted border-transparent rounded-lg text-sm focus-visible:border-ring focus-visible:bg-background"*/}
+        {/*  />*/}
+        {/*</div>*/}
 
-        {/* 语言切换 */}
-        <div className="flex items-center gap-1.5">
-          <Globe size={15} className="text-muted-foreground" />
-          <span className="text-xs font-medium text-foreground cursor-pointer hover:text-primary transition-colors">
-            HK
-          </span>
-        </div>
 
         {/* 主题切换（带 View Transitions 动画） */}
         <Button

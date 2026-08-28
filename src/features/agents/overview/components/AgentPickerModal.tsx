@@ -11,16 +11,12 @@
  *   backdrop-filter glass → 简化
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Bot, Loader2, Shield, Sparkles, TrendingUp, X } from 'lucide-react';
+import { Bot, Loader2, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  TEST_AGENT_PRESETS,
-  type TestAgentCustomType,
-  type TestAgentPreset,
-} from '../data/testAgents';
+import { queryAgents } from '@/features/agents/api/agentApi';
 
 export interface SelectedPublishedAgent {
   id: string;
@@ -30,17 +26,9 @@ export interface SelectedPublishedAgent {
 interface AgentPickerModalProps {
   open: boolean;
   onClose: () => void;
-  onSelectTestAgent: (preset: TestAgentPreset) => void;
   onSelectPublishedAgent: (agent: SelectedPublishedAgent) => void;
   selectedPublishedAgentId?: string | null;
 }
-
-const TEST_AGENT_ICONS: Record<TestAgentCustomType, typeof Sparkles> = {
-  'data-analysis': TrendingUp,
-  'safe-management': Shield,
-  'anti-violation': AlertTriangle,
-  'hazard-analysis': AlertTriangle,
-};
 
 /* ─── AgentGridItem ─── */
 function AgentGridItem({
@@ -72,34 +60,30 @@ function AgentGridItem({
   );
 }
 
-function TestAgentIcon({ preset }: { preset: TestAgentPreset }) {
-  const Icon = TEST_AGENT_ICONS[preset.customType] ?? Sparkles;
-  return (
-    <div
-      className={cn(
-        'w-[52px] h-[52px] rounded-2xl flex items-center justify-center border shadow-sm',
-        preset.color
-      )}
-    >
-      <Icon size={24} className="shrink-0" />
-    </div>
-  );
-}
-
 export function AgentPickerModal({
   open,
   onClose,
-  onSelectTestAgent,
   onSelectPublishedAgent,
   selectedPublishedAgentId,
 }: AgentPickerModalProps) {
-  const [loading] = useState(false);
-  /* mock 已发布智能体列表 */
-  const [mockAgents] = useState<SelectedPublishedAgent[]>([
-    { id: 'p1', agentName: '客服机器人' },
-    { id: 'p2', agentName: '数据抽取助手' },
-    { id: 'p3', agentName: '质检分析专家' },
-  ]);
+  const [loading, setLoading] = useState(false);
+  const [agents, setAgents] = useState<SelectedPublishedAgent[]>([]);
+
+  const fetchPublishedAgents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const page = await queryAgents({ pageNum: 1, pageSize: 200, status: 1 });
+      setAgents((page.records ?? []).map(({ id, agentName }) => ({ id, agentName })));
+    } catch {
+      setAgents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) void fetchPublishedAgents();
+  }, [open, fetchPublishedAgents]);
 
   useEffect(() => {
     if (!open) return;
@@ -144,28 +128,7 @@ export function AgentPickerModal({
               </Button>
             </header>
 
-            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
-              {/* 示例智能体 */}
-              <section>
-                <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">
-                  示例智能体
-                </h3>
-                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1">
-                  {TEST_AGENT_PRESETS.map((preset) => (
-                    <AgentGridItem
-                      key={preset.customType}
-                      name={preset.name}
-                      onClick={() => onSelectTestAgent(preset)}
-                    >
-                      <TestAgentIcon preset={preset} />
-                    </AgentGridItem>
-                  ))}
-                </div>
-              </section>
-
-              <div className="border-t border-border" />
-
-              {/* 我的智能体 */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
               <section>
                 <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">
                   我的智能体
@@ -175,8 +138,9 @@ export function AgentPickerModal({
                     <Loader2 size={24} className="animate-spin" />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1">
-                    {mockAgents.map((agent) => (
+                  agents.length ? (
+                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1">
+                      {agents.map((agent) => (
                       <AgentGridItem
                         key={agent.id}
                         name={agent.agentName}
@@ -187,8 +151,11 @@ export function AgentPickerModal({
                           <Bot size={24} className="text-primary" />
                         </div>
                       </AgentGridItem>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="py-12 text-center text-xs text-muted-foreground">暂无已发布智能体</p>
+                  )
                 )}
               </section>
             </div>

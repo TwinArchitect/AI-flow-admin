@@ -60,17 +60,14 @@ export const conditionNodeModule: WorkflowNodeModule = {
   validate: validateConditionNode,
   validateEdges: (node, _incoming, outgoing) => {
     const branchCount = normalizeConditionConfig(node.data.config).branches.length;
-    const expectedHandles = [
-      ...Array.from({ length: branchCount }, (_, index) => (
-        buildConditionSourceHandle(node.id, index)
-      )),
-      buildConditionElseHandle(node.id),
-    ];
+    const branchHandles = Array.from({ length: branchCount }, (_, index) => (
+      buildConditionSourceHandle(node.id, index)
+    ));
+    const expectedHandles = [...branchHandles, buildConditionElseHandle(node.id)];
     const errors: string[] = [];
-    expectedHandles.forEach((handle, index) => {
+    branchHandles.forEach((handle, index) => {
       if (!outgoing.some((edge) => edge.sourceHandle === handle)) {
-        const label = index < branchCount ? getConditionBranchLabel(index) : 'ELSE';
-        errors.push(`节点 ${node.data.label} 必须连接 ${label} 分支`);
+        errors.push(`节点 ${node.data.label} 必须连接 ${getConditionBranchLabel(index)} 分支`);
       }
     });
     if (outgoing.some((edge) => !expectedHandles.includes(edge.sourceHandle ?? ''))) {

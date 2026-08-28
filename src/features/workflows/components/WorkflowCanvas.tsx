@@ -10,7 +10,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import type { FitViewOptions, NodeChange, NodeMouseHandler, NodeTypes } from '@xyflow/react';
-import { Braces, Loader2, Map, Maximize2, PanelLeftOpen, Play, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
+import { Braces, Loader2, Map, Maximize2, PanelLeftOpen, Play, Redo2, Rocket, Save, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +33,7 @@ import { createConnectionValidator } from '../utils/connectionRules';
 import { serializeWorkflowToBackend } from '../utils/workflowSerialization';
 import { validateWorkflowForBackend } from '../utils/workflowValidation';
 import { getWorkflowDebugContext } from '../utils/workflowDebugContext';
+import { findLoopAtPosition, getAbsoluteNodePosition, resolveNodeParent } from '../utils/loopLayout';
 import { useWorkflowCanvasStore } from '../store/useWorkflowCanvasStore';
 import type { WorkflowBackendPayload, WorkflowCanvasNode, WorkflowNodeType } from '../types';
 import type { WorkflowNodeExecutionStates } from '../types/execution';
@@ -40,11 +41,12 @@ import type { SaveWorkflowConfigResult } from '../api/workflowApi';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { NodeSidebar } from './NodeSidebar';
 import { WorkflowNode } from './WorkflowNode';
+import { WorkflowPublishDialog } from './WorkflowPublishDialog';
 import { WorkflowDebugDrawer } from './debug/WorkflowDebugDrawer';
 import { JsonViewDialog } from './JsonViewDialog';
 
 const nodeTypes = Object.fromEntries(
-  WORKFLOW_NODE_MODULES.map((module) => [module.type, WorkflowNode]),
+  WORKFLOW_NODE_MODULES.map((module) => [module.type, module.CanvasComponent ?? WorkflowNode]),
 ) as NodeTypes;
 
 const WORKFLOW_FIT_VIEW_OPTIONS = {
@@ -56,6 +58,7 @@ const WORKFLOW_FIT_VIEW_OPTIONS = {
 interface WorkflowToolbarProps {
   agentId?: string;
   agentName: string;
+  agentRemark?: string;
   savedBaseline: WorkflowBackendPayload | null;
   initialViewport?: { x: number; y: number; zoom: number };
   loadedAgentId?: string;
@@ -74,6 +77,7 @@ interface WorkflowToolbarExecutionProps {
 function WorkflowToolbar({
   agentId,
   agentName,
+  agentRemark,
   savedBaseline,
   initialViewport: _initialViewport,
   onSaved,
@@ -98,6 +102,7 @@ function WorkflowToolbar({
   } = useWorkflowCanvasStore();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [flowJsonOpen, setFlowJsonOpen] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const activeNode = nodes.find((node) => nodeStates[node.id]?.status === 'running');
   const completedCount = nodes.filter((node) =>
     nodeStates[node.id] && nodeStates[node.id]?.status !== 'idle' && nodeStates[node.id]?.status !== 'running'
@@ -115,8 +120,9 @@ function WorkflowToolbar({
   const flowJson = useMemo(() => ({
     agentId: agentId ?? null,
     agentName,
+    remark: agentRemark ?? '',
     ...currentPayload,
-  }), [agentId, agentName, currentPayload]);
+  }), [agentId, agentName, agentRemark, currentPayload]);
 
   useEffect(() => {
     function warnBeforeLeave(event: BeforeUnloadEvent) {
@@ -150,6 +156,7 @@ function WorkflowToolbar({
     saveWorkflowMutation.mutate({
       agentId,
       agentName,
+      remark: agentRemark,
       nodes: result.nodes,
       edges: result.edges,
       viewport: getViewport(),
@@ -178,8 +185,10 @@ function WorkflowToolbar({
           </Button>
         )}
         <div className="px-2">
-          <div className="text-sm font-semibold text-foreground">工作流编排</div>
-          <div className="text-[10px] text-muted-foreground">拖拽节点、连接流程、配置参数</div>
+          <div className="max-w-56 truncate text-sm font-semibold text-foreground">{agentName}</div>
+          <div className="max-w-72 truncate text-[10px] text-muted-foreground">
+            {agentRemark || '拖拽节点、连接流程、配置参数'}
+          </div>
         </div>
         <Separator orientation="vertical" className="mx-1 h-5" />
         <Button variant="ghost" size="icon-sm" onClick={undo} disabled={past.length === 0} aria-label="撤销">
@@ -245,6 +254,24 @@ function WorkflowToolbar({
           <Save size={14} />
           {saveWorkflowMutation.isPending ? '保存中' : '保存'}
         </Button>
+        {agentId && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isDirty || isRunning || saveWorkflowMutation.isPending}
+                  onClick={() => setPublishDialogOpen(true)}
+                >
+                  <Rocket size={14} />
+                  发布
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {isDirty && <TooltipContent>请先保存当前修改后再发布</TooltipContent>}
+          </Tooltip>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="inline-flex">
@@ -294,6 +321,14 @@ function WorkflowToolbar({
         description="当前画布序列化后的 modules、edges 与 chatConfig.variables"
         value={flowJson}
       />
+      {agentId && (
+        <WorkflowPublishDialog
+          agentId={agentId}
+          agentName={agentName}
+          open={publishDialogOpen}
+          onOpenChange={setPublishDialogOpen}
+        />
+      )}
     </header>
   );
 }
@@ -301,6 +336,7 @@ function WorkflowToolbar({
 function WorkflowCanvasInner({
   agentId,
   agentName,
+  agentRemark,
   savedBaseline,
   initialViewport,
   loadedAgentId,
@@ -318,6 +354,8 @@ function WorkflowCanvasInner({
     onEdgesChange,
     onConnect,
     addNode,
+    updateNodeParent,
+    deleteNode,
     setSelectedNodeId,
     saveSnapshot,
     undo,
@@ -397,11 +435,18 @@ function WorkflowCanvasInner({
       const type = event.dataTransfer.getData('application/workflow-node-type') as WorkflowNodeType;
       if (!type) return;
 
-      addNode(type, screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+      const absolutePosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const targetLoop = type === 'loop' || type === 'start' || type === 'end'
+        ? undefined
+        : findLoopAtPosition(absolutePosition, nodes);
+      const position = targetLoop
+        ? { x: absolutePosition.x - targetLoop.position.x, y: absolutePosition.y - targetLoop.position.y }
+        : absolutePosition;
+      addNode(type, position, targetLoop?.id);
       setActiveSidePanel('node');
       setSidePanelCollapsed(false);
     },
-    [addNode, debugRunning, screenToFlowPosition],
+    [addNode, debugRunning, nodes, screenToFlowPosition],
   );
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -431,12 +476,14 @@ function WorkflowCanvasInner({
       const filtered = changes.filter((change) => {
         if (change.type !== 'remove') return true;
         const node = nodes.find((item) => item.id === change.id);
-        return node ? getNodeModule(node.data.nodeType).connection.deletable : true;
+        if (!node || !getNodeModule(node.data.nodeType).connection.deletable) return false;
+        deleteNode(node.id);
+        return false;
       });
 
       onNodesChange(filtered);
     },
-    [nodes, onNodesChange],
+    [deleteNode, nodes, onNodesChange],
   );
 
   return (
@@ -444,6 +491,7 @@ function WorkflowCanvasInner({
       <WorkflowToolbar
         agentId={agentId}
         agentName={agentName}
+        agentRemark={agentRemark}
         savedBaseline={savedBaseline}
         initialViewport={initialViewport}
         onSaved={(result) => {
@@ -478,6 +526,13 @@ function WorkflowCanvasInner({
           }}
           onNodeClick={handleNodeClick}
           onNodeDragStart={saveSnapshot}
+          onNodeDragStop={(_event, draggedNode) => {
+            const current = nodes.find((node) => node.id === draggedNode.id);
+            if (!current) return;
+            const absolutePosition = getAbsoluteNodePosition({ ...current, position: draggedNode.position }, nodes);
+            const resolved = resolveNodeParent(current, nodes, absolutePosition);
+            updateNodeParent(resolved.id, resolved.parentId, resolved.position);
+          }}
           fitView={!initialViewport}
           defaultViewport={initialViewport}
           fitViewOptions={WORKFLOW_FIT_VIEW_OPTIONS}

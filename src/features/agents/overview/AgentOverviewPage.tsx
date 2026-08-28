@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot,
@@ -37,39 +38,81 @@ import type { OverviewUiMessage, MessageBlock } from '@/types';
 import { ChatInputArea } from './components/ChatInputBar';
 import { MessageContentView } from './components/MessageContentView';
 import { AgentPickerModal, type SelectedPublishedAgent } from './components/AgentPickerModal';
-import { ModelSelect } from './components/ModelSelect';
-import { matchTestAgent } from './data/testAgents';
-import type { TestAgentPreset } from './data/testAgents';
-import { formatChatTime, defaultGroupName, buildStoppedBlock } from './utils/overviewMessages';
+import {
+  apiMessagesToUiMessages,
+  buildGroupTitle,
+  formatChatTime,
+  defaultGroupName,
+  buildStoppedBlock,
+} from './utils/overviewMessages';
 import { parseStringToBlocks, blocksToPlainText } from './utils/blockHelpers';
-import type { AgentOpenChatGroup } from '@/types';
+import { applyContentDelta } from './utils/blockHelpers';
+import { resolveConversationReply } from '@/features/message-render/conversationBlocks';
+import type { AgentOpenChatGroup, ChatMessageLikes } from '@/types';
+import {
+  deleteChatGroup,
+  queryChatGroups,
+  queryChatMessages,
+  saveChatGroup,
+  saveChatMessage,
+  updateChatMessageLikes,
+} from '@/features/agents/api/chatApi';
+import { runWorkflowStream } from '@/features/workflows/api/workflowRunApi';
+import {
+  appendUniqueMessageBlocks,
+  removeTransientConversationBlocks,
+  resolveConversationNodeRichBlocks,
+  resolveConversationResultRichBlocks,
+  resolveConversationSpecialEventBlocks,
+} from '@/features/message-render/richContent';
+import { appendPersistedRichBlocks } from './utils/chatContents';
+import { getAgent } from '@/features/agents/api/agentApi';
 
-const PINNED_TEST_AGENTS_STORAGE_KEY = 'agent_overview_show_test_shortcuts';
+const SELECTED_AGENT_STORAGE_KEY = 'agent_overview_selected_agent_id_v1';
 
 export function AgentOverviewPage() {
+  const [searchParams] = useSearchParams();
+  const lockedAgentId = searchParams.get('agentId')?.trim() || null;
   /* ─── 状态 ─── */
   const [groups, setGroups] = useState<AgentOpenChatGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [messages, setMessages] = useState<OverviewUiMessage[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
-  const [messagesLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [selectedPublishedAgent, setSelectedPublishedAgent] =
     useState<SelectedPublishedAgent | null>(null);
-  const [selectedModel, setSelectedModel] = useState('gpt-4o');
-  const [showPinnedTestAgents] = useState(
-    () => localStorage.getItem(PINNED_TEST_AGENTS_STORAGE_KEY) === '1'
-  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
   const streamingAssistantIdRef = useRef<string | null>(null);
+  const skipHistoryLoadGroupIdRef = useRef<string | null>(null);
 
   const activeGroup = groups.find((g) => g.id === activeGroupId) ?? null;
   const hasMessages = messages.length > 0;
+
+  useEffect(() => {
+    const agentId = lockedAgentId || localStorage.getItem(SELECTED_AGENT_STORAGE_KEY)?.trim();
+    if (!agentId) return;
+    let cancelled = false;
+    getAgent(agentId)
+      .then((agent) => {
+        if (cancelled) return;
+        setSelectedPublishedAgent({ id: agent.id, agentName: agent.agentName });
+        localStorage.setItem(SELECTED_AGENT_STORAGE_KEY, agent.id);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        if (!lockedAgentId) localStorage.removeItem(SELECTED_AGENT_STORAGE_KEY);
+        toast.error(error instanceof Error ? error.message : '恢复智能体失败');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedAgentId]);
 
   /* ─── 滚动到底部 ─── */
   useEffect(() => {
@@ -83,45 +126,95 @@ export function AgentOverviewPage() {
     };
   }, []);
 
-  /* ─── Mock 初始数据 ─── */
-  useEffect(() => {
-    const mockGroups: AgentOpenChatGroup[] = [
-      { id: 'g1', groupName: '新对话_14:30:22', lastQuestion: '什么是智能体', messageCount: 4 },
-      { id: 'g2', groupName: '新对话_14:15:10', lastQuestion: '安全检查有哪些', messageCount: 6 },
-    ];
-    setGroups(mockGroups);
-    setActiveGroupId('g1');
-    setGroupsLoading(false);
+  const refreshGroups = useCallback(async () => {
+    const list = await queryChatGroups();
+    setGroups(list ?? []);
+    return list ?? [];
   }, []);
 
-  const refreshGroups = useCallback(async () => {
-    // mock
-    return groups;
-  }, [groups]);
+  useEffect(() => {
+    let cancelled = false;
+    setGroupsLoading(true);
+    refreshGroups()
+      .then((list) => {
+        if (!cancelled && list.length) setActiveGroupId((current) => current ?? list[0].id);
+      })
+      .catch((error) => {
+        if (!cancelled) toast.error(error instanceof Error ? error.message : '加载会话列表失败');
+      })
+      .finally(() => {
+        if (!cancelled) setGroupsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshGroups]);
+
+  useEffect(() => {
+    if (!activeGroupId) {
+      setMessages([]);
+      return;
+    }
+    if (skipHistoryLoadGroupIdRef.current === activeGroupId) {
+      skipHistoryLoadGroupIdRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    setMessagesLoading(true);
+    queryChatMessages(activeGroupId)
+      .then((records) => {
+        if (!cancelled) setMessages(apiMessagesToUiMessages(records ?? []));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setMessages([]);
+          toast.error(error instanceof Error ? error.message : '加载历史消息失败');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setMessagesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeGroupId]);
 
   const handleNewConversation = async () => {
-    const id = `g-${Date.now()}`;
-    const newGroup: AgentOpenChatGroup = { id, groupName: defaultGroupName() };
-    setGroups((prev) => [newGroup, ...prev]);
-    setActiveGroupId(id);
-    setMessages([]);
-  };
-
-  const handleDeleteConversation = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setGroups((prev) => prev.filter((g) => g.id !== id));
-    if (activeGroupId === id) {
-      const remaining = groups.filter((g) => g.id !== id);
-      setActiveGroupId(remaining[0]?.id ?? null);
-      setMessages([]);
+    try {
+      const created = await saveChatGroup(defaultGroupName());
+      await refreshGroups();
+      if (created?.id) {
+        setActiveGroupId(created.id);
+        setMessages([]);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '新建会话失败');
     }
   };
 
-  const ensureActiveGroup = async (_titleHint: string): Promise<string> => {
-    // eslint-disable-line @typescript-eslint/no-unused-vars
+  const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await deleteChatGroup(id);
+      const list = await refreshGroups();
+      if (activeGroupId === id) {
+        setActiveGroupId(list[0]?.id ?? null);
+        setMessages([]);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '删除会话失败');
+    }
+  };
+
+  const ensureActiveGroup = async (titleHint: string): Promise<string> => {
     if (activeGroupId) return activeGroupId;
-    await handleNewConversation();
-    return activeGroupId ?? 'g-mock';
+    const created = await saveChatGroup(buildGroupTitle(titleHint));
+    const list = await refreshGroups();
+    const id = created?.id ?? list[0]?.id;
+    if (!id) throw new Error('创建会话失败');
+    skipHistoryLoadGroupIdRef.current = id;
+    setActiveGroupId(id);
+    return id;
   };
 
   /* ─── 终止生成 ─── */
@@ -148,14 +241,26 @@ export function AgentOverviewPage() {
   }, [isSending]);
 
   /* ─── 点赞 ─── */
-  const handleLike = (backendId: string, next: number) => {
-    setMessages((prev) => prev.map((m) => (m.backendId === backendId ? { ...m, likes: next } : m)));
+  const handleLike = async (backendId: string, next: ChatMessageLikes) => {
+    try {
+      await updateChatMessageLikes(backendId, next);
+      setMessages((prev) =>
+        prev.map((message) => (message.backendId === backendId ? { ...message, likes: next } : message))
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '反馈提交失败');
+    }
   };
 
   /* ─── 发送消息 ─── */
-  const handleSendMessage = async () => {
-    const question = inputValue.trim();
+  const handleSendMessage = async (questionOverride?: string) => {
+    const question = (questionOverride ?? inputValue).trim();
     if (!question || isSending) return;
+    if (!selectedPublishedAgent) {
+      toast.info('请先选择一个已发布的智能体');
+      setAgentPickerOpen(true);
+      return;
+    }
 
     setInputValue('');
     setIsSending(true);
@@ -166,7 +271,13 @@ export function AgentOverviewPage() {
       blocks: parseStringToBlocks(question, 'user'),
       timestamp: formatChatTime(),
     };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [
+      ...prev.map((message) => ({
+        ...message,
+        blocks: removeTransientConversationBlocks(message.blocks),
+      })),
+      userMsg,
+    ]);
 
     const assistantLocalId = `local-a-${Date.now()}`;
     streamingAssistantIdRef.current = assistantLocalId;
@@ -179,38 +290,104 @@ export function AgentOverviewPage() {
     streamAbortRef.current = streamController;
 
     let assistantBlocks: MessageBlock[] = [];
+    let richContents: import('@/types').ChatContentBlock[] = [];
 
     try {
       const groupId = await ensureActiveGroup(question);
-      const testMatch = matchTestAgent(question);
+      const startedAt = Date.now();
 
-      /* mock 延迟模拟响应 */
-      await new Promise((r) => setTimeout(r, 800 + Math.random() * 600));
-      if (streamController.signal.aborted) return;
+      const syncAssistantBlocks = (blocks: MessageBlock[]) => {
+        assistantBlocks = blocks;
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantLocalId
+              ? { ...message, blocks: [...assistantBlocks], timestamp: formatChatTime() }
+              : message
+          )
+        );
+      };
 
-      const reply =
-        testMatch?.intro ??
-        `您好！我是智能助手。关于「${question}」的问题，已为您记录并处理。\n\n**处理结果：**\n- 已接收您的问题\n- 正在分析相关数据\n- 预计处理时长约 2 分钟\n\n如需进一步帮助，请随时告诉我！`;
+      if (selectedPublishedAgent) {
+        const result = await runWorkflowStream({
+          request: {
+            appId: selectedPublishedAgent.id,
+            chatGroupId: groupId,
+            message: [{ role: 'user', content: question }],
+            debug: true,
+          },
+          signal: streamController.signal,
+          onMessageDelta: (text) => {
+            syncAssistantBlocks(applyContentDelta(assistantBlocks, { kind: 'append-markdown', text }));
+          },
+          onReasoningDelta: (text) => {
+            syncAssistantBlocks(applyContentDelta(assistantBlocks, { kind: 'append-reasoning', text }));
+          },
+          onNodeEvent: (eventName, payload) => {
+            const richBlocks = resolveConversationNodeRichBlocks(eventName, payload);
+            richContents = appendPersistedRichBlocks(richContents, richBlocks, payload.nodeId);
+            syncAssistantBlocks(
+              appendUniqueMessageBlocks(
+                assistantBlocks,
+                richBlocks
+              )
+            );
+          },
+          onConversationEvent: (eventName, payload) => {
+            syncAssistantBlocks(appendUniqueMessageBlocks(
+              assistantBlocks,
+              resolveConversationSpecialEventBlocks(eventName, payload),
+            ));
+          },
+        });
 
-      assistantBlocks = parseStringToBlocks(reply, 'assistant');
-      setMessages((prev) =>
-        prev.map((m) => (m.id === assistantLocalId ? { ...m, blocks: [...assistantBlocks] } : m))
-      );
+        const resultBlocks = resolveConversationResultRichBlocks(result);
+        richContents = appendPersistedRichBlocks(richContents, resultBlocks);
+        let nextBlocks = appendUniqueMessageBlocks(assistantBlocks, resultBlocks);
+        if (!removeTransientConversationBlocks(nextBlocks).length) {
+          nextBlocks = appendUniqueMessageBlocks(
+            nextBlocks,
+            parseStringToBlocks(resolveConversationReply(result), 'assistant'),
+          );
+        }
+        syncAssistantBlocks(nextBlocks);
+      } else {
+        throw new Error('请先选择一个已发布的智能体');
+      }
 
-      await saveChatMessage({ groupId, question, answer: blocksToPlainText(assistantBlocks) });
+      const saved = await saveChatMessage({
+        groupId,
+        agentId: selectedPublishedAgent?.id,
+        question,
+        answer: blocksToPlainText(assistantBlocks) || '（无文本回复）',
+        ...(richContents.length ? { contents: richContents } : {}),
+        responseTime: Date.now() - startedAt,
+      });
+      if (saved?.id) {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantLocalId
+              ? { ...message, id: `${saved.id}-a`, backendId: saved.id, likes: 0 }
+              : message.id === userMsg.id
+                ? { ...message, id: `${saved.id}-q` }
+                : message
+          )
+        );
+      }
       await refreshGroups();
-    } catch {
+    } catch (error) {
       if (streamController.signal.aborted) return;
+      const message = error instanceof Error ? error.message : '请求失败，请稍后重试';
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantLocalId
             ? {
                 ...m,
-                blocks: parseStringToBlocks('**请求失败：** 网络异常，请稍后重试', 'assistant'),
+                blocks: parseStringToBlocks(`**请求失败：** ${message}`, 'assistant'),
               }
             : m
         )
       );
+      toast.error(message);
     } finally {
       if (streamAbortRef.current === streamController) streamAbortRef.current = null;
       streamingAssistantIdRef.current = null;
@@ -218,49 +395,29 @@ export function AgentOverviewPage() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const saveChatMessage = async (_data: {
-    groupId: string;
-    question: string;
-    answer: string;
-    agentId?: string;
-  }) => {
-    // mock
-  };
-
   /* ─── handler ─── */
-  const handleSelectTestAgent = (preset: TestAgentPreset) => {
-    localStorage.setItem(PINNED_TEST_AGENTS_STORAGE_KEY, '1');
-    setSelectedPublishedAgent(null);
-    setInputValue(preset.text);
-    setAgentPickerOpen(false);
-  };
-
-  const handlePinnedTestAgentClick = (preset: TestAgentPreset) => {
-    setSelectedPublishedAgent(null);
-    setInputValue(preset.text);
-  };
-
   const handleSelectPublishedAgent = (agent: SelectedPublishedAgent) => {
-    localStorage.setItem(PINNED_TEST_AGENTS_STORAGE_KEY, '1');
     setSelectedPublishedAgent(agent);
+    localStorage.setItem(SELECTED_AGENT_STORAGE_KEY, agent.id);
     setAgentPickerOpen(false);
     toast.success(`已切换至「${agent.agentName}」`);
   };
 
   const inputPlaceholder = selectedPublishedAgent
     ? `向 ${selectedPublishedAgent.agentName} 提问...`
-    : `发信息给 ${selectedModel}...`;
+    : '请先选择一个已发布的智能体';
 
   const chatInputProps = {
     value: inputValue,
     onChange: setInputValue,
     onSend: handleSendMessage,
     onStop: handleStopGeneration,
-    disabled: isSending,
+    disabled: isSending || !selectedPublishedAgent,
     isSending,
     placeholder: inputPlaceholder,
-    onOpenAgentPicker: () => setAgentPickerOpen(true),
+    onOpenAgentPicker: () => {
+      if (!lockedAgentId) setAgentPickerOpen(true);
+    },
     activeAgentLabel: selectedPublishedAgent?.agentName ?? null,
   };
 
@@ -371,8 +528,6 @@ export function AgentOverviewPage() {
               {isSidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
             </Button>
 
-            <ModelSelect value={selectedModel} onChange={setSelectedModel} />
-
             {/* Agent 选择器 chip — 对应原型 hidden sm:flex */}
             <div
               className={cn(
@@ -385,7 +540,10 @@ export function AgentOverviewPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setAgentPickerOpen(true)}
+                onClick={() => {
+                  if (!lockedAgentId) setAgentPickerOpen(true);
+                }}
+                disabled={Boolean(lockedAgentId)}
                 className="flex items-center gap-1.5 min-w-0 hover:opacity-80 h-auto p-0 text-[11px]"
                 title="选择智能体"
               >
@@ -394,11 +552,14 @@ export function AgentOverviewPage() {
                   {selectedPublishedAgent?.agentName ?? '选择智能体'}
                 </span>
               </Button>
-              {selectedPublishedAgent && (
+              {selectedPublishedAgent && !lockedAgentId && (
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  onClick={() => setSelectedPublishedAgent(null)}
+                  onClick={() => {
+                    setSelectedPublishedAgent(null);
+                    localStorage.removeItem(SELECTED_AGENT_STORAGE_KEY);
+                  }}
                   className="rounded-lg hover:bg-primary/20 shrink-0"
                   title="取消选择"
                 >
@@ -466,6 +627,9 @@ export function AgentOverviewPage() {
                         blocks={msg.blocks}
                         role={msg.role}
                         streaming={isStreamingAssistant}
+                        onSuggestedQuestionClick={(question) => {
+                          void handleSendMessage(question);
+                        }}
                       />
                     </div>
 
@@ -530,11 +694,7 @@ export function AgentOverviewPage() {
                 随时准备好，只等你需要
               </h1>
               <div className="relative max-w-xl mx-auto">
-                <ChatInputArea
-                  showPinnedTestAgents={false}
-                  onSelectTestAgent={handlePinnedTestAgentClick}
-                  {...chatInputProps}
-                />
+                <ChatInputArea {...chatInputProps} />
                 <div className="absolute -inset-10 bg-primary/5 blur-[80px] -z-10 rounded-full pointer-events-none" />
               </div>
             </motion.div>
@@ -545,11 +705,7 @@ export function AgentOverviewPage() {
         {hasMessages && (
           <div className="px-6 py-4 border-t border-border shrink-0 bg-background relative z-[110]">
             <div className="max-w-4xl w-full mx-auto">
-              <ChatInputArea
-                showPinnedTestAgents={showPinnedTestAgents}
-                onSelectTestAgent={handlePinnedTestAgentClick}
-                {...chatInputProps}
-              />
+              <ChatInputArea {...chatInputProps} />
             </div>
           </div>
         )}
@@ -559,7 +715,6 @@ export function AgentOverviewPage() {
       <AgentPickerModal
         open={agentPickerOpen}
         onClose={() => setAgentPickerOpen(false)}
-        onSelectTestAgent={handleSelectTestAgent}
         onSelectPublishedAgent={handleSelectPublishedAgent}
         selectedPublishedAgentId={selectedPublishedAgent?.id}
       />

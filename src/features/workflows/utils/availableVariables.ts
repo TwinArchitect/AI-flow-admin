@@ -72,7 +72,15 @@ export function getAvailableVariablesForNode(
       });
   }
 
-  getUpstreamNodes(nodeId, nodes, edges).forEach((node) => {
+  const current = nodes.find((node) => node.id === nodeId);
+  const relatedNodes = getUpstreamNodes(nodeId, nodes, edges);
+  if (current?.data.nodeType === 'loop') {
+    relatedNodes.push(...nodes.filter((node) => node.parentId === current.id));
+  } else if (current?.parentId) {
+    relatedNodes.push(...getUpstreamNodes(current.parentId, nodes, edges));
+  }
+
+  relatedNodes.forEach((node) => {
     resolveNodeOutputs(node).forEach((output) => {
       const ref = buildVariableRef(node.id, output.key);
       options.set(ref, {
@@ -83,6 +91,7 @@ export function getAvailableVariablesForNode(
         outputKey: output.key,
         outputLabel: output.label || output.key,
         valueType: output.valueType,
+        scope: current?.data.nodeType === 'loop' && node.parentId === current.id ? 'loopChild' : 'upstream',
       });
     });
   });

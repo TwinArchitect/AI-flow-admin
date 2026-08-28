@@ -24,6 +24,7 @@ export const CONDITION_OPERATOR_OPTIONS: Array<{
   { value: 'equalTo', label: '等于', needsValue: true },
   { value: 'notEqual', label: '不等于', needsValue: true },
   { value: 'isEmpty', label: '为空', needsValue: false },
+  { value: 'isNotEmpty', label: '不为空', needsValue: false },
   { value: 'include', label: '包含', needsValue: true },
   { value: 'notInclude', label: '不包含', needsValue: true },
   { value: 'startWith', label: '开头是', needsValue: true },
@@ -33,6 +34,12 @@ export const CONDITION_OPERATOR_OPTIONS: Array<{
   { value: 'greaterThanOrEqualTo', label: '大于等于', needsValue: true },
   { value: 'lessThan', label: '小于', needsValue: true },
   { value: 'lessThanOrEqualTo', label: '小于等于', needsValue: true },
+  { value: 'lengthEqualTo', label: '长度等于', needsValue: true },
+  { value: 'lengthNotEqualTo', label: '长度不等于', needsValue: true },
+  { value: 'lengthGreaterThan', label: '长度大于', needsValue: true },
+  { value: 'lengthGreaterThanOrEqualTo', label: '长度大于等于', needsValue: true },
+  { value: 'lengthLessThan', label: '长度小于', needsValue: true },
+  { value: 'lengthLessThanOrEqualTo', label: '长度小于等于', needsValue: true },
 ];
 
 const CONDITION_OPERATORS = new Set(CONDITION_OPERATOR_OPTIONS.map((item) => item.value));

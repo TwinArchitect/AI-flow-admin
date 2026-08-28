@@ -4,14 +4,22 @@ import type {
   WorkflowNodeCategory,
   WorkflowNodeType,
 } from '../types';
+import { baseChartNodeModule } from './baseChartNodeModule';
 import { concatNodeModule } from './concatNodeModule';
+import { classifyNodeModule } from './classifyNodeModule';
+import { codeNodeModule } from './codeNodeModule';
 import { conditionNodeModule } from './conditionNodeModule';
+import { datasetSearchNodeModule } from './datasetSearchNodeModule';
+import { databaseNodeModule } from './databaseNodeModule';
 import { endNodeModule } from './endNodeModule';
 import { httpNodeModule } from './httpNodeModule';
 import { llmNodeModule } from './llmNodeModule';
+import { loopBreakNodeModule, loopNodeModule, loopStartNodeModule } from './loopNodeModule';
 import { placeholderNodeModules } from './placeholderNodeModules';
 import { replyNodeModule } from './replyNodeModule';
+import { readFilesNodeModule } from './readFilesNodeModule';
 import { startNodeModule } from './startNodeModule';
+import { variableUpdateNodeModule } from './variableUpdateNodeModule';
 import type { WorkflowNodeModule } from './types';
 
 export const WORKFLOW_NODE_MODULES: WorkflowNodeModule[] = [
@@ -19,8 +27,18 @@ export const WORKFLOW_NODE_MODULES: WorkflowNodeModule[] = [
   endNodeModule,
   concatNodeModule,
   conditionNodeModule,
+  codeNodeModule,
+  classifyNodeModule,
+  variableUpdateNodeModule,
   llmNodeModule,
   httpNodeModule,
+  databaseNodeModule,
+  readFilesNodeModule,
+  baseChartNodeModule,
+  loopNodeModule,
+  loopStartNodeModule,
+  loopBreakNodeModule,
+  datasetSearchNodeModule,
   replyNodeModule,
   ...placeholderNodeModules,
 ];
@@ -50,11 +68,11 @@ export function getNodeConnectionRules(node: WorkflowCanvasNode) {
   return module.resolveConnectionRules?.(node) ?? module.connection;
 }
 
-const CATEGORY_ORDER = ['基础', '工具', '逻辑'];
+const CATEGORY_ORDER = ['基础', '工具', '逻辑', '数据'];
 
 export const REGISTERED_NODE_CATEGORIES: WorkflowNodeCategory[] = CATEGORY_ORDER.map((title) => ({
   title,
   items: WORKFLOW_NODE_MODULES
-    .filter((module) => module.backendRunnable && module.definition.category === title)
+    .filter((module) => module.backendRunnable && module.paletteVisible !== false && module.definition.category === title)
     .map((module) => module.definition),
 })).filter((category) => category.items.length > 0);

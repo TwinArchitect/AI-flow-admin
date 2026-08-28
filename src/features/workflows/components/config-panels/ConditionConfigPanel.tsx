@@ -68,7 +68,7 @@ export function ConditionConfigPanel({
   return (
     <div className="space-y-4">
       <p className="rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-        从上到下判断，命中首个条件分支后执行对应连线；全部未命中时进入 ELSE。
+        从上到下判断，命中首个条件分支后执行对应连线；全部未命中时进入已连接的 ELSE，未连接则结束当前路径。
       </p>
 
       {value.branches.map((branch, branchIndex) => (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import '@xyflow/react/dist/style.css';
 import './workflow.css';
 import { Button } from '@/components/ui/button';
@@ -12,18 +12,23 @@ import { parseWorkflowFromBackend, serializeWorkflowToBackend } from './utils/wo
 import { NodeSidebar, WorkflowCanvas } from './components/WorkflowCanvas';
 
 export function WorkflowsPage() {
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const routeAgentId = searchParams.get('id') || undefined;
   const agentId = routeAgentId;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [savedBaseline, setSavedBaseline] = useState<WorkflowBackendPayload | null>(null);
   const [agentName, setAgentName] = useState('工作流演示');
+  const [agentRemark, setAgentRemark] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
   const [initialViewport, setInitialViewport] = useState<{ x: number; y: number; zoom: number }>();
   const [loadedAgentId, setLoadedAgentId] = useState<string>();
   const replaceWorkflow = useWorkflowCanvasStore((state) => state.replaceWorkflow);
   const resetToNewWorkflow = useWorkflowCanvasStore((state) => state.resetToNewWorkflow);
   const agentQuery = useWorkflowAgent(agentId);
+  const workflowDraft = (location.state as {
+    workflowDraft?: { agentName?: string; remark?: string };
+  } | null)?.workflowDraft;
 
   useEffect(() => {
     if (agentId) return;
@@ -31,14 +36,16 @@ export function WorkflowsPage() {
     setSavedBaseline(null);
     setInitialViewport(undefined);
     setLoadedAgentId(undefined);
-    setAgentName('工作流演示');
-  }, [agentId, resetToNewWorkflow]);
+    setAgentName(workflowDraft?.agentName?.trim() || '未命名工作流');
+    setAgentRemark(workflowDraft?.remark?.trim() || '');
+  }, [agentId, resetToNewWorkflow, workflowDraft?.agentName, workflowDraft?.remark]);
 
   useEffect(() => {
     if (!agentQuery.data) return;
     try {
       const parsed = parseAgentSetting(agentQuery.data.agentSetting);
       setAgentName(agentQuery.data.agentName || '工作流演示');
+      setAgentRemark(agentQuery.data.remark || '');
       setParseError(null);
       if (!parsed) {
         resetToNewWorkflow();
@@ -83,6 +90,7 @@ export function WorkflowsPage() {
         <WorkflowCanvas
           agentId={agentId}
           agentName={agentName}
+          agentRemark={agentRemark}
           savedBaseline={savedBaseline}
           initialViewport={initialViewport}
           loadedAgentId={loadedAgentId}
@@ -90,6 +98,7 @@ export function WorkflowsPage() {
             setSavedBaseline(saved.payload);
             setInitialViewport(saved.viewport);
             setAgentName(saved.agentName);
+            setAgentRemark(saved.remark || '');
             if (saved.agentId !== routeAgentId) {
               setSearchParams({ id: saved.agentId }, { replace: true });
             }

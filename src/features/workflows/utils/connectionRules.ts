@@ -46,6 +46,8 @@ export function createConnectionValidator(
     const sourceNode = nodes.find((node) => node.id === source);
     const targetNode = nodes.find((node) => node.id === target);
     if (!sourceNode || !targetNode) return false;
+    if ((sourceNode.parentId ?? null) !== (targetNode.parentId ?? null)) return false;
+    if (sourceNode.data.nodeType === 'loopBreak' || targetNode.data.nodeType === 'loopStart') return false;
 
     const sourceModule = getNodeModule(sourceNode.data.nodeType);
     const targetModule = getNodeModule(targetNode.data.nodeType);

@@ -21,6 +21,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import type { MessageBlock } from '@/types';
+import { ConversationMessageContent } from '@/features/message-render/ConversationMessageContent';
+import { applyConversationDelta, parseConversationText, resolveConversationReply } from '@/features/message-render/conversationBlocks';
+import {
+  appendUniqueMessageBlocks,
+  removeTransientConversationBlocks,
+  resolveConversationNodeRichBlocks,
+  resolveConversationResultRichBlocks,
+  resolveConversationSpecialEventBlocks,
+} from '@/features/message-render/richContent';
 import { resolveWorkflowFileType, type WorkflowDebugFile } from '../../api/workflowDebugApi';
 import { useRunWorkflowStream, useUploadWorkflowDebugFile } from '../../hooks/useWorkflowRuntime';
 import type {
@@ -29,7 +39,6 @@ import type {
 import type {
   WorkflowExecutionOutcome,
   WorkflowNodeSsePayload,
-  WorkflowRunResult,
 } from '../../types/execution';
 import type { WorkflowDebugContext } from '../../utils/workflowDebugContext';
 import {
@@ -42,6 +51,7 @@ interface DebugMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  blocks?: MessageBlock[];
   files?: WorkflowDebugFile[];
 }
 
@@ -66,27 +76,6 @@ const ALLOWED_EXTENSIONS = new Set([
   'txt', 'doc', 'docx', 'csv', 'xls', 'xlsx', 'zip', 'pdf', 'ppt', 'pptx',
   'bmp', 'mp3', 'mp4', 'flv', 'svg', 'jpg', 'jpeg', 'png',
 ]);
-
-function formatWorkflowOutput(value: unknown) {
-  if (typeof value === 'string') return value;
-  if (value == null) return '';
-  if (typeof value === 'object') return JSON.stringify(value, null, 2);
-  return String(value);
-}
-
-function resolveWorkflowReply(result: WorkflowRunResult) {
-  if (result.answerText.trim()) return result.answerText;
-
-  const conventionalAnswer = formatWorkflowOutput(result.outputs.answer);
-  if (conventionalAnswer.trim()) return conventionalAnswer;
-
-  const entries = Object.entries(result.outputs);
-  if (entries.length === 1) {
-    return formatWorkflowOutput(entries[0][1]) || '（未收到回复内容）';
-  }
-  if (entries.length > 1) return JSON.stringify(result.outputs, null, 2);
-  return '（未收到回复内容）';
-}
 
 function DebugVariableField({
   variable,
@@ -259,8 +248,8 @@ export function WorkflowDebugDrawer({
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  async function sendMessage() {
-    const content = input.trim();
+  async function sendMessage(contentOverride?: string) {
+    const content = (contentOverride ?? input).trim();
     const sentFiles = [...files];
     if ((!content && sentFiles.length === 0) || isRunning) return;
 
@@ -272,7 +261,10 @@ export function WorkflowDebugDrawer({
     };
     const assistantId = `assistant-${Date.now()}`;
     setMessages((current) => [
-      ...current,
+      ...current.map((message) => ({
+        ...message,
+        blocks: removeTransientConversationBlocks(message.blocks ?? []),
+      })),
       userMessage,
       { id: assistantId, role: 'assistant', content: '' },
     ]);
@@ -299,7 +291,25 @@ export function WorkflowDebugDrawer({
           debug: true,
         },
         signal: controller.signal,
-        onNodeEvent: onNodeExecutionEvent,
+        onNodeEvent: (eventName, payload) => {
+          onNodeExecutionEvent(eventName, payload);
+          const blocks = resolveConversationNodeRichBlocks(eventName, payload);
+          if (!blocks.length) return;
+          setMessages((current) => current.map((message) =>
+            message.id === assistantId
+              ? { ...message, blocks: appendUniqueMessageBlocks(message.blocks ?? [], blocks) }
+              : message,
+          ));
+        },
+        onConversationEvent: (eventName, payload) => {
+          const blocks = resolveConversationSpecialEventBlocks(eventName, payload);
+          if (!blocks.length) return;
+          setMessages((current) => current.map((message) =>
+            message.id === assistantId
+              ? { ...message, blocks: appendUniqueMessageBlocks(message.blocks ?? [], blocks) }
+              : message,
+          ));
+        },
         onMessageDelta: (delta) => {
           setMessages((current) => current.map((message) =>
             message.id === assistantId
@@ -307,10 +317,23 @@ export function WorkflowDebugDrawer({
               : message,
           ));
         },
+        onReasoningDelta: (delta) => {
+          setMessages((current) => current.map((message) =>
+            message.id === assistantId
+              ? { ...message, blocks: applyConversationDelta(message.blocks ?? [], { kind: 'append-reasoning', text: delta }) }
+              : message,
+          ));
+        },
       });
       setMessages((current) => current.map((message) =>
-        message.id === assistantId && !message.content.trim()
-          ? { ...message, content: resolveWorkflowReply(result) }
+        message.id === assistantId
+          ? {
+              ...message,
+              content: !message.content.trim() && !removeTransientConversationBlocks(message.blocks ?? []).length
+                ? resolveConversationReply(result)
+                : message.content,
+              blocks: appendUniqueMessageBlocks(message.blocks ?? [], resolveConversationResultRichBlocks(result)),
+            }
           : message,
       ));
       onExecutionFinish('success');
@@ -446,9 +469,17 @@ export function WorkflowDebugDrawer({
                   {message.files?.map((file) => (
                     <div key={file.id} className="flex items-center gap-1.5"><FileText size={13} /><span className="truncate">{file.name}</span></div>
                   ))}
-                  <p className="whitespace-pre-wrap break-words">
-                    {message.content || (isRunning && message.role === 'assistant' ? '正在生成…' : '')}
-                  </p>
+                  <ConversationMessageContent
+                    role={message.role}
+                    blocks={[
+                      ...parseConversationText(message.content, message.role),
+                      ...(message.blocks ?? []),
+                    ]}
+                    streaming={isRunning && message.role === 'assistant'}
+                    onSuggestedQuestionClick={(question) => {
+                      void sendMessage(question);
+                    }}
+                  />
                 </div>
               </div>
             ))}

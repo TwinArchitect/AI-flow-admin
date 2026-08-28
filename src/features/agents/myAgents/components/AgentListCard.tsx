@@ -14,7 +14,7 @@
  */
 
 import { useState } from 'react';
-import { Layers, MessageCircle, MoreVertical, Edit3, Trash2 } from 'lucide-react';
+import { Layers, MessageCircle, MoreVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -25,23 +25,19 @@ import {
   formatAgentEditTime,
   parseAgentTagIds,
 } from '@/types/agent';
-import { MOCK_LABELS } from '../data/agentsMock';
 
 interface AgentListCardProps {
   agent: AgentOpenSysAgent;
   onOpen: () => void;
   onDelete: () => void;
-  onEdit: () => void;
 }
 
-export function AgentListCard({ agent, onOpen, onDelete, onEdit }: AgentListCardProps) {
+export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isWorkflow = agent.flowType !== 0;
   const editTime = formatAgentEditTime(agent.updateTime ?? agent.createTime);
   const tagIds = parseAgentTagIds(agent.type);
-  const tagNames = tagIds
-    .map((id) => MOCK_LABELS.find((l) => l.id === id)?.name ?? id)
-    .filter(Boolean);
+  const tagNames = tagIds.filter(Boolean);
 
   return (
     <article
@@ -83,14 +79,6 @@ export function AgentListCard({ agent, onOpen, onDelete, onEdit }: AgentListCard
               className="absolute right-0 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-xl z-20 py-1"
               onClick={() => setMenuOpen(false)}
             >
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onEdit}
-                className="w-full justify-start gap-2 px-3 text-xs font-medium rounded-none"
-              >
-                <Edit3 size={14} /> 修改信息
-              </Button>
               <Button
                 variant="ghost"
                 size="sm"

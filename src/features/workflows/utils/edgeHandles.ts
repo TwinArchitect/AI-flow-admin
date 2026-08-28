@@ -24,6 +24,10 @@ export function buildConditionElseHandle(nodeId: string) {
   return `${nodeId}-source-ELSE`;
 }
 
+export function buildClassifySourceHandle(nodeId: string, agentKey: string) {
+  return `${nodeId}-source-${agentKey}-right`;
+}
+
 export function normalizeEdgeForCanvas(edge: WorkflowCanvasEdge): WorkflowCanvasEdge {
   return {
     ...edge,

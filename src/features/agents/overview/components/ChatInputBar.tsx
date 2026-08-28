@@ -13,46 +13,10 @@
  *   motion/react → framer-motion
  */
 
-import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, SendHorizontal, Sparkles, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { TEST_AGENT_PRESETS, type TestAgentPreset } from '../data/testAgents';
-
-/* ─── PinnedTestAgentShortcuts ─── */
-function PinnedTestAgentShortcuts({ onSelect, show }: {
-  show: boolean;
-  onSelect: (preset: TestAgentPreset) => void;
-}) {
-  if (!show) return null;
-  return (
-    <div className="flex flex-wrap justify-center gap-2 mb-3">
-      <AnimatePresence>
-        {TEST_AGENT_PRESETS.map((preset) => (
-          <motion.button
-            key={preset.customType}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            type="button"
-            onClick={() => onSelect(preset)}
-            className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold shadow-sm transition-all hover:scale-[1.02] cursor-pointer',
-              preset.color,
-            )}
-          >
-            <Sparkles size={11} className="shrink-0" />
-            <span>{preset.name}</span>
-            <span className="text-2xs opacity-70 border-l pl-1.5 ml-0.5 border-current font-medium">
-              {preset.desc}
-            </span>
-          </motion.button>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 /* ─── ChatInputBar ─── */
 interface ChatInputBarProps {
@@ -141,21 +105,6 @@ function ChatInputBar({
 }
 
 /* ─── ChatInputArea（组合组件） ─── */
-interface ChatInputAreaProps extends ChatInputBarProps {
-  showPinnedTestAgents: boolean;
-  onSelectTestAgent: (preset: TestAgentPreset) => void;
-}
-
-export function ChatInputArea({
-  showPinnedTestAgents, onSelectTestAgent, ...inputProps
-}: ChatInputAreaProps) {
-  return (
-    <div>
-      <PinnedTestAgentShortcuts
-        show={showPinnedTestAgents}
-        onSelect={onSelectTestAgent}
-      />
-      <ChatInputBar {...inputProps} />
-    </div>
-  );
+export function ChatInputArea(inputProps: ChatInputBarProps) {
+  return <ChatInputBar {...inputProps} />;
 }

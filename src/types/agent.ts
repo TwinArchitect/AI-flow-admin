@@ -31,6 +31,32 @@ export interface AgentOpenSysAgent {
   username?: string;
 }
 
+export interface AgentPageResult {
+  records: AgentOpenSysAgent[];
+  total: number;
+  current?: number;
+  size?: number;
+}
+
+export interface AgentQueryParams {
+  pageNum: number;
+  pageSize: number;
+  agentName?: string;
+  status?: number;
+  type?: string;
+  protal?: string;
+}
+
+export interface AgentOpenPublish {
+  id: string;
+  agentId: string;
+  agentName?: string;
+  version?: number;
+  publishRemark?: string;
+  publishTime?: string;
+  createTime?: string;
+}
+
 export interface AgentLabel {
   id: string;
   name: string;

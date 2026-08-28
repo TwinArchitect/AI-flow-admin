@@ -22,6 +22,8 @@ export interface WorkflowRunRequest {
 export interface RunWorkflowStreamRequest {
   request: WorkflowRunRequest;
   onNodeEvent: (eventName: string, payload: WorkflowNodeSsePayload) => void;
+  /** 不属于节点状态机的对话辅助事件，例如 questionGuide。 */
+  onConversationEvent?: (eventName: string, payload: unknown) => void;
   onWorkflowFinished?: (payload: WorkflowFinishedSsePayload) => void;
   onMessageDelta?: (text: string) => void;
   onReasoningDelta?: (text: string) => void;
@@ -31,6 +33,7 @@ export interface RunWorkflowStreamRequest {
 export async function runWorkflowStream({
   request,
   onNodeEvent,
+  onConversationEvent,
   onWorkflowFinished,
   onMessageDelta,
   onReasoningDelta,
@@ -78,8 +81,14 @@ export async function runWorkflowStream({
     if (eventName === 'message') {
       try {
         const message = JSON.parse(data) as {
+          event?: unknown;
           choices?: Array<{ delta?: { content?: string; reasoning_content?: string } }>;
         };
+        const embeddedEvent = typeof message.event === 'string' ? message.event.trim() : '';
+        if (embeddedEvent && embeddedEvent !== 'message') {
+          handleEvent(embeddedEvent, data);
+          return;
+        }
         const delta = message.choices?.[0]?.delta?.content ?? '';
         const reasoningDelta = message.choices?.[0]?.delta?.reasoning_content ?? '';
         answerText += delta;
@@ -109,6 +118,7 @@ export async function runWorkflowStream({
         || typeof nodePayload.flowNodeType !== 'string'
         || typeof nodePayload.statusCode !== 'number'
       ) {
+        onConversationEvent?.(eventName, payload);
         return;
       }
       const strictPayload = nodePayload as WorkflowNodeSsePayload;
