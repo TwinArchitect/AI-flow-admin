@@ -49,11 +49,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import type { AgentOpenModel, ModelDebugResult, ModelType, ModelVendor } from './types';
+import type { AgentOpenModel, ModelCategory, ModelCategoryItem, ModelDebugResult, ModelVendor } from './types';
 import {
   debugModel,
   deleteModel,
   getModel,
+  getModelCategories,
   queryModels,
   saveModel,
   updateModel,
@@ -62,31 +63,46 @@ import {
   formatParamsForEdit,
   isModelActive,
   maskAuthToken,
-  modelTypeLabel,
+  modelAddressDisplay,
+  modelCategoryLabel,
+  MODEL_CATEGORY_DEFAULT_API_PATH,
+  resolveModelCategory,
+  syncTypeFromCategory,
   validateParamsJson,
   validateUrl,
   vendorLabel,
+  vendorsForCategory,
 } from './utils';
 
 // ====== 表单状态 ======
 
 type FormState = {
+  name: string;
   model: string;
   url: string;
-  type: ModelType;
+  baseUrl: string;
+  apiPath: string;
+  category: ModelCategory;
   vendor: ModelVendor;
   status: number;
+  isDefault: number;
+  dimension: string;
   authToken: string;
   remark: string;
   params: string;
 };
 
 const emptyForm = (): FormState => ({
+  name: '',
   model: '',
   url: '',
-  type: 'llm',
+  baseUrl: '',
+  apiPath: MODEL_CATEGORY_DEFAULT_API_PATH.llm,
+  category: 'llm',
   vendor: 'openai',
   status: 0,
+  isDefault: 0,
+  dimension: '',
   authToken: '',
   remark: '',
   params: '',
@@ -99,6 +115,7 @@ const PAGE_SIZE = 12;
 // ====== 组件 ======
 
 export default function ModelManagement() {
+  const [categories, setCategories] = useState<ModelCategoryItem[]>([]);
   const [models, setModels] = useState<AgentOpenModel[]>([]);
   const [total, setTotal] = useState(0);
   const [pageNum, setPageNum] = useState(1);
@@ -130,7 +147,7 @@ export default function ModelManagement() {
         pageNum,
         pageSize: PAGE_SIZE,
         model: appliedQuery.model || undefined,
-        type: (appliedQuery.type as ModelType) || undefined,
+        category: (appliedQuery.type as ModelCategory) || undefined,
         status: appliedQuery.status === '' ? undefined : Number(appliedQuery.status),
       });
       setModels(page?.records || []);
@@ -148,7 +165,21 @@ export default function ModelManagement() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    getModelCategories()
+      .then((data) => setCategories(data?.categories || []))
+      .catch(() => setCategories([]));
+  }, []);
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const categoryOptions = categories.length
+    ? categories
+    : (['llm', 'multimodal', 'embedding', 'rerank', 'ocr', 'parser'] as ModelCategory[]).map((code) => ({
+        code,
+        label: modelCategoryLabel(code),
+        defaultApiPath: MODEL_CATEGORY_DEFAULT_API_PATH[code],
+        count: 0,
+      }));
 
   const openCreate = () => {
     setEditingId(null);
@@ -161,12 +192,18 @@ export default function ModelManagement() {
       const detail = await getModel(item.id);
       const data = detail || item;
       setEditingId(data.id);
+      const category = resolveModelCategory(data);
       setForm({
+        name: data.name || '',
         model: data.model || '',
         url: data.url || '',
-        type: data.type || 'llm',
+        baseUrl: data.baseUrl || '',
+        apiPath: data.apiPath || MODEL_CATEGORY_DEFAULT_API_PATH[category],
+        category,
         vendor: data.vendor || 'openai',
         status: data.status ?? 0,
+        isDefault: data.isDefault === 1 ? 1 : 0,
+        dimension: data.dimension == null ? '' : String(data.dimension),
         authToken: data.authToken || '',
         remark: data.remark || '',
         params: formatParamsForEdit(data.params),
@@ -178,11 +215,12 @@ export default function ModelManagement() {
   };
 
   const handleSave = async () => {
-    if (!form.model.trim()) {
-      toast.error('模型名称不能为空');
+    if (form.category !== 'ocr' && form.category !== 'parser' && !form.model.trim()) {
+      toast.error('模型标识不能为空');
       return;
     }
-    const urlErr = validateUrl(form.url);
+    const address = form.url.trim() || form.baseUrl.trim();
+    const urlErr = validateUrl(address);
     if (urlErr) {
       toast.error(urlErr);
       return;
@@ -197,10 +235,16 @@ export default function ModelManagement() {
     try {
       const payload = {
         model: form.model.trim(),
-        url: form.url.trim(),
-        type: form.type,
+        name: form.name.trim() || undefined,
+        url: form.url.trim() || undefined,
+        baseUrl: form.baseUrl.trim() || undefined,
+        apiPath: form.apiPath.trim() || undefined,
+        dimension: form.category === 'embedding' ? Number(form.dimension) : undefined,
+        category: form.category,
+        type: syncTypeFromCategory(form.category),
         vendor: form.vendor,
         status: form.status,
+        isDefault: form.isDefault,
         remark: form.remark.trim() || undefined,
         params: form.params.trim() || undefined,
         authToken: form.authToken.trim() || undefined,
@@ -233,10 +277,16 @@ export default function ModelManagement() {
       await updateModel({
         id: data.id,
         model: data.model,
+        name: data.name,
         url: data.url,
-        type: data.type || 'llm',
+        baseUrl: data.baseUrl,
+        apiPath: data.apiPath,
+        dimension: data.dimension,
+        category: resolveModelCategory(data),
+        type: syncTypeFromCategory(resolveModelCategory(data)),
         vendor: data.vendor || 'openai',
         status: nextStatus,
+        isDefault: data.isDefault,
         remark: data.remark,
         params: data.params,
         authToken: data.authToken,
@@ -283,6 +333,11 @@ export default function ModelManagement() {
       const result = await debugModel({
         id: debugTarget.id,
         prompt: debugPrompt,
+        text: debugPrompt,
+        query: debugPrompt,
+        documents: resolveModelCategory(debugTarget) === 'rerank'
+          ? ['知识库检索结果需要经过重排模型提升相关性。', '向量模型用于将文本转换为向量。']
+          : undefined,
         timeoutSeconds: debugTimeout,
       });
       setDebugResult(result);
@@ -360,8 +415,11 @@ export default function ModelManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部类型</SelectItem>
-                <SelectItem value="llm">大语言模型</SelectItem>
-                <SelectItem value="multimodal">多模态</SelectItem>
+                {categoryOptions.map((category) => (
+                  <SelectItem key={category.code} value={category.code}>
+                    {category.label} {category.count > 0 ? `(${category.count})` : ''}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select
@@ -464,7 +522,7 @@ export default function ModelManagement() {
                       {model.model}
                     </h3>
                     <p className="text-xs text-fg-muted font-bold uppercase tracking-widest truncate">
-                      {vendorLabel(model.vendor)} · {modelTypeLabel(model.type)}
+                      {vendorLabel(model.vendor)} · {modelCategoryLabel(resolveModelCategory(model))}
                     </p>
                   </div>
 
@@ -476,8 +534,8 @@ export default function ModelManagement() {
                   </div>
 
                   {/* URL */}
-                  <p className="text-[10px] text-fg-muted truncate mb-4" title={model.url}>
-                    {model.url || '-'}
+                  <p className="text-[10px] text-fg-muted truncate mb-4" title={modelAddressDisplay(model)}>
+                    {modelAddressDisplay(model)}
                   </p>
 
                   {/* Token */}
@@ -556,24 +614,58 @@ export default function ModelManagement() {
             <div className="space-y-4 mt-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
-                  模型名称
+                  显示名称
                 </Label>
                 <Input
-                  value={form.model}
-                  onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  placeholder="例如: Qwen/Qwen2.5-7B-Instruct"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="用于界面展示，可选"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
-                  调用地址
+                  模型标识
+                </Label>
+                <Input
+                  value={form.model}
+                  onChange={(e) => setForm({ ...form, model: e.target.value })}
+                  placeholder="例如：Qwen/Qwen3-Embedding-8B"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                  完整调用地址
                 </Label>
                 <Input
                   value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })}
                   placeholder="https://api.siliconflow.cn/v1/chat/completions"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                    Base URL
+                  </Label>
+                  <Input
+                    value={form.baseUrl}
+                    onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
+                    placeholder="也可使用 Base URL + API Path"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                    API Path
+                  </Label>
+                  <Input
+                    value={form.apiPath}
+                    onChange={(e) => setForm({ ...form, apiPath: e.target.value })}
+                    placeholder={MODEL_CATEGORY_DEFAULT_API_PATH[form.category]}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -615,18 +707,28 @@ export default function ModelManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
-                    模型类型
+                    模型类别
                   </Label>
                   <Select
-                    value={form.type}
-                    onValueChange={(v) => setForm({ ...form, type: v as ModelType })}
+                    value={form.category}
+                    onValueChange={(value) => {
+                      const category = value as ModelCategory;
+                      const vendors = vendorsForCategory(category);
+                      setForm({
+                        ...form,
+                        category,
+                        apiPath: MODEL_CATEGORY_DEFAULT_API_PATH[category],
+                        vendor: vendors.includes(form.vendor) ? form.vendor : vendors[0],
+                      });
+                    }}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="llm">大语言模型</SelectItem>
-                      <SelectItem value="multimodal">多模态</SelectItem>
+                      {categoryOptions.map((category) => (
+                        <SelectItem key={category.code} value={category.code}>{category.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -642,30 +744,50 @@ export default function ModelManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="openai">OpenAI 兼容</SelectItem>
-                      <SelectItem value="dify">Dify</SelectItem>
-                      <SelectItem value="ollama">Ollama</SelectItem>
+                      {vendorsForCategory(form.category).map((vendor) => (
+                        <SelectItem key={vendor} value={vendor}>{vendorLabel(vendor)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
-                  状态
-                </Label>
-                <Select
-                  value={String(form.status)}
-                  onValueChange={(v) => setForm({ ...form, status: Number(v) })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">开启</SelectItem>
-                    <SelectItem value="1">关闭</SelectItem>
-                  </SelectContent>
-                </Select>
+              {form.category === 'embedding' && (
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">
+                    向量维度
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={form.dimension}
+                    onChange={(e) => setForm({ ...form, dimension: e.target.value })}
+                    placeholder="例如：2560"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">状态</Label>
+                  <Select value={String(form.status)} onValueChange={(v) => setForm({ ...form, status: Number(v) })}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">开启</SelectItem>
+                      <SelectItem value="1">关闭</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest pl-1">默认模型</Label>
+                  <Select value={String(form.isDefault)} onValueChange={(v) => setForm({ ...form, isDefault: Number(v) })}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">否</SelectItem>
+                      <SelectItem value="1">是</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

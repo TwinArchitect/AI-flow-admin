@@ -49,7 +49,9 @@ export const NODE_MODULE_REGISTRY = new Map<WorkflowNodeType, WorkflowNodeModule
 
 const BACKEND_NODE_MODULE_REGISTRY = new Map<BackendFlowNodeType, WorkflowNodeModule>(
   WORKFLOW_NODE_MODULES.flatMap((module) =>
-    module.backendType ? [[module.backendType, module]] : [],
+    module.backendType
+      ? [module.backendType, ...(module.backendAliases ?? [])].map((type) => [type, module] as const)
+      : [],
   ),
 );
 

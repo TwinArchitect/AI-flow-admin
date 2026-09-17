@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FolderOpen, Settings2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { useWorkflowModels } from '../../hooks/useWorkflowModels';
 import type { LlmNodeConfig, WorkflowVariableOption } from '../../types';
 import { buildErrorCatchHandle } from '../../utils/edgeHandles';
 import { Field } from './shared/Field';
+import { PromptOptimizeControl } from './shared/PromptOptimizeControl';
 import { VariablePicker } from './shared/VariablePicker';
 import { LlmModelSettingsDialog } from './LlmModelSettingsDialog';
 
@@ -32,18 +33,22 @@ function SectionTitle({ children, optional }: { children: string; optional?: boo
 
 export function LlmConfigPanel({
   nodeId,
+  agentId,
   config,
   variables,
   onUpdate,
   onRemoveSourceHandle,
 }: {
   nodeId: string;
+  agentId?: string;
   config: Record<string, unknown>;
   variables: WorkflowVariableOption[];
   onUpdate: (config: Partial<LlmNodeConfig>) => void;
   onRemoveSourceHandle: (handleId: string) => void;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const systemPromptRef = useRef<HTMLTextAreaElement>(null);
+  const userPromptRef = useRef<HTMLTextAreaElement>(null);
   const value = normalizeLlmConfig(config);
   const { data: models = [], isLoading, error } = useWorkflowModels();
   const fileVariables = useMemo(() => variables.filter((variable) => (
@@ -53,6 +58,18 @@ export function LlmConfigPanel({
 
   const updateAdvanced = (patch: Partial<LlmNodeConfig['advanced']>) => {
     onUpdate({ advanced: { ...value.advanced, ...patch } });
+  };
+
+  const insertPromptVariable = (field: 'systemPrompt' | 'userChatInput', ref: string) => {
+    const textarea = field === 'systemPrompt' ? systemPromptRef.current : userPromptRef.current;
+    const current = value[field];
+    const start = textarea?.selectionStart ?? current.length;
+    const end = textarea?.selectionEnd ?? start;
+    onUpdate({ [field]: `${current.slice(0, start)}${ref}${current.slice(end)}` });
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + ref.length, start + ref.length);
+    });
   };
 
   return (
@@ -95,16 +112,24 @@ export function LlmConfigPanel({
           <div className="mb-2 flex justify-end">
             <VariablePicker
               variables={variables}
-              onSelect={(ref) => onUpdate({ systemPrompt: `${value.systemPrompt}${ref}` })}
+              onSelect={(ref) => insertPromptVariable('systemPrompt', ref)}
             />
           </div>
-          <Textarea
-            value={value.systemPrompt}
-            maxLength={100000}
-            onChange={(event) => onUpdate({ systemPrompt: event.target.value })}
-            placeholder="例如：你是一个专业的助手..."
-            className="min-h-28 text-xs"
-          />
+          <PromptOptimizeControl
+            scene="system_prompt_optimize"
+            content={value.systemPrompt}
+            agentId={agentId}
+            onApply={(systemPrompt) => onUpdate({ systemPrompt })}
+          >
+            <Textarea
+              ref={systemPromptRef}
+              value={value.systemPrompt}
+              maxLength={100000}
+              onChange={(event) => onUpdate({ systemPrompt: event.target.value })}
+              placeholder="例如：你是一个专业的助手..."
+              className="min-h-28 pb-10 text-xs"
+            />
+          </PromptOptimizeControl>
           <p className="text-right text-[10px] text-muted-foreground">{value.systemPrompt.length}/100000</p>
         </Field>
         <div className="flex items-center justify-between rounded-md border border-border px-3 py-2.5">
@@ -134,14 +159,22 @@ export function LlmConfigPanel({
         )}
         <Field label="用户问题">
           <div className="mb-2 flex justify-end">
-            <VariablePicker variables={variables} onSelect={(ref) => onUpdate({ userChatInput: ref })} />
+            <VariablePicker variables={variables} onSelect={(ref) => insertPromptVariable('userChatInput', ref)} />
           </div>
-          <Textarea
-            value={value.userChatInput}
-            onChange={(event) => onUpdate({ userChatInput: event.target.value })}
-            placeholder="输入或选择上游变量"
-            className="min-h-20 font-mono text-xs"
-          />
+          <PromptOptimizeControl
+            scene="user_prompt_optimize"
+            content={value.userChatInput}
+            agentId={agentId}
+            onApply={(userChatInput) => onUpdate({ userChatInput })}
+          >
+            <Textarea
+              ref={userPromptRef}
+              value={value.userChatInput}
+              onChange={(event) => onUpdate({ userChatInput: event.target.value })}
+              placeholder={'例如：请根据以下内容回答\n{{start.userChatInput}}'}
+              className="min-h-24 pb-10 font-mono text-xs"
+            />
+          </PromptOptimizeControl>
         </Field>
       </section>
 

@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { ConcatConfigPanel } from '../components/config-panels/ConcatConfigPanel';
 import { DefaultNodeExecutionDetails } from '../components/node-execution/DefaultNodeExecutionDetails';
 import {
@@ -25,25 +25,26 @@ function ConfigPanel({ config, variables, onUpdate }: NodeConfigPanelProps) {
 
 export const concatNodeModule: WorkflowNodeModule = {
   type: 'concat',
-  backendType: 'textEditor',
+  backendType: 'templateTransform',
+  backendAliases: ['textEditor'],
   backendRunnable: true,
   definition: {
     type: 'concat',
-    name: '文本拼接',
+    name: '模板转换',
     description: CONCAT_NODE_DESCRIPTION,
     category: '基础',
     tone: 'bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400',
     iconTone: 'bg-sky-500 text-white',
   },
-  icon: Plus,
+  icon: FileText,
   createDefaultConfig: () => ({ ...DEFAULT_CONCAT_CONFIG }),
   ConfigPanel,
   ExecutionDetails: DefaultNodeExecutionDetails,
   getOutputs: () => CONCAT_NODE_OUTPUTS,
-  getReferences: (node) => [{
-    value: normalizeConcatConfig(node.data.config).template,
-    context: `节点 ${node.data.label} 的拼接模板`,
-  }],
+  getReferences: (node) => normalizeConcatConfig(node.data.config).inputVariables.map((input) => ({
+    value: input.value,
+    context: `节点 ${node.data.label} 的输入变量 ${input.key || '未命名项'}`,
+  })),
   serialize: serializeConcatNode,
   parse: parseConcatModule,
   validate: validateConcatNode,

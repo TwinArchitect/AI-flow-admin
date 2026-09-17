@@ -63,9 +63,10 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
-  return (
+const TableHead = React.forwardRef<HTMLTableCellElement, React.ComponentProps<"th">>(
+  ({ className, ...props }, ref) => (
     <th
+      ref={ref}
       data-slot="table-head"
       className={cn(
         "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
@@ -74,11 +75,13 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
       {...props}
     />
   )
-}
+)
+TableHead.displayName = "TableHead"
 
-function TableCell({ className, ...props }: React.ComponentProps<"td">) {
-  return (
+const TableCell = React.forwardRef<HTMLTableCellElement, React.ComponentProps<"td">>(
+  ({ className, ...props }, ref) => (
     <td
+      ref={ref}
       data-slot="table-cell"
       className={cn(
         "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
@@ -87,7 +90,8 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
       {...props}
     />
   )
-}
+)
+TableCell.displayName = "TableCell"
 
 function TableCaption({
   className,

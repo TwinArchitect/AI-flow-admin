@@ -47,7 +47,10 @@ import {
 } from './utils/overviewMessages';
 import { parseStringToBlocks, blocksToPlainText } from './utils/blockHelpers';
 import { applyContentDelta } from './utils/blockHelpers';
-import { resolveConversationReply } from '@/features/message-render/conversationBlocks';
+import {
+  removeRedundantStructuredConversationText,
+  resolveConversationReply,
+} from '@/features/message-render/conversationBlocks';
 import type { AgentOpenChatGroup, ChatMessageLikes } from '@/types';
 import {
   deleteChatGroup,
@@ -61,18 +64,30 @@ import { runWorkflowStream } from '@/features/workflows/api/workflowRunApi';
 import {
   appendUniqueMessageBlocks,
   removeTransientConversationBlocks,
-  resolveConversationNodeRichBlocks,
   resolveConversationResultRichBlocks,
-  resolveConversationSpecialEventBlocks,
 } from '@/features/message-render/richContent';
 import { appendPersistedRichBlocks } from './utils/chatContents';
 import { getAgent } from '@/features/agents/api/agentApi';
 
 const SELECTED_AGENT_STORAGE_KEY = 'agent_overview_selected_agent_id_v1';
 
-export function AgentOverviewPage() {
+export interface AgentOverviewPageProps {
+  embedded?: boolean;
+  hideToolbar?: boolean;
+  lockedAgentId?: string | null;
+  sidebarOpen?: boolean;
+  onSidebarOpenChange?: (open: boolean) => void;
+}
+
+export function AgentOverviewPage({
+  embedded = false,
+  hideToolbar = false,
+  lockedAgentId: lockedAgentIdProp,
+  sidebarOpen,
+  onSidebarOpenChange,
+}: AgentOverviewPageProps = {}) {
   const [searchParams] = useSearchParams();
-  const lockedAgentId = searchParams.get('agentId')?.trim() || null;
+  const lockedAgentId = lockedAgentIdProp ?? searchParams.get('agentId')?.trim() ?? null;
   /* ─── 状态 ─── */
   const [groups, setGroups] = useState<AgentOpenChatGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
@@ -80,7 +95,7 @@ export function AgentOverviewPage() {
   const [groupsLoading, setGroupsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [internalSidebarOpen, setInternalSidebarOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [selectedPublishedAgent, setSelectedPublishedAgent] =
@@ -93,6 +108,11 @@ export function AgentOverviewPage() {
 
   const activeGroup = groups.find((g) => g.id === activeGroupId) ?? null;
   const hasMessages = messages.length > 0;
+  const isSidebarOpen = sidebarOpen ?? internalSidebarOpen;
+  const setIsSidebarOpen = (open: boolean) => {
+    setInternalSidebarOpen(open);
+    onSidebarOpenChange?.(open);
+  };
 
   useEffect(() => {
     const agentId = lockedAgentId || localStorage.getItem(SELECTED_AGENT_STORAGE_KEY)?.trim();
@@ -190,6 +210,11 @@ export function AgentOverviewPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '新建会话失败');
     }
+  };
+
+  const handleSelectConversation = (id: string) => {
+    setActiveGroupId(id);
+    if (embedded) setIsSidebarOpen(false);
   };
 
   const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
@@ -316,33 +341,20 @@ export function AgentOverviewPage() {
             debug: true,
           },
           signal: streamController.signal,
-          onMessageDelta: (text) => {
-            syncAssistantBlocks(applyContentDelta(assistantBlocks, { kind: 'append-markdown', text }));
+          onContentDelta: (delta) => {
+            if (delta.kind === 'add-block') {
+              richContents = appendPersistedRichBlocks(richContents, [delta.block]);
+            }
+            syncAssistantBlocks(applyContentDelta(assistantBlocks, delta));
           },
-          onReasoningDelta: (text) => {
-            syncAssistantBlocks(applyContentDelta(assistantBlocks, { kind: 'append-reasoning', text }));
-          },
-          onNodeEvent: (eventName, payload) => {
-            const richBlocks = resolveConversationNodeRichBlocks(eventName, payload);
-            richContents = appendPersistedRichBlocks(richContents, richBlocks, payload.nodeId);
-            syncAssistantBlocks(
-              appendUniqueMessageBlocks(
-                assistantBlocks,
-                richBlocks
-              )
-            );
-          },
-          onConversationEvent: (eventName, payload) => {
-            syncAssistantBlocks(appendUniqueMessageBlocks(
-              assistantBlocks,
-              resolveConversationSpecialEventBlocks(eventName, payload),
-            ));
-          },
+          onNodeEvent: () => undefined,
         });
 
         const resultBlocks = resolveConversationResultRichBlocks(result);
         richContents = appendPersistedRichBlocks(richContents, resultBlocks);
-        let nextBlocks = appendUniqueMessageBlocks(assistantBlocks, resultBlocks);
+        let nextBlocks = removeRedundantStructuredConversationText(
+          appendUniqueMessageBlocks(assistantBlocks, resultBlocks),
+        );
         if (!removeTransientConversationBlocks(nextBlocks).length) {
           nextBlocks = appendUniqueMessageBlocks(
             nextBlocks,
@@ -422,7 +434,7 @@ export function AgentOverviewPage() {
   };
 
   return (
-    <div className="relative flex h-full min-h-0 overflow-hidden bg-background">
+    <div className={cn('relative flex h-full min-h-0 overflow-hidden bg-background', embedded && 'rounded-none')}>
       {/* ═══ 侧边栏：对话分组 ═══ */}
       <AnimatePresence initial={false}>
         {isSidebarOpen && (
@@ -466,7 +478,7 @@ export function AgentOverviewPage() {
                   return (
                     <div
                       key={group.id}
-                      onClick={() => setActiveGroupId(group.id)}
+                      onClick={() => handleSelectConversation(group.id)}
                       className={cn(
                         'group relative flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200',
                         isActive
@@ -512,7 +524,7 @@ export function AgentOverviewPage() {
       {/* ═══ 主内容区 ═══ */}
       <div className="flex-1 flex flex-col h-full min-h-0 bg-background relative isolate">
         {/* 顶栏 */}
-        <div className="h-11 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background relative z-[120]">
+        {!hideToolbar && <div className="h-11 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background relative z-[120]">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -572,7 +584,7 @@ export function AgentOverviewPage() {
           <div className="text-[11px] font-mono text-muted-foreground font-bold bg-accent px-2.5 py-1 rounded-lg truncate max-w-[40%]">
             {activeGroup?.groupName ?? '新对话'}
           </div>
-        </div>
+        </div>}
 
         {/* 消息区域 */}
         {messagesLoading ? (
@@ -580,7 +592,7 @@ export function AgentOverviewPage() {
             <Loader2 size={24} className="animate-spin" />
           </div>
         ) : hasMessages ? (
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-6 bg-background relative z-0">
+          <div className={cn('flex-1 min-h-0 overflow-y-auto space-y-6 bg-background relative z-0', embedded ? 'px-3 py-4' : 'px-6 py-6')}>
             {messages.map((msg, index) => {
               const isStreamingAssistant =
                 isSending && msg.role === 'assistant' && index === messages.length - 1;
@@ -588,7 +600,7 @@ export function AgentOverviewPage() {
                 <div
                   key={msg.id}
                   className={cn(
-                    'flex max-w-4xl mx-auto gap-4',
+                    'flex max-w-4xl mx-auto gap-4 min-w-0',
                     msg.role === 'user' && 'flex-row-reverse'
                   )}
                 >
@@ -611,7 +623,7 @@ export function AgentOverviewPage() {
                   {/* 气泡 */}
                   <div
                     className={cn(
-                      'flex flex-col space-y-1 max-w-[85%]',
+                      'flex min-w-0 flex-col space-y-1 max-w-[85%]',
                       msg.role === 'user' && 'items-end'
                     )}
                   >
@@ -703,7 +715,7 @@ export function AgentOverviewPage() {
 
         {/* 底部输入区（有消息时） */}
         {hasMessages && (
-          <div className="px-6 py-4 border-t border-border shrink-0 bg-background relative z-[110]">
+          <div className={cn('border-t border-border shrink-0 bg-background relative z-[110]', embedded ? 'px-3 py-3' : 'px-6 py-4')}>
             <div className="max-w-4xl w-full mx-auto">
               <ChatInputArea {...chatInputProps} />
             </div>

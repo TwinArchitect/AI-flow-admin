@@ -1,6 +1,21 @@
 import axios from 'axios';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types';
+import { useAuthStore } from '@/stores/auth';
+import { useLayoutStore } from '@/stores/layout';
+
+function redirectToLogin() {
+  useAuthStore.getState().clear();
+  useLayoutStore.getState().resetLayout();
+  if (window.location.pathname !== '/login') {
+    window.location.replace('/login');
+  }
+}
+
+function isAuthenticationExpired(code: unknown, message: unknown) {
+  return code === 401
+    || (typeof message === 'string' && /认证已失效|登录已失效|请重新登录/.test(message));
+}
 
 // axios 实例
 export const http = axios.create({
@@ -35,6 +50,10 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 http.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const { code, message, data } = response.data;
+    if (isAuthenticationExpired(code, message)) {
+      redirectToLogin();
+      return Promise.reject(new Error(message ?? '认证已失效，请重新登录'));
+    }
     // 业务错误（code !== 0 或 200）
     if (code !== 0 && code !== 200) {
       return Promise.reject(new Error(message ?? '请求失败'));
@@ -45,10 +64,9 @@ http.interceptors.response.use(
   },
   (error) => {
     // HTTP 错误
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       // token 失效，清除本地存储并跳转登录页
-      localStorage.removeItem('auth-storage');
-      window.location.href = '/login';
+      redirectToLogin();
     }
     const message = error.response?.data?.message ?? error.message ?? '网络错误';
     return Promise.reject(new Error(message));

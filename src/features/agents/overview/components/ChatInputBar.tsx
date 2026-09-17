@@ -37,8 +37,8 @@ function ChatInputBar({
 }: ChatInputBarProps) {
   return (
     <div className="relative">
-      {/* 渐变描边容器 */}
-      <div className="p-[1.5px] rounded-full bg-linear-to-r from-primary via-purple-500 to-rose-500 shadow-md">
+      {/* 品牌色描边容器 */}
+      <div className="rounded-full border border-primary/70 bg-background shadow-sm">
         <div className="w-full bg-background rounded-full h-14 flex items-center px-4 gap-3">
           {/* 智能体选择按钮 */}
           <Button
@@ -63,7 +63,7 @@ function ChatInputBar({
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) onSend(); }}
             disabled={disabled}
             placeholder={placeholder}
-            className="flex-1 border-none bg-transparent text-sm font-medium shadow-none focus-visible:ring-0 disabled:opacity-60"
+            className="flex-1 border-none bg-transparent text-sm font-medium shadow-none focus-visible:ring-0 disabled:opacity-60 dark:bg-transparent"
           />
 
           <div className="flex items-center gap-2 pr-1">

@@ -10,6 +10,7 @@ import { useWorkflowCanvasStore } from './store/useWorkflowCanvasStore';
 import type { WorkflowBackendPayload } from './types';
 import { parseWorkflowFromBackend, serializeWorkflowToBackend } from './utils/workflowSerialization';
 import { NodeSidebar, WorkflowCanvas } from './components/WorkflowCanvas';
+import { useLayoutStore } from '@/stores/layout';
 
 export function WorkflowsPage() {
   const location = useLocation();
@@ -26,6 +27,7 @@ export function WorkflowsPage() {
   const replaceWorkflow = useWorkflowCanvasStore((state) => state.replaceWorkflow);
   const resetToNewWorkflow = useWorkflowCanvasStore((state) => state.resetToNewWorkflow);
   const agentQuery = useWorkflowAgent(agentId);
+  const updateRouteTabTitle = useLayoutStore((state) => state.updateRouteTabTitle);
   const workflowDraft = (location.state as {
     workflowDraft?: { agentName?: string; remark?: string };
   } | null)?.workflowDraft;
@@ -68,6 +70,11 @@ export function WorkflowsPage() {
       setParseError(error instanceof Error ? error.message : '智能体配置格式无效');
     }
   }, [agentId, agentQuery.data, replaceWorkflow, resetToNewWorkflow]);
+
+  useEffect(() => {
+    const routePath = `${location.pathname}${location.search}${location.hash}`;
+    updateRouteTabTitle(routePath, agentName ? `工作流 · ${agentName}` : '工作流编排');
+  }, [agentName, location.hash, location.pathname, location.search, updateRouteTabTitle]);
 
   if (agentId && agentQuery.isLoading) {
     return <div className="flex h-full gap-4 p-5"><Skeleton className="w-64" /><Skeleton className="flex-1" /></div>;

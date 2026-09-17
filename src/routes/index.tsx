@@ -3,7 +3,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout';
 import { DashboardPage } from '@/features/dashboard';
 import { WorkflowsPage } from '@/features/workflows';
-import { AgentsPage } from '@/features/agents';
 import { UsersPage } from '@/features/users';
 import { SettingsPage } from '@/features/settings';
 import { LoginPage } from '@/features/auth';
@@ -12,7 +11,7 @@ import { ComponentsLayout } from '@/features/components';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AgentOverviewPage } from '@/features/agents/overview';
 import { MyAgentsPage } from '@/features/agents/myAgents';
-import { KnowledgeBasePage } from '@/features/agents/knowledgeBase';
+import { KbEngineSettingsPage, KnowledgeBasePage } from '@/features/agents/knowledgeBase';
 import { HttpToolsPage, McpToolsPage } from '@/features/agents/tools';
 import { TagManagementPage } from '@/features/agents/tag-management';
 import { AgentPlazaPage, AgentChatPage } from '@/features/agents/agent-plaza';
@@ -143,11 +142,15 @@ export const router = createBrowserRouter([
         element: <MainLayout />,
         children: [
           { index: true, element: <DashboardPage /> },
-          { path: 'agents', element: <AgentsPage /> },
+          { path: 'agents', element: <Navigate to="myAgents" replace /> },
           { path: 'agents/AgentPlaza', element: <AgentPlazaPage /> },
-          { path: 'agents/overview', element: <AgentOverviewPage /> },
+          {
+            path: 'agents/overview',
+            element: <AgentOverviewPage />,
+          },
           { path: 'agents/myAgents', element: <MyAgentsPage /> },
           { path: 'agents/knowledge', element: <KnowledgeBasePage /> },
+          { path: 'agents/knowledge/settings', element: <KbEngineSettingsPage /> },
           { path: 'agents/tags', element: <TagManagementPage /> },
           { path: 'agents/AgentPlaza/chat', element: <AgentChatPage /> },
           { path: 'agents/models', element: <ModelManagementPage /> },
@@ -155,7 +158,11 @@ export const router = createBrowserRouter([
           { path: 'agents/httpTools', element: <HttpToolsPage /> },
           { path: 'agents/mcpTools', element: <McpToolsPage /> },
           { path: 'agents/mobile-overview', element: <MobileOverviewPage /> },
-          { path: 'workflows', element: <WorkflowsPage /> },
+          {
+            path: 'workflows',
+            element: <WorkflowsPage />,
+            handle: { contentLayout: 'fullscreen' },
+          },
           { path: 'users', element: <UsersPage /> },
           { path: 'settings', element: <SettingsPage /> },
           {

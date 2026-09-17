@@ -10,11 +10,13 @@ import { Field } from './config-panels/shared/Field';
 import { JsonViewDialog } from './JsonViewDialog';
 
 export function NodeConfigPanel({
+  agentId,
   active,
   collapsed,
   onCollapsedChange,
   onClose,
 }: {
+  agentId?: string;
   active: boolean;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
@@ -147,6 +149,7 @@ export function NodeConfigPanel({
 
         <ConfigPanel
           nodeId={node.id}
+          agentId={agentId}
           config={node.data.config}
           variables={variables}
           onUpdate={(patch) => updateNodeConfig(node.id, patch)}

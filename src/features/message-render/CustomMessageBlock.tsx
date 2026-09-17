@@ -1,11 +1,12 @@
 import { DataTableMessageBlock } from './DataTableMessageBlock';
 import { EChartsMessageBlock } from './EChartsMessageBlock';
-import { ReferenceMessageBlock } from './ReferenceMessageBlock';
+import { ReferenceImagesMessageBlock, ReferenceMessageBlock } from './ReferenceMessageBlock';
 import { QuestionGuideMessageBlock } from './QuestionGuideMessageBlock';
 import {
   DATA_TABLE_BLOCK_KIND,
   ECHARTS_BLOCK_KIND,
   QUESTION_GUIDE_BLOCK_KIND,
+  REFERENCE_IMAGES_BLOCK_KIND,
   REFERENCE_BLOCK_KIND,
 } from './richContent';
 
@@ -23,6 +24,7 @@ export function CustomMessageBlock({
   if (kind === ECHARTS_BLOCK_KIND) return <EChartsMessageBlock payload={payload} />;
   if (kind === DATA_TABLE_BLOCK_KIND) return <DataTableMessageBlock payload={payload} />;
   if (kind === REFERENCE_BLOCK_KIND) return <ReferenceMessageBlock payload={payload} streaming={streaming} />;
+  if (kind === REFERENCE_IMAGES_BLOCK_KIND) return <ReferenceImagesMessageBlock payload={payload} streaming={streaming} />;
   if (kind === QUESTION_GUIDE_BLOCK_KIND) {
     return (
       <QuestionGuideMessageBlock

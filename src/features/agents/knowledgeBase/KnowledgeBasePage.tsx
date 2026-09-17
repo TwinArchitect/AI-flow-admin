@@ -3,25 +3,25 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Database,
-  BookOpen,
   ChevronRight,
   FileText,
   Plus,
   Search,
-  FolderIcon,
   Layers,
   Check,
   Trash2,
   Settings2,
-  Edit2,
-  Key,
   Eye,
   Download,
+  Info,
   AlertCircle,
   Play,
+  RefreshCw,
+  X,
   Clock,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -34,7 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
-import { DataTable, createSelectColumn } from '@/components/ui/data-table';
+import { DataTable } from '@/components/ui/data-table';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -46,294 +46,186 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AddFileModal } from './components/AddFileModal';
-import { EditFileModal } from './components/EditFileModal';
 import { ChunksModal } from './components/ChunksModal';
 import { DocPreviewModal } from './components/DocPreviewModal';
+import { DocumentMetadataModal } from './components/DocumentMetadataModal';
+import { ChunkMediaPreview } from './components/ChunkMediaPreview';
+import type { KBFile } from './data/kbMock';
 import {
-  initialKnowledgeBases,
-  type KnowledgeBaseItem,
-  initialKbFiles,
-  type KBFile,
-  searchDatabase,
-  type SearchResult,
-  industryTree,
-  type TreeItem,
-} from './data/kbMock';
+  deleteDataset,
+  deleteDocument,
+  downloadDocument,
+  getDataset,
+  getDatasetStats,
+  getDocument,
+  getDocumentProgress,
+  listEnabledModels,
+  parseDocument,
+  queryDatasets,
+  queryDocumentChunks,
+  queryDocuments,
+  searchKnowledgeBase,
+  saveDataset,
+  setDocumentAvailability,
+  stopDocumentParse,
+  uploadDocumentsBatch,
+} from './api';
+import { knowledgeBaseKeys } from './hooks/queryKeys';
+import type { DatasetListItem, DocumentProgress, KnowledgeDataset, RetrievalChunk } from './types';
 
-const flattenNodes = (nodes: TreeItem[]): TreeItem[] =>
-  nodes.reduce(
-    (acc, n) => acc.concat(n, n.children ? flattenNodes(n.children) : []),
-    [] as TreeItem[]
-  );
+const CHUNK_STRATEGY_OPTIONS: Array<{ value: NonNullable<KnowledgeDataset['chunkStrategy']>; label: string }> = [
+  { value: 'naive', label: '通用分块（默认）' },
+  { value: 'one', label: '整篇一块' },
+  { value: 'table', label: '表格每行一块' },
+  { value: 'qa', label: '问答对拆分' },
+  { value: 'book', label: '书籍标题层级' },
+  { value: 'manual', label: '手册（PDF sec_id）' },
+  { value: 'laws', label: '法律条文' },
+  { value: 'paper', label: '论文结构（仅 PDF）' },
+  { value: 'presentation', label: '每页一块' },
+  { value: 'picture', label: '图片/视频' },
+  { value: 'email', label: '邮件' },
+  { value: 'tag', label: 'content+tags 每行' },
+];
 
-const addNode = (nodes: TreeItem[], parentId: string, newNode: TreeItem): TreeItem[] =>
-  parentId === 'root'
-    ? [...nodes, newNode]
-    : nodes.map((n) =>
-        n.id === parentId
-          ? { ...n, children: [...(n.children || []), newNode] }
-          : n.children
-            ? { ...n, children: addNode(n.children, parentId, newNode) }
-            : n
-      );
-const editNode = (nodes: TreeItem[], id: string, label: string): TreeItem[] =>
-  nodes.map((n) =>
-    n.id === id
-      ? { ...n, label }
-      : n.children
-        ? { ...n, children: editNode(n.children, id, label) }
-        : n
-  );
-const delNode = (nodes: TreeItem[], id: string): TreeItem[] =>
-  nodes
-    .filter((n) => n.id !== id)
-    .map((n) => (n.children ? { ...n, children: delNode(n.children, id) } : n));
-
-/* ─── 树节点渲染 ─── */
-function TreeItems({
-  items,
-  sel,
-  exp,
-  onSel,
-  onToggle,
-  onEdit,
-  onDel,
-}: {
-  items: TreeItem[];
-  sel: string;
-  exp: string[];
-  onSel: (id: string) => void;
-  onToggle: React.Dispatch<React.SetStateAction<string[]>>;
-  onEdit: (id: string, label: string) => void;
-  onDel: (id: string, label: string) => void;
-}) {
+function RetrievalHighlight({ html, fallback }: { html?: string | null; fallback: string }) {
+  if (!html?.trim()) return <>{fallback}</>;
+  let highlighted = false;
   return (
-    <ul className="space-y-1">
-      {items.map((item) => {
-        const hasChildren = item.children && item.children.length > 0;
-        const isExpanded = exp.includes(item.id);
-        const isSelected = sel === item.id;
-        return (
-          <li key={item.id} className="space-y-1">
-            <div
-              className={cn(
-                'flex items-center justify-between gap-1 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all group/node',
-                isSelected
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-foreground/70 hover:bg-accent'
-              )}
-            >
-              <div
-                className="flex items-center gap-2 truncate flex-1 min-w-0"
-                onClick={() => {
-                  onSel(item.id);
-                  if (hasChildren)
-                    onToggle((p) =>
-                      p.includes(item.id) ? p.filter((x) => x !== item.id) : [...p, item.id]
-                    );
-                }}
-              >
-                {hasChildren ? (
-                  <ChevronRight
-                    size={13}
-                    className={cn('transition-transform shrink-0', isExpanded && 'rotate-90')}
-                  />
-                ) : (
-                  <span className="w-3 shrink-0" />
-                )}
-                {hasChildren ? (
-                  <FolderIcon size={14} className="shrink-0 text-amber-500" />
-                ) : (
-                  <FileText size={14} className="shrink-0 text-muted-foreground" />
-                )}
-                <span className="truncate">{item.label}</span>
-              </div>
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className={cn(
-                  'flex items-center gap-0.5 shrink-0 opacity-0 group-hover/node:opacity-100 transition-opacity',
-                  isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                )}
-              >
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => onEdit(item.id, item.label)}
-                  title="重命名"
-                >
-                  <Edit2 size={11} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => onDel(item.id, item.label)}
-                  title="删除"
-                  className="hover:text-destructive"
-                >
-                  <Trash2 size={11} />
-                </Button>
-              </div>
-            </div>
-            {hasChildren && isExpanded && (
-              <div className="pl-4 border-l border-border ml-3.5 space-y-1">
-                <TreeItems
-                  items={item.children!}
-                  sel={sel}
-                  exp={exp}
-                  onSel={onSel}
-                  onToggle={onToggle}
-                  onEdit={onEdit}
-                  onDel={onDel}
-                />
-              </div>
-            )}
-          </li>
-        );
+    <>
+      {html.split(/(<\/?em\b[^>]*>)/gi).map((part, index) => {
+        if (/^<em\b/i.test(part)) {
+          highlighted = true;
+          return null;
+        }
+        if (/^<\/em/i.test(part)) {
+          highlighted = false;
+          return null;
+        }
+        const text = part.replace(/<[^>]+>/g, '');
+        return highlighted ? (
+          <mark key={index} className="rounded bg-primary/15 px-1 font-bold text-primary">
+            {text}
+          </mark>
+        ) : <React.Fragment key={index}>{text}</React.Fragment>;
       })}
-    </ul>
+    </>
   );
 }
 
 /* ─── 主页面 ─── */
 export function KnowledgeBasePage() {
+  const queryClient = useQueryClient();
   const [view, setView] = useState<'list' | 'detail'>('list');
-  const [selKb, setSelKb] = useState<KnowledgeBaseItem | null>(null);
-  const [kbFiles, setKbFiles] = useState(initialKbFiles);
-  const [selNode, setSelNode] = useState('1-1');
-  const [expNodes, setExpNodes] = useState<string[]>(['1', '2', '3']);
-  const [treeData, setTreeData] = useState<TreeItem[]>(industryTree);
-  // modals
-  const [catModal, setCatModal] = useState<{
-    open: boolean;
-    mode: 'add' | 'edit';
-    id: string | null;
-    label: string;
-    parentId: string;
-  }>({ open: false, mode: 'add', id: null, label: '', parentId: 'root' });
-  const [delTarget, setDelTarget] = useState<{ id: string; label: string } | null>(null);
+  const [selKb, setSelKb] = useState<DatasetListItem | null>(null);
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createParserType, setCreateParserType] = useState<KnowledgeDataset['parserType']>('native');
+  const [createChunkStrategy, setCreateChunkStrategy] = useState<KnowledgeDataset['chunkStrategy']>('naive');
+  const [createChunkSize, setCreateChunkSize] = useState(512);
+  const [createChunkOverlap, setCreateChunkOverlap] = useState(64);
+  const [deleteTarget, setDeleteTarget] = useState<DatasetListItem | null>(null);
 
-  /* ─── 解析进度模拟 ─── */
+  const datasetParams = { page, size: 12, name: appliedSearch };
+  const datasetsQuery = useQuery({
+    queryKey: knowledgeBaseKeys.datasetList(datasetParams),
+    queryFn: () => queryDatasets(datasetParams),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: saveDataset,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasets() });
+      setCreateOpen(false);
+      setCreateName('');
+      setCreateDescription('');
+      setCreateParserType('native');
+      setCreateChunkStrategy('naive');
+      setCreateChunkSize(512);
+      setCreateChunkOverlap(64);
+      toast.success('知识库创建成功');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : '知识库创建失败'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteDataset,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasets() });
+      setDeleteTarget(null);
+      toast.success('知识库删除成功');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : '知识库删除失败'),
+  });
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setKbFiles((prev) => {
-        let changed = false;
-        const next = { ...prev };
-        Object.keys(next).forEach((kbId) => {
-          next[kbId] = next[kbId].map((f) => {
-            if (f.status === 'parsing' && f.progress < 100) {
-              changed = true;
-              const inc = Math.min(100, +(f.progress + Math.random() * 15 + 8).toFixed(2));
-              return {
-                ...f,
-                progress: inc,
-                status: inc >= 100 ? ('success' as const) : ('parsing' as const),
-                chunks: inc >= 100 ? f.chunks + Math.floor(Math.random() * 3 + 1) : f.chunks,
-              };
-            }
-            return f;
-          });
-        });
-        return changed ? next : prev;
-      });
-    }, 2800);
-    return () => clearInterval(timer);
-  }, []);
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setAppliedSearch(searchInput.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   return (
-    <div className={cn('flex h-full min-h-0 gap-8 overflow-hidden', view === 'detail' && 'gap-0')}>
-      {/* 侧栏 — 详情时隐藏 */}
-      {view === 'list' && (
-        <aside className="w-64 shrink-0 flex flex-col bg-card/60 border border-border rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center gap-3 px-1.5 mb-6">
-            <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-              <BookOpen size={16} />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">业务分类树</h4>
-          </div>
-          <div className="flex-1 overflow-y-auto pr-1">
-            <TreeItems
-              items={treeData}
-              sel={selNode}
-              exp={expNodes}
-              onSel={setSelNode}
-              onToggle={setExpNodes}
-              onEdit={(id, label) =>
-                setCatModal({ open: true, mode: 'edit', id, label, parentId: 'root' })
-              }
-              onDel={(id, label) => setDelTarget({ id, label })}
-            />
-          </div>
-          <div className="pt-4 mt-4 border-t border-border/50">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                setCatModal({ open: true, mode: 'add', id: null, label: '', parentId: selNode })
-              }
-              className="w-full justify-center gap-1.5 text-xs font-bold"
-            >
-              <Plus size={13} /> 新增目录节点
-            </Button>
-          </div>
-        </aside>
-      )}
-
-      <main className={view === 'detail' ? 'flex-1' : 'flex-1 flex flex-col min-w-0'}>
+    <div className="flex h-full min-h-0 overflow-hidden">
+      <main className="flex-1 flex min-w-0 flex-col">
         {view === 'detail' && selKb ? (
           <DetailView
             kb={selKb}
-            files={kbFiles[selKb.id] || []}
             kbId={selKb.id}
             onBack={() => setView('list')}
-            onKbFilesChange={setKbFiles}
+            onDatasetSaved={(dataset) => {
+              setSelKb((current) => current ? { ...current, ...dataset } : current);
+              void queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasets() });
+            }}
           />
         ) : (
           <ListView
-            kbs={initialKnowledgeBases}
+            kbs={datasetsQuery.data?.records ?? []}
+            total={datasetsQuery.data?.total ?? 0}
+            page={page}
+            pageSize={12}
+            search={searchInput}
+            loading={datasetsQuery.isLoading}
+            error={datasetsQuery.error}
+            onSearch={setSearchInput}
+            onPageChange={setPage}
             onOpen={(kb) => {
               setSelKb(kb);
               setView('detail');
             }}
             onCreate={() => setCreateOpen(true)}
+            onEdit={(kb) => {
+              setSelKb(kb);
+              setView('detail');
+            }}
+            onDelete={setDeleteTarget}
           />
         )}
       </main>
 
-      {/* 分类新增/编辑 */}
-      <CategoryDialog
-        modal={catModal}
-        onClose={() => setCatModal((p) => ({ ...p, open: false }))}
-        onSave={(label, id) => {
-          if (catModal.mode === 'add') {
-            const n: TreeItem = { id: 'n' + Date.now(), label };
-            setTreeData((p) => addNode(p, catModal.parentId, n));
-            setExpNodes((p) => [...p, catModal.parentId]);
-          } else if (id) setTreeData((p) => editNode(p, id, label));
-          setCatModal((p) => ({ ...p, open: false }));
-        }}
-        flatNodes={flattenNodes(treeData)}
-      />
-
-      {/* 分类删除 */}
-      <Dialog open={Boolean(delTarget)} onOpenChange={(o) => !o && setDelTarget(null)}>
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-destructive">确认删除分类节点</DialogTitle>
+            <DialogTitle className="text-destructive">确认删除知识库</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            删除节点{' '}
+            删除知识库{' '}
             <span className="text-destructive bg-destructive/10 px-1.5 py-0.5 rounded font-bold">
-              "{delTarget?.label}"
+              “{deleteTarget?.name}”
             </span>{' '}
-            将一并删除所有下级子分类，无法撤销。
+            后，其文档与分块数据也会被移除，此操作无法撤销。
           </p>
           <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
               size="sm"
               className="flex-1"
-              onClick={() => setDelTarget(null)}
+              onClick={() => setDeleteTarget(null)}
             >
               取消
             </Button>
@@ -341,14 +233,10 @@ export function KnowledgeBasePage() {
               variant="destructive"
               size="sm"
               className="flex-1"
-              onClick={() => {
-                if (delTarget) {
-                  setTreeData((p) => delNode(p, delTarget.id));
-                  setDelTarget(null);
-                }
-              }}
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
             >
-              确认删除
+              {deleteMutation.isPending ? '删除中...' : '确认删除'}
             </Button>
           </div>
         </DialogContent>
@@ -356,7 +244,7 @@ export function KnowledgeBasePage() {
 
       {/* 新建知识库 */}
       <Dialog open={createOpen} onOpenChange={(o) => !o && setCreateOpen(false)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>配置知识库资源</DialogTitle>
           </DialogHeader>
@@ -365,16 +253,53 @@ export function KnowledgeBasePage() {
               <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
                 知识库名称
               </Label>
-              <Input placeholder="例如: 某区域技术规范文档库" className="h-10" />
+              <Input
+                value={createName}
+                onChange={(event) => setCreateName(event.target.value)}
+                placeholder="例如: 某区域技术规范文档库"
+                className="h-10"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">解析方式</Label>
+                <Select value={createParserType} onValueChange={(value) => setCreateParserType(value as KnowledgeDataset['parserType'])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="native">本地解析</SelectItem>
+                    <SelectItem value="ocr">OCR 增强</SelectItem>
+                    <SelectItem value="remote">远程解析</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">分块策略</Label>
+                <Select value={createChunkStrategy} onValueChange={(value) => setCreateChunkStrategy(value as KnowledgeDataset['chunkStrategy'])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CHUNK_STRATEGY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">分块长度</Label>
+                <Input type="number" min={1} value={createChunkSize} onChange={(event) => setCreateChunkSize(Number(event.target.value))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">重叠长度</Label>
+                <Input type="number" min={0} value={createChunkOverlap} onChange={(event) => setCreateChunkOverlap(Number(event.target.value))} />
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
-                关联节点
-              </Label>
-              <div className="px-4 py-2.5 bg-muted border border-border rounded-xl text-xs font-bold text-muted-foreground flex items-center gap-2">
-                <FolderIcon size={14} />
-                {selNode || '通用根节点'}
-              </div>
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">简介说明</Label>
+              <Textarea
+                value={createDescription}
+                onChange={(event) => setCreateDescription(event.target.value)}
+                placeholder="描述知识库的收录范围与用途"
+                className="min-h-24 resize-none"
+              />
             </div>
           </div>
           <div className="flex gap-3 pt-3">
@@ -386,8 +311,21 @@ export function KnowledgeBasePage() {
             >
               取消
             </Button>
-            <Button size="sm" className="flex-1" onClick={() => setCreateOpen(false)}>
-              立即创建
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={!createName.trim() || saveMutation.isPending}
+              onClick={() => saveMutation.mutate({
+                name: createName.trim(),
+                description: createDescription.trim() || undefined,
+                status: 'ACTIVE',
+                parserType: createParserType,
+                chunkStrategy: createChunkStrategy,
+                chunkSize: createChunkSize,
+                chunkOverlap: createChunkOverlap,
+              })}
+            >
+              {saveMutation.isPending ? '创建中...' : '立即创建'}
             </Button>
           </div>
         </DialogContent>
@@ -399,13 +337,34 @@ export function KnowledgeBasePage() {
 /* ─── 列表视图 ─── */
 function ListView({
   kbs,
+  total,
+  page,
+  pageSize,
+  search,
+  loading,
+  error,
+  onSearch,
+  onPageChange,
   onOpen,
   onCreate,
+  onEdit,
+  onDelete,
 }: {
-  kbs: KnowledgeBaseItem[];
-  onOpen: (kb: KnowledgeBaseItem) => void;
+  kbs: DatasetListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  loading: boolean;
+  error: Error | null;
+  onSearch: (value: string) => void;
+  onPageChange: (page: number) => void;
+  onOpen: (kb: DatasetListItem) => void;
   onCreate: () => void;
+  onEdit: (kb: DatasetListItem) => void;
+  onDelete: (kb: DatasetListItem) => void;
 }) {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   return (
     <>
       <header className="flex items-center justify-between mb-8">
@@ -430,6 +389,8 @@ function ListView({
             <Input
               type="text"
               placeholder="搜索库名称..."
+              value={search}
+              onChange={(event) => onSearch(event.target.value)}
               className="pl-9 w-56 h-9 bg-background border-border rounded-xl text-xs"
             />
           </div>
@@ -440,6 +401,13 @@ function ListView({
       </header>
 
       <div className="flex-1 overflow-y-auto pr-2 pb-10">
+        {loading && <div className="py-20 text-center text-sm text-muted-foreground">正在加载知识库...</div>}
+        {error && (
+          <div className="py-20 text-center text-sm text-destructive">
+            {error.message || '加载知识库失败'}
+          </div>
+        )}
+        {!loading && !error && (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {kbs.map((kb) => (
             <div
@@ -447,13 +415,21 @@ function ListView({
               className="bg-card/60 border border-border/60 rounded-2xl p-6 hover:shadow-md hover:border-primary/30 transition-all flex flex-col relative group"
             >
               <div className="absolute top-4 right-4 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon-xs" className="text-muted-foreground">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground"
+                  onClick={() => onEdit(kb)}
+                  title="编辑知识库"
+                >
                   <Settings2 size={14} />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon-xs"
                   className="text-muted-foreground hover:text-destructive"
+                  onClick={() => onDelete(kb)}
+                  title="删除知识库"
                 >
                   <Trash2 size={14} />
                 </Button>
@@ -474,13 +450,13 @@ function ListView({
                   <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
                     创建人
                   </p>
-                  <p className="text-xs font-bold text-foreground">{kb.creator}</p>
+                  <p className="text-xs font-bold text-foreground">{kb.creator || '—'}</p>
                 </div>
                 <div className="space-y-0.5 text-right">
                   <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
                     创建日期
                   </p>
-                  <p className="text-xs font-bold text-foreground">{kb.createTime}</p>
+                  <p className="text-xs font-bold text-foreground">{kb.createTime || '—'}</p>
                 </div>
               </div>
               <div className="pt-4 border-t border-border/20 flex items-center justify-between">
@@ -514,6 +490,19 @@ function ListView({
             </span>
           </Button>
         </div>
+        )}
+        {!loading && !error && total === 0 && (
+          <div className="py-16 text-center text-sm text-muted-foreground">暂无知识库</div>
+        )}
+        {!loading && !error && total > 0 && (
+          <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
+            <span className="text-xs text-muted-foreground">共 {total} 个知识库，第 {page}/{pageCount} 页</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>上一页</Button>
+              <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)}>下一页</Button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -522,20 +511,31 @@ function ListView({
 /* ─── 详情 ─── */
 function DetailView({
   kb,
-  files,
   kbId,
   onBack,
-  onKbFilesChange,
+  onDatasetSaved,
 }: {
-  kb: KnowledgeBaseItem;
-  files: KBFile[];
+  kb: DatasetListItem;
   kbId: string;
   onBack: () => void;
-  onKbFilesChange: React.Dispatch<React.SetStateAction<Record<string, KBFile[]>>>;
+  onDatasetSaved: (dataset: KnowledgeDataset) => void;
 }) {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<'files' | 'search' | 'config'>('files');
-  const [search, setSearch] = useState('');
-  const filtered = files.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()));
+  const detailQuery = useQuery({
+    queryKey: knowledgeBaseKeys.datasetDetail(kbId),
+    queryFn: () => getDataset(kbId),
+  });
+  const statsQuery = useQuery({
+    queryKey: knowledgeBaseKeys.datasetStats(kbId),
+    queryFn: () => getDatasetStats(kbId),
+  });
+  const currentKb: DatasetListItem = {
+    ...kb,
+    ...detailQuery.data,
+    documentCount: statsQuery.data?.documentCount ?? kb.documentCount,
+    chunkCount: statsQuery.data?.chunkCount ?? kb.chunkCount,
+  };
 
   return (
     <motion.div
@@ -546,12 +546,12 @@ function DetailView({
       <aside className="w-64 shrink-0 bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col">
         <div className="flex items-center gap-4 mb-10 pb-6 border-b border-border">
           <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground font-bold text-xl uppercase">
-            {kb.name.charAt(0)}
+            {currentKb.name.charAt(0)}
           </div>
           <div className="min-w-0">
-            <h4 className="font-bold truncate text-foreground">{kb.name}</h4>
-            <p className="text-2xs text-muted-foreground mt-0.5">{files.length} 个文件</p>
-            <p className="text-2xs text-muted-foreground mt-0.5">创建于 {kb.createTime}</p>
+            <h4 className="font-bold truncate text-foreground">{currentKb.name}</h4>
+            <p className="text-2xs text-muted-foreground mt-0.5">{currentKb.documentCount ?? 0} 个文件 · {currentKb.chunkCount ?? 0} 个分块</p>
+            <p className="text-2xs text-muted-foreground mt-0.5">创建于 {currentKb.createTime}</p>
           </div>
         </div>
         <nav className="flex-1 space-y-1">
@@ -589,101 +589,349 @@ function DetailView({
       </aside>
       <div className="flex-1 flex flex-col gap-6 overflow-hidden">
         {tab === 'files' && (
-          <FileTab
-            files={filtered}
-            all={files}
-            kbId={kbId}
-            search={search}
-            onSearch={setSearch}
-            onUpdate={onKbFilesChange}
-          />
+          <FileTab kbId={kbId} parserType={currentKb.parserType} />
         )}
-        {tab === 'search' && <SearchTab />}
-        {tab === 'config' && <ConfigTab kb={kb} />}
+        {tab === 'search' && <SearchTab kbId={kbId} />}
+        {tab === 'config' && <ConfigTab kb={currentKb} onSaved={(dataset) => {
+          queryClient.setQueryData(knowledgeBaseKeys.datasetDetail(kbId), dataset);
+          void queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasetStats(kbId) });
+          onDatasetSaved(dataset);
+        }} />}
       </div>
     </motion.div>
   );
 }
 
 /* ─── 文件表格 ─── */
-function FileTab({
-  files,
-  all,
-  kbId,
-  search,
-  onSearch,
-  onUpdate,
-}: {
-  files: KBFile[];
-  all: KBFile[];
-  kbId: string;
-  search: string;
-  onSearch: (v: string) => void;
-  onUpdate: React.Dispatch<React.SetStateAction<Record<string, KBFile[]>>>;
-}) {
+function getDocumentTypeBadge(fileName: string) {
+  const extension = fileName.split('.').pop()?.toLowerCase() || 'file';
+  if (['xls', 'xlsx', 'csv'].includes(extension)) return { label: extension === 'csv' ? 'CSV' : 'XLS', className: 'bg-emerald-50 text-emerald-600' };
+  if (['doc', 'docx'].includes(extension)) return { label: 'DOC', className: 'bg-blue-50 text-blue-600' };
+  if (extension === 'pdf') return { label: 'PDF', className: 'bg-red-50 text-destructive' };
+  if (['ppt', 'pptx'].includes(extension)) return { label: 'PPT', className: 'bg-orange-50 text-orange-600' };
+  if (['txt', 'md'].includes(extension)) return { label: extension.toUpperCase(), className: 'bg-slate-100 text-slate-600' };
+  return { label: extension.slice(0, 4).toUpperCase(), className: 'bg-muted text-muted-foreground' };
+}
+
+function getParserLabel(parserType?: KnowledgeDataset['parserType']) {
+  if (parserType === 'ocr') return 'OCR';
+  if (parserType === 'remote') return 'Remote';
+  return 'General';
+}
+
+function getDocumentStageLabel(status?: string) {
+  const labels: Record<string, string> = {
+    NEW: '新建',
+    UPLOADED: '已上传',
+    PARSING: '解析中',
+    PARSED: '结构解析完成',
+    CHUNKING: '分块中',
+    EMBEDDING: '向量化中',
+    INDEXING: '索引中',
+    READY: '已完成',
+    FAILED: '解析失败',
+    CANCELLED: '已取消',
+  };
+  return status ? labels[status] ?? status : '解析中';
+}
+
+function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDataset['parserType'] }) {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [actFile, setActFile] = useState<KBFile | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [chunksOpen, setChunksOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [metadataOpen, setMetadataOpen] = useState(false);
+  const [deleteTargets, setDeleteTargets] = useState<KBFile[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number; fileName: string } | null>(null);
+  const [pendingParseIds, setPendingParseIds] = useState<Set<string>>(() => new Set());
+  const [submittingParseIds, setSubmittingParseIds] = useState<Set<string>>(() => new Set());
+  const notifiedFailedParseIds = React.useRef<Set<string>>(new Set());
+  const chunkCountAttempts = React.useRef<Map<string, number>>(new Map());
+  const documentParams = { keyword: search.trim(), page, size: 20 };
+  const documentsQuery = useQuery({
+    queryKey: knowledgeBaseKeys.documentList(kbId, documentParams),
+    queryFn: () => queryDocuments(kbId, documentParams),
+  });
+  const documents = documentsQuery.data?.records ?? [];
+  const readyWithoutChunks = documents.filter((document) => document.status === 'READY' && !(document.chunkCount && document.chunkCount > 0));
+  const chunkCountQueries = useQueries({
+    queries: readyWithoutChunks.map((document) => ({
+      queryKey: [...knowledgeBaseKeys.documentDetail(document.id), 'resolved-chunk-count'],
+      queryFn: async () => {
+        chunkCountAttempts.current.set(document.id, (chunkCountAttempts.current.get(document.id) ?? 0) + 1);
+        const detail = await getDocument(document.id).catch(() => null);
+        if ((detail?.chunkCount ?? 0) > 0) return { documentId: document.id, count: detail!.chunkCount! };
+        const chunks = await queryDocumentChunks(document.id, 1, 1);
+        return { documentId: document.id, count: chunks.total ?? 0 };
+      },
+      refetchInterval: (query: { state: { data?: { count: number } } }) => (
+        (query.state.data?.count ?? 0) <= 0 && (chunkCountAttempts.current.get(document.id) ?? 0) < 5 ? 3000 : false
+      ),
+    })),
+  });
+  const resolvedChunkCounts = new Map(chunkCountQueries.flatMap((query) => query.data ? [[query.data.documentId, query.data.count] as const] : []));
+  const activeDocuments = documents.filter((document) =>
+    ['PARSING', 'PARSED', 'CHUNKING', 'EMBEDDING', 'INDEXING'].includes(document.status)
+    || (pendingParseIds.has(document.id) && !submittingParseIds.has(document.id)),
+  );
+  const progressQueries = useQueries({
+    queries: activeDocuments.map((document) => ({
+      queryKey: knowledgeBaseKeys.documentProgress(document.id),
+      queryFn: () => getDocumentProgress(document.id),
+      refetchInterval: (query: { state: { data?: DocumentProgress } }) => {
+        const progress = query.state.data;
+        if (progress?.errorMessage || progress?.taskError || (progress && ['READY', 'FAILED', 'CANCELLED'].includes(progress.status))) return false;
+        return 3000;
+      },
+    })),
+  });
+  const progressByDocumentId = new Map(progressQueries.flatMap((query) => query.data ? [[query.data.documentId, query.data] as const] : []));
+  const progressSignature = progressQueries
+    .map((query) => query.data ? `${query.data.documentId}:${query.data.status}:${query.data.retryCount ?? 0}` : 'pending')
+    .join('|');
+  useEffect(() => {
+    progressQueries.forEach((query) => {
+      const progress = query.data;
+      const errorMessage = progress?.errorMessage ?? progress?.taskError;
+      const activeWithError = Boolean(
+        progress
+        && errorMessage
+        && ['PARSING', 'PARSED', 'CHUNKING', 'EMBEDDING', 'INDEXING'].includes(progress.status),
+      );
+      const failed = Boolean(progress && (activeWithError || ['FAILED', 'CANCELLED'].includes(progress.status)));
+      if (!progress || !failed || notifiedFailedParseIds.current.has(progress.documentId)) return;
+      notifiedFailedParseIds.current.add(progress.documentId);
+      toast.error(`文件解析失败：${errorMessage || progress.progressMessage || '后台任务执行失败'}`);
+    });
+    const hasFinished = progressQueries.some((query) => query.data && ['READY', 'FAILED', 'CANCELLED'].includes(query.data.status));
+    if (hasFinished) void queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.documents(kbId) });
+    const acceptedIds = progressQueries
+      .map((query) => query.data)
+      .filter((progress): progress is DocumentProgress => Boolean(
+        progress && pendingParseIds.has(progress.documentId) && progress.status !== 'UPLOADED'
+      ))
+      .map((progress) => progress.documentId);
+    if (acceptedIds.length) {
+      setPendingParseIds((current) => {
+        const next = new Set(current);
+        acceptedIds.forEach((id) => next.delete(id));
+        return next.size === current.size ? current : next;
+      });
+    }
+  // progressSignature ensures one refresh per backend state transition instead of once per render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kbId, progressSignature, queryClient]);
+  const files: KBFile[] = documents.map((document) => ({
+    ...(() => {
+      const progress = progressByDocumentId.get(document.id);
+      const reportedStatus = progress?.status ?? document.status;
+      const reportedError = progress?.errorMessage ?? progress?.taskError ?? document.errorMessage;
+      const status = ['PARSING', 'PARSED', 'CHUNKING', 'EMBEDDING', 'INDEXING'].includes(reportedStatus)
+        && Boolean(reportedError)
+        ? 'FAILED'
+        : reportedStatus;
+      const errorMessage = ['FAILED', 'CANCELLED'].includes(status)
+        ? reportedError
+        : null;
+      const isPending = pendingParseIds.has(document.id) && status === 'UPLOADED';
+      return {
+        progress: isPending ? 10 : progress?.progressPercent ?? document.progressPercent ?? (status === 'READY' ? 100 : 0),
+        status: status === 'UPLOADED' && !isPending ? 'waiting' as const : status === 'READY' ? 'success' as const : ['FAILED', 'CANCELLED'].includes(status) ? 'failed' as const : 'parsing' as const,
+        rawStatus: status,
+        errorMessage,
+        progressMessage: progress?.progressMessage ?? document.progressMessage,
+        taskStatus: progress?.taskStatus,
+        retryCount: progress?.retryCount,
+      };
+    })(),
+    id: document.id,
+    name: document.fileName,
+    uploadDate: document.createTime ?? '-',
+    enabled: document.searchEnabled ?? true,
+    chunks: resolvedChunkCounts.get(document.id) ?? document.chunkCount ?? 0,
+    metadataFields: 0,
+    parser: getParserLabel(parserType),
+  }));
+  const refreshDocuments = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.documents(kbId) }),
+      queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasetDetail(kbId) }),
+      queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasetStats(kbId) }),
+    ]);
+  };
+  const uploadMutation = useMutation({
+    mutationFn: (selectedFiles: File[]) => uploadDocumentsBatch(kbId, selectedFiles, (done, total, fileName) => setUploadProgress({ done, total, fileName })),
+    onSuccess: async ({ succeeded, failed }) => {
+      await refreshDocuments();
+      setUploadProgress(null);
+      setAddOpen(false);
+      if (failed.length) toast.warning(`上传完成：成功 ${succeeded.length} 个，失败 ${failed.length} 个`);
+      else toast.success(`成功上传 ${succeeded.length} 个文件`);
+    },
+    onError: (error) => { setUploadProgress(null); toast.error(error instanceof Error ? error.message : '文件上传失败'); },
+  });
+  const availabilityMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => setDocumentAvailability([id], enabled),
+    onSuccess: refreshDocuments,
+    onError: (error) => toast.error(error instanceof Error ? error.message : '更新检索状态失败'),
+  });
+  const removeMutation = useMutation({
+    mutationFn: (ids: string[]) => Promise.all(ids.map(deleteDocument)),
+    onSuccess: async () => {
+      const count = deleteTargets.length;
+      setDeleteTargets([]);
+      await refreshDocuments();
+      toast.success(count > 1 ? `成功批量删除 ${count} 个文件` : '文件已移除');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : '文件删除失败'),
+    meta: { silentError: true },
+  });
+  const parseMutation = useMutation({
+    mutationFn: ({ id, active, force }: { id: string; active: boolean; force: boolean }) => active ? stopDocumentParse(id) : parseDocument(id, force),
+    onMutate: ({ id, active }) => {
+      if (!active) {
+        notifiedFailedParseIds.current.delete(id);
+        setPendingParseIds((current) => new Set(current).add(id));
+        setSubmittingParseIds((current) => new Set(current).add(id));
+      }
+    },
+    onSuccess: async (result, variables) => {
+      if (variables.active) {
+        setPendingParseIds((current) => { const next = new Set(current); next.delete(variables.id); return next; });
+        toast.success('已请求停止解析');
+      } else if (!result?.skipped && !result?.taskIds?.length) {
+        setPendingParseIds((current) => { const next = new Set(current); next.delete(variables.id); return next; });
+        toast.error('解析接口未返回任务 ID，后台任务可能没有成功创建');
+      } else {
+        toast.success(variables.force ? '已重新触发解析' : '已启动解析');
+      }
+      if (!variables.active) {
+        queryClient.removeQueries({ queryKey: knowledgeBaseKeys.documentProgress(variables.id) });
+      }
+      await refreshDocuments();
+    },
+    onError: (error, variables) => {
+      setPendingParseIds((current) => { const next = new Set(current); next.delete(variables.id); return next; });
+      toast.error(error instanceof Error ? error.message : '解析操作失败');
+    },
+    onSettled: (_result, _error, variables) => {
+      setSubmittingParseIds((current) => {
+        const next = new Set(current);
+        next.delete(variables.id);
+        return next;
+      });
+    },
+  });
+
+  const handleBatchParse = async (targets: KBFile[]) => {
+    const targetIds = targets.map((file) => file.id);
+    targetIds.forEach((id) => {
+      notifiedFailedParseIds.current.delete(id);
+      queryClient.removeQueries({ queryKey: knowledgeBaseKeys.documentProgress(id) });
+    });
+    setPendingParseIds((current) => new Set([...current, ...targetIds]));
+    setSubmittingParseIds((current) => new Set([...current, ...targetIds]));
+
+    const settled = await Promise.allSettled(
+      targets.map(async (file) => {
+        const force = ['FAILED', 'CANCELLED'].includes(file.rawStatus ?? '');
+        const result = await parseDocument(file.id, force);
+        if (!result?.skipped && !result?.taskIds?.length) {
+          throw new Error(`文件「${file.name}」未返回解析任务 ID`);
+        }
+        return { id: file.id, skipped: Boolean(result?.skipped) };
+      }),
+    );
+
+    const failedIds = settled.flatMap((result, index) => result.status === 'rejected' ? [targetIds[index]] : []);
+    const skippedIds = settled.flatMap((result) => result.status === 'fulfilled' && result.value.skipped ? [result.value.id] : []);
+    setPendingParseIds((current) => {
+      const next = new Set(current);
+      [...failedIds, ...skippedIds].forEach((id) => next.delete(id));
+      return next;
+    });
+    setSubmittingParseIds((current) => {
+      const next = new Set(current);
+      targetIds.forEach((id) => next.delete(id));
+      return next;
+    });
+    await refreshDocuments();
+
+    const succeededCount = settled.length - failedIds.length;
+    if (failedIds.length === 0) {
+      toast.success(`已批量提交 ${succeededCount} 个文件解析`);
+    } else {
+      toast.warning(`批量解析提交完成：成功 ${succeededCount} 个，失败 ${failedIds.length} 个`);
+    }
+  };
 
   const columns = React.useMemo(
     () =>
       [
-        createSelectColumn<KBFile>(),
         {
           id: 'name',
           header: '名称',
-          cell: ({ row }) => (
-            <div className="flex items-center gap-3 max-w-[210px]">
+          size: 280,
+          cell: ({ row }) => {
+            const badge = getDocumentTypeBadge(row.original.name);
+            return (
+            <div className="flex min-w-0 items-center gap-3">
               <div
                 className={cn(
                   'w-8 h-8 rounded flex items-center justify-center font-bold text-2xs shrink-0',
-                  row.original.name.endsWith('.pdf')
-                    ? 'bg-red-50 text-destructive'
-                    : 'bg-blue-50 text-blue-600'
+                  badge.className
                 )}
               >
-                {row.original.name.endsWith('.pdf') ? 'PDF' : 'WORD'}
+                {badge.label}
               </div>
-              <span className="text-xs font-semibold text-foreground truncate">
-                {row.original.name}
+              <span className="min-w-0 truncate text-xs font-semibold text-foreground" title={row.original.name}>
+                <button type="button" className="max-w-full truncate text-left hover:text-primary" onClick={() => { setActFile(row.original); setPreviewOpen(true); }}>
+                  {row.original.name}
+                </button>
               </span>
             </div>
-          ),
+          );
+          },
         },
         {
-          id: 'uploadDate',
-          header: '上传日期',
+          id: 'chunks',
+          header: '分块数',
+          size: 64,
           cell: ({ row }) => (
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {row.original.uploadDate}
-            </span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 font-mono text-xs font-bold text-foreground hover:text-primary"
+              title="查看分块内容"
+              onClick={() => {
+                setActFile(row.original);
+                setChunksOpen(true);
+              }}
+            >
+              <Layers size={11} />
+              {row.original.chunks}
+            </button>
           ),
         },
         {
           id: 'enabled',
-          header: '启用',
+          header: '检索',
+          size: 64,
           cell: ({ row }) => (
             <Switch
               checked={row.original.enabled}
-              onCheckedChange={() => {}}
+              disabled={availabilityMutation.isPending}
+              onCheckedChange={(enabled) => availabilityMutation.mutate({ id: row.original.id, enabled })}
               className="data-[state=checked]:bg-success"
             />
           ),
         },
         {
-          id: 'chunks',
-          header: '分块数',
-          cell: ({ row }) => (
-            <span className="text-xs text-foreground font-bold font-mono">
-              {row.original.chunks}
-            </span>
-          ),
-        },
-        {
           id: 'metadata',
           header: '元数据',
+          size: 82,
           cell: ({ row }) => (
             <span className="text-xs text-muted-foreground">
               {row.original.metadataFields} fields
@@ -692,67 +940,109 @@ function FileTab({
         },
         {
           id: 'parser',
-          header: '解析',
+          header: '解析器',
+          size: 78,
           cell: ({ row }) => (
             <span className="text-xs text-foreground font-bold">{row.original.parser}</span>
           ),
         },
         {
           id: 'progress',
-          header: '解析进度',
+          header: '解析',
+          size: 170,
           cell: ({ row }) => (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex items-center gap-2">
               {row.original.status === 'parsing' ? (
                 <>
-                  <Progress
-                    value={row.original.progress}
-                    className="flex-1 h-1.5 bg-muted [&>div]:bg-success [&>div]:animate-pulse"
-                  />
-                  <span className="text-2xs font-bold text-success font-mono">
-                    {row.original.progress.toFixed(1)}%
-                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="min-w-0 flex-1 truncate text-2xs text-muted-foreground" title={row.original.progressMessage ?? undefined}>
+                        {getDocumentStageLabel(row.original.rawStatus)}{row.original.progressMessage ? `：${row.original.progressMessage}` : ''}
+                      </span>
+                      {row.original.taskStatus === 'PENDING' && <span className="shrink-0 text-2xs text-warning">排队中</span>}
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        title="停止解析"
+                        disabled={parseMutation.isPending}
+                        onClick={() => parseMutation.mutate({ id: row.original.id, active: true, force: false })}
+                      >
+                        <X size={12} />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={row.original.progress}
+                        className="flex-1 h-1.5 bg-muted [&>div]:bg-success [&>div]:animate-pulse"
+                      />
+                      <span className="text-2xs font-bold text-success font-mono">
+                        {row.original.progress.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
                 </>
+              ) : row.original.status === 'waiting' ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-2xs font-medium text-muted-foreground">已上传，等待解析</span>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    title="继续解析"
+                    disabled={parseMutation.isPending}
+                    onClick={() => parseMutation.mutate({ id: row.original.id, active: false, force: false })}
+                  >
+                    <RefreshCw size={12} />
+                  </Button>
+                </div>
               ) : row.original.status === 'success' ? (
                 <span className="text-2xs font-bold text-success flex items-center gap-1">
                   <Check size={10} /> 完成
                 </span>
               ) : (
-                <span className="text-2xs font-bold text-destructive">解析挂起</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-2xs font-bold text-destructive">
+                    {getDocumentStageLabel(row.original.rawStatus)}
+                    {(row.original.retryCount ?? 0) > 0 ? ` · 已重试 ${row.original.retryCount} 次` : ''}
+                  </span>
+                  <Button variant="ghost" size="icon-xs" title="重新解析" disabled={parseMutation.isPending} onClick={() => parseMutation.mutate({ id: row.original.id, active: false, force: true })}>
+                    <RefreshCw size={12} />
+                  </Button>
+                </div>
+              )}
+              </div>
+              {row.original.status === 'failed' && row.original.errorMessage && (
+                <span
+                  className="flex min-w-0 items-start gap-1 text-2xs leading-4 text-destructive"
+                  title={row.original.errorMessage}
+                >
+                  <AlertCircle size={11} className="mt-0.5 shrink-0" />
+                  <span className="min-w-0 truncate">{row.original.errorMessage}</span>
+                </span>
               )}
             </div>
           ),
         },
         {
+          id: 'uploadDate',
+          header: '上传日期',
+          size: 145,
+          cell: ({ row }) => (
+            <span className="whitespace-nowrap text-xs text-muted-foreground">
+              {row.original.uploadDate}
+            </span>
+          ),
+        },
+        {
           id: 'actions',
-          header: '动作',
+          header: '操作',
+          size: 140,
           cell: ({ row }) => (
             <div className="inline-flex gap-1">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon-xs"
-                title="维护分块"
-                onClick={() => {
-                  setActFile(row.original);
-                  setChunksOpen(true);
-                }}
-              >
-                <Key size={13} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                title="修改解析属性"
-                onClick={() => {
-                  setActFile(row.original);
-                  setEditOpen(true);
-                }}
-              >
-                <Edit2 size={13} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                title="全文预览"
+                title="原文预览"
                 onClick={() => {
                   setActFile(row.original);
                   setPreviewOpen(true);
@@ -761,10 +1051,21 @@ function FileTab({
                 <Eye size={13} />
               </Button>
               <Button
-                variant="ghost"
+                variant="outline"
+                size="icon-xs"
+                title="元数据"
+                onClick={() => {
+                  setActFile(row.original);
+                  setMetadataOpen(true);
+                }}
+              >
+                <Info size={13} />
+              </Button>
+              <Button
+                variant="outline"
                 size="icon-xs"
                 title="下载"
-                onClick={() => toast.success(`正在下载 [${row.original.name}]`)}
+                onClick={() => void downloadDocument(row.original.id, row.original.name).catch((error) => toast.error(error instanceof Error ? error.message : '下载失败'))}
               >
                 <Download size={13} />
               </Button>
@@ -772,13 +1073,8 @@ function FileTab({
                 variant="ghost"
                 size="icon-xs"
                 title="移除"
-                onClick={() => {
-                  onUpdate((p) => ({
-                    ...p,
-                    [kbId]: (p[kbId] || []).filter((f) => f.id !== row.original.id),
-                  }));
-                  toast.success(`已移除文件 [${row.original.name}]`);
-                }}
+                disabled={removeMutation.isPending}
+                onClick={() => setDeleteTargets([row.original])}
                 className="hover:text-destructive"
               >
                 <Trash2 size={13} />
@@ -787,7 +1083,7 @@ function FileTab({
           ),
         },
       ] as ColumnDef<KBFile>[],
-    [kbId, onUpdate]
+    [availabilityMutation, handleBatchParse, parseMutation, removeMutation, submittingParseIds]
   );
 
   return (
@@ -795,10 +1091,10 @@ function FileTab({
       <div className="flex-1 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
         <div className="px-8 py-4 h-16 flex items-center justify-between border-b border-border shrink-0">
           <div className="flex gap-1 p-1 bg-muted rounded-xl">
-            <span className="px-4 py-1.5 bg-background rounded-lg text-xs font-bold shadow-sm">
-              文件
-            </span>
-            <span className="px-4 py-1.5 text-muted-foreground text-xs font-bold">知识库</span>
+            {/*<span className="px-4 py-1.5 bg-background rounded-lg text-xs font-bold shadow-sm">*/}
+            {/*  文件*/}
+            {/*</span>*/}
+            {/*<span className="px-4 py-1.5 text-muted-foreground text-xs font-bold">知识库</span>*/}
           </div>
           <div className="flex gap-3 items-center">
             <div className="relative">
@@ -810,7 +1106,7 @@ function FileTab({
                 type="text"
                 placeholder="搜索文件名..."
                 value={search}
-                onChange={(e) => onSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="pl-9 h-9 bg-muted border-border rounded-lg text-xs w-48"
               />
             </div>
@@ -823,24 +1119,32 @@ function FileTab({
           <DataTable
             columns={columns}
             data={files}
+            className="max-w-full overflow-hidden [&_[data-slot=table-container]]:overflow-x-hidden"
             selectable
             showPagination={false}
             showViewOptions={false}
             toolbar={(table) => {
               const selected = table.getFilteredSelectedRowModel().rows;
               if (selected.length === 0) return null;
+              const parseTargets = selected.filter((row) => ['NEW', 'UPLOADED', 'FAILED', 'CANCELLED'].includes(row.original.rawStatus ?? ''));
+              const stopTargets = selected.filter((row) => ['PARSING', 'PARSED', 'CHUNKING', 'EMBEDDING', 'INDEXING'].includes(row.original.rawStatus ?? ''));
               return (
-                <div className="mx-0 mb-4 px-6 py-3 bg-primary/5 border border-primary/20 rounded-2xl flex items-center justify-between text-xs font-bold text-primary">
+                <div className="flex w-full items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-6 py-3 text-xs font-bold text-primary">
                   <div className="flex items-center gap-2">
                     <Layers size={14} />
                     <span>已勾选 {selected.length} 个文件</span>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="xs">
-                      批量启用
+                    <Button size="xs" disabled={parseTargets.length === 0 || parseMutation.isPending || submittingParseIds.size > 0} onClick={() => void handleBatchParse(parseTargets.map((row) => row.original)).then(() => table.resetRowSelection()).catch((error) => toast.error(error instanceof Error ? error.message : '批量解析失败'))}>
+                      批量解析{parseTargets.length > 0 ? ` (${parseTargets.length})` : ''}
                     </Button>
-                    <Button variant="destructive" size="xs">
-                      批量移除
+                    <Button variant="outline" size="xs" disabled={stopTargets.length === 0} onClick={() => void Promise.all(stopTargets.map((row) => stopDocumentParse(row.original.id))).then(refreshDocuments).then(() => toast.success(`已批量关闭 ${stopTargets.length} 个文件的解析`)).catch((error) => toast.error(error instanceof Error ? error.message : '批量关闭失败'))}>
+                      批量关闭{stopTargets.length > 0 ? ` (${stopTargets.length})` : ''}
+                    </Button>
+                    <Button variant="destructive" size="xs" onClick={() => {
+                      setDeleteTargets(selected.map((row) => row.original));
+                    }}>
+                      批量删除
                     </Button>
                   </div>
                 </div>
@@ -850,72 +1154,118 @@ function FileTab({
           {files.length === 0 && (
             <div className="py-16 flex flex-col items-center justify-center text-muted-foreground">
               <FileText size={48} className="opacity-30 mb-3" />
-              <p className="text-sm font-bold">零匹配文件</p>
+              <p className="text-sm font-bold">{documentsQuery.isLoading ? '正在加载文件...' : documentsQuery.isError ? '文件加载失败' : '暂无匹配文件'}</p>
             </div>
           )}
         </div>
         <div className="px-8 py-4 bg-muted/30 border-t border-border flex items-center justify-between shrink-0">
           <span className="text-xs font-bold text-muted-foreground">
-            页面显示 {files.length} 项 (总库 {all.length} 个)
+            页面显示 {files.length} 项（共 {documentsQuery.data?.total ?? 0} 个）
           </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</Button>
+            <Button variant="outline" size="xs" disabled={page * 20 >= (documentsQuery.data?.total ?? 0)} onClick={() => setPage((value) => value + 1)}>下一页</Button>
+          </div>
         </div>
       </div>
       <AddFileModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onConfirm={(name, parser, metaCount) =>
-          onUpdate((prev) => {
-            const newFile: KBFile = {
-              id: 'f-' + Date.now(),
-              name,
-              uploadDate: new Date().toLocaleDateString(),
-              enabled: true,
-              chunks: 0,
-              metadataFields: metaCount,
-              parser,
-              progress: 0.01,
-              status: 'parsing',
-            };
-            return { ...prev, [kbId]: [newFile, ...(prev[kbId] || [])] };
-          })
-        }
+        submitting={uploadMutation.isPending}
+        progress={uploadProgress}
+        onConfirm={(selectedFiles) => uploadMutation.mutate(selectedFiles)}
       />
-      <EditFileModal
-        open={editOpen}
-        file={actFile}
-        onClose={() => setEditOpen(false)}
-        onConfirm={(f) =>
-          onUpdate((prev) => ({
-            ...prev,
-            [kbId]: (prev[kbId] || []).map((x) => (x.id === f.id ? f : x)),
-          }))
-        }
-      />
-      <ChunksModal open={chunksOpen} file={actFile} onClose={() => setChunksOpen(false)} />
-      <DocPreviewModal open={previewOpen} file={actFile} onClose={() => setPreviewOpen(false)} />
+      <ChunksModal open={chunksOpen} file={actFile} datasetId={kbId} onClose={() => setChunksOpen(false)} />
+      <DocPreviewModal open={previewOpen} file={actFile} datasetId={kbId} onClose={() => setPreviewOpen(false)} />
+      <DocumentMetadataModal open={metadataOpen} file={actFile} onClose={() => setMetadataOpen(false)} />
+      <Dialog open={deleteTargets.length > 0} onOpenChange={(open) => !open && setDeleteTargets([])}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{deleteTargets.length > 1 ? '批量删除文档' : '删除文档'}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {deleteTargets.length > 1
+              ? `确定删除选中的 ${deleteTargets.length} 个文档吗？`
+              : `确定删除文档「${deleteTargets[0]?.name ?? ''}」吗？`}
+            删除后将级联清理对应分块与索引，此操作无法撤销。
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" disabled={removeMutation.isPending} onClick={() => setDeleteTargets([])}>取消</Button>
+            <Button
+              variant="destructive"
+              disabled={removeMutation.isPending}
+              onClick={() => removeMutation.mutate(deleteTargets.map((file) => file.id))}
+            >
+              {removeMutation.isPending ? '删除中...' : '确认删除'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
 
 /* ─── 检索测试 ─── */
-function SearchTab() {
+function SearchTab({ kbId }: { kbId: string }) {
   const [query, setQuery] = useState('高处作业的反违章管理和安全带佩戴标准是什么？');
   const [threshold, setThreshold] = useState(0.2);
   const [weight, setWeight] = useState(0.3);
-  const [rerank, setRerank] = useState('BAAI/bge-reranker-v2-m3');
+  const [rerankEnabled, setRerankEnabled] = useState(true);
+  const [rerank, setRerank] = useState('');
   const [kg, setKg] = useState(true);
+  const [fusionMode, setFusionMode] = useState<'rrf' | 'weighted'>('rrf');
+  const [topK, setTopK] = useState(10);
+  const [resultSize, setResultSize] = useState(10);
   const [searching, setSearching] = useState(false);
   const [ran, setRan] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<RetrievalChunk[]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const [total, setTotal] = useState(0);
+  const rerankModelsQuery = useQuery({
+    queryKey: knowledgeBaseKeys.modelOptions('rerank'),
+    queryFn: () => listEnabledModels('rerank'),
+  });
+  const rerankModels = rerankModelsQuery.data ?? [];
 
-  const doSearch = () => {
-    if (!query.trim()) return;
+  useEffect(() => {
+    if (!rerank && rerankModels.length) setRerank(rerankModels[0].id);
+  }, [rerank, rerankModels]);
+
+  const doSearch = async () => {
+    if (!query.trim()) {
+      toast.error('请输入检索问题');
+      return;
+    }
     setSearching(true);
-    setTimeout(() => {
-      setSearching(false);
+    const startedAt = performance.now();
+    try {
+      const response = await searchKnowledgeBase({
+        question: query.trim(),
+        dataset_ids: [kbId],
+        page: 1,
+        page_size: resultSize,
+        top_k: topK,
+        similarity_threshold: threshold,
+        vector_similarity_weight: kg && fusionMode === 'weighted' ? weight : undefined,
+        keyword: kg,
+        hybrid_enabled: kg,
+        highlight: true,
+        rerank_enabled: rerankEnabled && Boolean(rerank),
+        rerank_id: rerankEnabled && rerank ? rerank : undefined,
+      });
+      setResults(response.chunks ?? []);
+      setTotal(response.total ?? response.chunks?.length ?? 0);
       setRan(true);
-      setResults([...searchDatabase].sort((a, b) => b.similarity - a.similarity));
-    }, 850);
+      toast.success(`检索完成，命中 ${response.total ?? response.chunks?.length ?? 0} 条结果`);
+    } catch (error) {
+      setResults([]);
+      setTotal(0);
+      setRan(true);
+      toast.error(error instanceof Error ? error.message : '检索失败');
+    } finally {
+      setElapsed(Math.round(performance.now() - startedAt));
+      setSearching(false);
+    }
   };
 
   const presets = [
@@ -955,7 +1305,28 @@ function SearchTab() {
                 className="w-full"
               />
             </div>
-            <div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-2xs font-bold text-muted-foreground">候选数量 TopK</Label>
+                <Input type="number" min={1} max={200} value={topK} onChange={(event) => setTopK(Math.max(1, Number(event.target.value) || 1))} className="mt-1 h-9" />
+              </div>
+              <div>
+                <Label className="text-2xs font-bold text-muted-foreground">返回数量</Label>
+                <Input type="number" min={1} max={100} value={resultSize} onChange={(event) => setResultSize(Math.max(1, Number(event.target.value) || 1))} className="mt-1 h-9" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between border-t border-border py-1">
+              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">混合检索</Label>
+              <Switch checked={kg} onCheckedChange={setKg} />
+            </div>
+            {kg && <div>
+              <Label className="mb-1.5 block text-2xs font-bold text-muted-foreground uppercase tracking-widest">融合方式</Label>
+              <Select value={fusionMode} onValueChange={(value) => setFusionMode(value as 'rrf' | 'weighted')}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="rrf">RRF 融合</SelectItem><SelectItem value="weighted">加权融合</SelectItem></SelectContent>
+              </Select>
+            </div>}
+            {kg && fusionMode === 'weighted' && <div>
               <div className="flex justify-between text-xs">
                 <span className="font-bold text-muted-foreground">向量相似度权重</span>
                 <span className="px-2 py-0.5 bg-background border border-border rounded text-2xs font-bold font-mono">
@@ -970,29 +1341,18 @@ function SearchTab() {
                 step={0.1}
                 className="w-full"
               />
-            </div>
-            <div>
-              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block">
-                Rerank 深度排序模型
-              </Label>
-              <Select value={rerank} onValueChange={setRerank}>
+            </div>}
+            <div className="space-y-2 border-t border-border pt-3">
+              <div className="flex items-center justify-between"><Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Rerank 深度排序</Label><Switch checked={rerankEnabled} onCheckedChange={setRerankEnabled} /></div>
+              {rerankEnabled && <Select value={rerank} onValueChange={setRerank} disabled={rerankModelsQuery.isLoading || rerankModels.length === 0}>
                 <SelectTrigger className="w-full h-9 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="BAAI/bge-reranker-v2-m3">
-                    BAAI/bge-reranker-v2-m3 (多语种)
-                  </SelectItem>
-                  <SelectItem value="Coherer-Rerank-3.5">Cohere Rerank v3.5 (长文本)</SelectItem>
-                  <SelectItem value="No-Reranker">不开启（一阶段召回）</SelectItem>
+                  {rerankModels.map((model) => <SelectItem key={model.id} value={model.id}>{model.name || model.model || model.id}</SelectItem>)}
                 </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between py-1 border-t border-border">
-              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">
-                知识图谱关联检索
-              </Label>
-              <Switch checked={kg} onCheckedChange={setKg} />
+              </Select>}
+              {rerankEnabled && !rerankModelsQuery.isLoading && rerankModels.length === 0 && <p className="text-2xs text-warning">当前没有已启用的 Rerank 模型，将使用一阶段召回。</p>}
             </div>
             <div className="pt-2 border-t border-border space-y-1.5">
               <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block">
@@ -1013,7 +1373,7 @@ function SearchTab() {
           </div>
           <div className="pt-4 border-t border-border shrink-0">
             <Button
-              onClick={doSearch}
+              onClick={() => void doSearch()}
               disabled={searching}
               className="w-full gap-1.5 text-xs font-bold rounded-xl shadow-sm"
             >
@@ -1036,7 +1396,7 @@ function SearchTab() {
             </h3>
             {ran && !searching && (
               <span className="text-2xs font-mono px-2 py-0.5 bg-primary/10 text-primary rounded">
-                {(Math.random() * 40 + 20).toFixed(0)} ms · {results.length} 条
+                {elapsed} ms · {total} 条
               </span>
             )}
           </div>
@@ -1059,31 +1419,36 @@ function SearchTab() {
             ) : (
               results.map((item, idx) => (
                 <div
-                  key={idx}
+                  key={item.id || idx}
                   className="p-4 bg-card border border-border rounded-2xl space-y-3 shadow-sm hover:border-primary/30 transition-all"
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="secondary" className="text-2xs">
-                        {item.location}
+                        {item.page_start ? `第 ${item.page_start} 页` : `分块 ${idx + 1}`}
                       </Badge>
-                      <span className="text-2xs text-muted-foreground">{item.docName}</span>
+                      <span className="text-2xs text-muted-foreground">{item.document_keyword || item.document_id}</span>
                     </div>
                     <span className="px-2 py-0.5 bg-success/10 text-success rounded text-xs font-bold font-mono shrink-0">
-                      {item.similarity}
+                      {item.similarity.toFixed(4)}
                     </span>
                   </div>
-                  <p className="text-xs text-foreground/80 leading-relaxed font-medium">
-                    {item.content}
+                  <p className="whitespace-pre-wrap text-xs font-medium leading-relaxed text-foreground/80">
+                    <RetrievalHighlight html={item.highlight} fallback={item.content} />
                   </p>
+                  <ChunkMediaPreview assets={item.media_assets} imageId={item.image_id} />
                   <div className="flex items-center justify-between text-2xs text-muted-foreground border-t border-border/50 pt-2">
-                    <span>
-                      字符数: <strong className="text-foreground">{item.characterCount}</strong>
-                    </span>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      <span>字符数: <strong className="text-foreground">{item.content.length}</strong></span>
+                      <span>类型: <strong className="text-foreground">{item.chunk_type ?? 'text'}</strong></span>
+                      <span>向量分: <strong className="font-mono text-foreground">{typeof item.vector_similarity === 'number' ? item.vector_similarity.toFixed(4) : '—'}</strong></span>
+                      <span>关键词分: <strong className="font-mono text-foreground">{typeof item.term_similarity === 'number' ? item.term_similarity.toFixed(4) : '—'}</strong></span>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="text-primary hover:text-primary/80 font-bold h-auto p-0 text-2xs"
+                      onClick={() => void navigator.clipboard.writeText(item.content).then(() => toast.success('分块内容已复制'))}
                     >
                       复制分块
                     </Button>
@@ -1099,7 +1464,21 @@ function SearchTab() {
 }
 
 /* ─── 配置 ─── */
-function ConfigTab({ kb }: { kb: KnowledgeBaseItem }) {
+function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: KnowledgeDataset) => void }) {
+  const [form, setForm] = useState<Partial<KnowledgeDataset>>({ ...kb });
+  useEffect(() => {
+    setForm({ ...kb });
+  }, [kb.id, kb.name, kb.description, kb.embeddingModel, kb.parserType, kb.chunkStrategy, kb.chunkSize, kb.chunkOverlap, kb.status]);
+  const saveMutation = useMutation({
+    mutationFn: saveDataset,
+    onSuccess: (dataset) => {
+      setForm({ ...dataset });
+      onSaved(dataset);
+      toast.success('知识库配置已保存');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : '知识库配置保存失败'),
+  });
+
   return (
     <div className="flex-1 bg-card border border-border rounded-2xl p-8 flex flex-col overflow-y-auto">
       <header className="mb-8 shrink-0">
@@ -1108,37 +1487,41 @@ function ConfigTab({ kb }: { kb: KnowledgeBaseItem }) {
           管理和调整知识库配置参数，包括嵌入模型、解析策略等。
         </p>
       </header>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-muted/30 border border-border p-6 rounded-2xl space-y-6">
           <h3 className="text-sm font-bold uppercase tracking-widest text-foreground flex items-center gap-2">
             <span className="w-1.5 h-4 bg-primary rounded-full" /> 基础属性配置
           </h3>
           <div className="space-y-4">
-            <div className="flex items-center gap-4 py-2">
-              <div>
-                <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
-                  知识库头像
-                </Label>
-                <div className="w-16 h-16 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground hover:border-primary/50 cursor-pointer bg-background shadow-sm">
-                  <Plus size={18} />
-                  <span className="text-[9px] mt-1 font-bold">上传</span>
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground font-medium leading-relaxed">
-                支持 JPG, PNG，建议 128x128 像素。
-              </div>
-            </div>
             <div>
               <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
                 知识库名称
               </Label>
-              <Input defaultValue={kb.name} className="h-10 text-sm" />
+              <Input
+                value={form.name ?? ''}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                className="h-10 text-sm"
+              />
             </div>
             <div>
               <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
                 简介说明
               </Label>
-              <Textarea className="h-28 text-xs resize-none" defaultValue={kb.description} />
+              <Textarea
+                className="h-28 text-xs resize-none"
+                value={form.description ?? ''}
+                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+              <div>
+                <p className="text-xs font-bold text-foreground">允许检索</p>
+                <p className="text-2xs text-muted-foreground">停用后不参与知识库召回</p>
+              </div>
+              <Switch
+                checked={form.status !== 'DISABLED'}
+                onCheckedChange={(checked) => setForm((current) => ({ ...current, status: checked ? 'ACTIVE' : 'DISABLED' }))}
+              />
             </div>
           </div>
         </div>
@@ -1151,109 +1534,67 @@ function ConfigTab({ kb }: { kb: KnowledgeBaseItem }) {
               <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">
                 嵌入向量模型
               </Label>
-              <Select defaultValue="bge-small">
-                <SelectTrigger className="w-full h-10 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bge-small">BAAI/bge-small-zh-v1.5 (默认)</SelectItem>
-                  <SelectItem value="bge-large">BAAI/bge-large-zh-v1.5</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                value={form.embeddingModel ?? ''}
+                onChange={(event) => setForm((current) => ({ ...current, embeddingModel: event.target.value }))}
+                placeholder="例如：BAAI/bge-small-zh-v1.5"
+                className="h-10 text-xs"
+              />
             </div>
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">
-                  相似度阈值
-                </span>
-                <span className="px-1.5 py-0.5 bg-background border border-border rounded text-2xs font-bold font-mono">
-                  0.25
-                </span>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">解析方式</Label>
+                <Select
+                  value={form.parserType ?? 'native'}
+                  onValueChange={(value) => setForm((current) => ({ ...current, parserType: value as KnowledgeDataset['parserType'] }))}
+                >
+                  <SelectTrigger className="w-full h-10 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="native">本地解析</SelectItem>
+                    <SelectItem value="ocr">OCR 增强</SelectItem>
+                    <SelectItem value="remote">远程解析</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Slider defaultValue={[0.25]} min={0} max={1} step={0.05} className="w-full" />
-              <p className="text-2xs text-muted-foreground mt-1">
-                仅当匹配度大于此值才注入 Prompt。
-              </p>
+              <div>
+                <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">分块策略</Label>
+                <Select
+                  value={form.chunkStrategy ?? 'naive'}
+                  onValueChange={(value) => setForm((current) => ({ ...current, chunkStrategy: value as KnowledgeDataset['chunkStrategy'] }))}
+                >
+                  <SelectTrigger className="w-full h-10 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CHUNK_STRATEGY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">分块长度</Label>
+                <Input type="number" min={1} value={form.chunkSize ?? 512} onChange={(event) => setForm((current) => ({ ...current, chunkSize: Number(event.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">重叠长度</Label>
+                <Input type="number" min={0} value={form.chunkOverlap ?? 50} onChange={(event) => setForm((current) => ({ ...current, chunkOverlap: Number(event.target.value) }))} />
+              </div>
             </div>
           </div>
         </div>
       </div>
       <div className="flex items-center justify-end gap-3 pt-6 mt-8 border-t border-border">
-        <Button variant="outline" size="sm" className="text-xs rounded-xl">
+        <Button variant="outline" size="sm" className="text-xs rounded-xl" onClick={() => setForm({ ...kb })}>
           重置更改
         </Button>
-        <Button size="sm" className="text-xs rounded-xl shadow-sm">
-          保存配置
+        <Button
+          size="sm"
+          className="text-xs rounded-xl shadow-sm"
+          disabled={!form.name?.trim() || saveMutation.isPending}
+          onClick={() => saveMutation.mutate({ ...form, id: kb.id, name: form.name!.trim() })}
+        >
+          {saveMutation.isPending ? '保存中...' : '保存配置'}
         </Button>
       </div>
     </div>
-  );
-}
-
-/* ─── 分类 Dialog ─── */
-function CategoryDialog({
-  modal,
-  onClose,
-  onSave,
-  flatNodes,
-}: {
-  modal: { open: boolean; mode: string; id: string | null; label: string; parentId: string };
-  onClose: () => void;
-  onSave: (label: string, id?: string | null) => void;
-  flatNodes: TreeItem[];
-}) {
-  const [val, setVal] = useState(modal.label);
-  const [pid, setPid] = useState(modal.parentId);
-  return (
-    <Dialog open={modal.open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {modal.mode === 'add' ? '新增业务分类节点' : '编辑业务分类节点'}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
-              节点名称
-            </Label>
-            <Input
-              value={val}
-              onChange={(e) => setVal(e.target.value)}
-              placeholder="请输入节点名称"
-              className="h-10"
-            />
-          </div>
-          {modal.mode === 'add' && (
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block ml-1 mb-1.5">
-                归属父节点
-              </Label>
-              <Select value={pid} onValueChange={setPid}>
-                <SelectTrigger className="w-full h-10 text-xs font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {flatNodes.map((n) => (
-                    <SelectItem key={n.id} value={n.id}>
-                      {n.label}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="root">无（一级节点）</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={onClose}>
-              取消
-            </Button>
-            <Button size="sm" className="flex-1" onClick={() => onSave(val, modal.id)}>
-              确认保存
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

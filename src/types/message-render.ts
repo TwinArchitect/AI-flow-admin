@@ -15,6 +15,12 @@ export type MessageBlock =
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 
+export interface RenderContext {
+  role: MessageRole;
+  streaming?: boolean;
+  onSuggestedQuestionClick?: (question: string) => void;
+}
+
 export interface OverviewUiMessage {
   id: string;
   backendId?: string;

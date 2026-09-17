@@ -130,7 +130,7 @@ function normalizeOutputs(value: unknown): HttpOutputExtract[] {
     return {
       id: output.id ?? rowId('http-output', index),
       key: output.key ?? '',
-      jsonPath: output.jsonPath ?? '',
+      jsonPath: normalizeExtractPath(output.jsonPath ?? ''),
       valueType: output.valueType ?? 'any',
     };
   }), 'http-output');
@@ -218,9 +218,11 @@ function serializeRows(rows: HttpParamRow[]) {
   }));
 }
 
-function toBackendJsonPath(value: string) {
+function normalizeExtractPath(value: string) {
   const path = value.trim();
-  return path.startsWith('$.') ? path.slice(2) : path;
+  if (path.startsWith('$.')) return path.slice(2);
+  if (path.startsWith('$[')) return path.slice(1);
+  return path === '$' ? '' : path;
 }
 
 function parseRows(value: unknown, prefix: string) {
@@ -293,7 +295,7 @@ function buildHttpOutputs(config: HttpNodeConfig): WorkflowModuleOutput[] {
     .filter((output) => output.key.trim() || output.jsonPath.trim())
     .map((output) => ({
       id: output.id,
-      key: toBackendJsonPath(output.jsonPath) || output.key.trim(),
+      key: normalizeExtractPath(output.jsonPath) || output.key.trim(),
       type: 'dynamic',
       valueType: output.valueType,
       valueDesc: '',
@@ -349,7 +351,7 @@ export function parseHttpModule(module: WorkflowModule) {
     .map((output, index) => ({
       id: output.id || rowId('http-output', index),
       key: output.label && output.label !== output.key ? output.label : output.key,
-      jsonPath: output.key,
+      jsonPath: normalizeExtractPath(output.key),
       valueType: (output.valueType || 'any') as HttpOutputExtract['valueType'],
     }));
   return createCanvasNode('http', module, normalizeHttpConfig({

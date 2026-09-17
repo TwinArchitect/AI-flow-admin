@@ -11,9 +11,11 @@ import { StartVariableDialog } from './StartVariableDialog';
 
 export function StartConfigPanel({
   config,
+  agentId,
   onUpdate,
 }: {
   config: Record<string, unknown>;
+  agentId?: string;
   onUpdate: (config: Partial<StartNodeConfig>) => void;
 }) {
   const value = normalizeStartConfig(config);
@@ -37,7 +39,7 @@ export function StartConfigPanel({
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-xs font-semibold text-foreground">自定义输入变量</h3>
-          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">用户问题由开始节点自动提供；附件在运行调试时按需上传，无需在这里预设。</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">用户问题由开始节点自动提供；文件变量按 FileInfo[] 传递给下游节点。</p>
         </div>
         <Button variant="outline" size="sm" onClick={openAddDialog}><Plus size={13} />添加变量</Button>
       </div>
@@ -52,7 +54,9 @@ export function StartConfigPanel({
                   <span className="truncate text-xs font-medium text-foreground">
                     {variable.description?.trim() || variable.label || variable.key}
                   </span>
-                  <Badge variant="secondary" className="text-[9px]">{variable.valueType}</Badge>
+                  <Badge variant="secondary" className="text-[9px]">
+                    {variable.valueType === 'file' ? '文件数组' : variable.valueType}
+                  </Badge>
                   <Badge variant="default" className="text-[9px]">全局</Badge>
                   {variable.required && <Badge variant="destructive" className="text-[9px]">必填</Badge>}
                 </div>
@@ -91,6 +95,7 @@ export function StartConfigPanel({
         open={dialogOpen}
         mode={dialogMode}
         variable={editingVariable}
+        agentId={agentId}
         onOpenChange={setDialogOpen}
         onConfirm={(variable) => commitVariables(
           dialogMode === 'edit'

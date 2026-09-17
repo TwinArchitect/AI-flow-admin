@@ -112,7 +112,7 @@ export function MyAgentsPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-y-auto bg-background">
-      <div className="shrink-0 space-y-6 p-6 pb-0">
+      <div className="shrink-0 space-y-6 pb-0">
         {/* 标题栏 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -218,7 +218,7 @@ export function MyAgentsPage() {
       </div>
 
       {/* 列表区域 */}
-      <div className="flex-1 min-h-0 overflow-y-auto mt-6 px-6 pb-6">
+      <div className="flex-1 min-h-0 overflow-y-auto mt-6  pb-6">
         {agentsQuery.isLoading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
             <Loader2 size={20} className="animate-spin" />

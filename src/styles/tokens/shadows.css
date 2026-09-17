@@ -31,13 +31,14 @@
 }
 
 .dark {
-  /* 暗黑模式阴影加重（黑色背景上浅色阴影不明显） */
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
-  --shadow-card: var(--shadow-md);
-  --shadow-card-hover: var(--shadow-lg);
-  --shadow-sheet: 0 32px 64px -12px rgba(0, 0, 0, 0.3);
+  /* 暗色界面用柔和的大范围阴影建立层级，避免黑边和脏灰堆叠 */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.18);
+  --shadow-sm: 0 4px 12px rgb(0 0 0 / 0.2);
+  --shadow-md: 0 8px 24px rgb(0 0 0 / 0.24);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.28);
+  --shadow-xl: 0 24px 64px rgb(0 0 0 / 0.32);
+  --shadow-card: 0 8px 28px rgb(0 0 0 / 0.18);
+  --shadow-card-hover: 0 14px 36px rgb(0 0 0 / 0.24);
+  --shadow-sheet: 0 32px 72px -16px rgb(0 0 0 / 0.38);
+  --shadow-focus: 0 0 0 3px rgb(0 90 255 / 0.24);
 }

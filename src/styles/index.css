@@ -94,6 +94,8 @@
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
   --shadow-focus: var(--shadow-focus);
   --shadow-sheet: var(--shadow-sheet);
   /* ---------- 字体族 ---------- */

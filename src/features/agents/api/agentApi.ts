@@ -39,3 +39,35 @@ export function deleteAgent(agentId: string) {
 export function isWorkflowAgent(agent: AgentOpenSysAgent) {
   return agent.flowType !== 0;
 }
+
+type PromptOptimizeScene = 'system_prompt_optimize' | 'user_prompt_optimize' | 'code_optimize';
+
+interface AgentAiAssistResult {
+  text?: string | null;
+}
+
+export async function optimizeWorkflowPrompt(params: {
+  scene: PromptOptimizeScene;
+  content?: string;
+  hint?: string;
+  agentId?: string;
+  codeLanguage?: string;
+  inputParams?: string;
+  outputHint?: string;
+}) {
+  const result = await http.post<AgentAiAssistResult>(`${AGENT_API_BASE}/aiAssist`, {
+    scene: params.scene,
+    agentId: params.agentId?.trim() || undefined,
+    context: {
+      content: params.content?.trim() || undefined,
+      hint: params.hint?.trim() || undefined,
+      codeLanguage: params.codeLanguage?.trim() || undefined,
+      inputParams: params.inputParams?.trim() || undefined,
+      outputHint: params.outputHint?.trim() || undefined,
+    },
+    options: { language: 'zh-CN' },
+  }).then((response) => response.data);
+  const text = result.text?.trim();
+  if (!text) throw new Error('AI 未返回优化结果，请重试');
+  return text;
+}

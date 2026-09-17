@@ -1,9 +1,14 @@
 import { useAuthStore } from '@/stores/auth';
+import { useLayoutStore } from '@/stores/layout';
+import type { ContentDelta } from '@/types';
+import { parseSseToConversationDeltas } from '@/features/message-render/sseContentAdapter';
 import type {
   WorkflowFinishedSsePayload,
   WorkflowNodeSsePayload,
   WorkflowRunResult,
 } from '../types/execution';
+
+const STREAM_IDLE_TIMEOUT_MS = 60_000;
 
 export interface WorkflowRunRequest {
   appId: string;
@@ -22,21 +27,17 @@ export interface WorkflowRunRequest {
 export interface RunWorkflowStreamRequest {
   request: WorkflowRunRequest;
   onNodeEvent: (eventName: string, payload: WorkflowNodeSsePayload) => void;
-  /** 不属于节点状态机的对话辅助事件，例如 questionGuide。 */
-  onConversationEvent?: (eventName: string, payload: unknown) => void;
   onWorkflowFinished?: (payload: WorkflowFinishedSsePayload) => void;
-  onMessageDelta?: (text: string) => void;
-  onReasoningDelta?: (text: string) => void;
+  /** 所有对话内容的唯一出口。 */
+  onContentDelta?: (delta: ContentDelta) => void;
   signal?: AbortSignal;
 }
 
 export async function runWorkflowStream({
   request,
   onNodeEvent,
-  onConversationEvent,
   onWorkflowFinished,
-  onMessageDelta,
-  onReasoningDelta,
+  onContentDelta,
   signal,
 }: RunWorkflowStreamRequest): Promise<WorkflowRunResult> {
   const { token, tenantId, clear } = useAuthStore.getState();
@@ -59,13 +60,33 @@ export async function runWorkflowStream({
   });
 
   if (!response.ok) {
-    if (response.status === 401) clear();
+    if (response.status === 401 || response.status === 403) {
+      clear();
+      useLayoutStore.getState().resetLayout();
+      window.location.replace('/login');
+    }
     const message = await response.text().catch(() => '');
     throw new Error(message || `HTTP ${response.status}`);
   }
 
   const reader = response.body?.getReader();
   if (!reader) throw new Error('响应体不可读');
+
+  const readNextChunk = async () => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        reader.read(),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error('长时间未收到运行结果，请稍后重试'));
+          }, STREAM_IDLE_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
 
   const decoder = new TextDecoder();
   const nodeOutputs: Record<string, Record<string, unknown>> = {};
@@ -75,26 +96,58 @@ export async function runWorkflowStream({
   let fatalNodeError = '';
   let finishedPayload: WorkflowFinishedSsePayload | undefined;
 
+  function emitConversationDeltas(eventName: string, data: string) {
+    parseSseToConversationDeltas(eventName, data).forEach((delta) => {
+      onContentDelta?.(delta);
+      if (delta.kind === 'append-markdown' || delta.kind === 'append-text') {
+        answerText += delta.text;
+      } else if (delta.kind === 'append-reasoning') {
+        reasoningText += delta.text;
+      }
+    });
+  }
+
+  function handleStructuredEvent(eventName: string, payload: unknown) {
+    if (eventName === 'workflow_finished') {
+      const finished = payload as WorkflowFinishedSsePayload;
+      if (finished?.event === 'workflow_finished' && finished.data?.status) {
+        finishedPayload = finished;
+        onWorkflowFinished?.(finished);
+      }
+      return;
+    }
+    if (!payload || typeof payload !== 'object') return;
+    const nodePayload = payload as Partial<WorkflowNodeSsePayload>;
+    if (
+      typeof nodePayload.nodeId !== 'string'
+      || typeof nodePayload.flowNodeType !== 'string'
+      || typeof nodePayload.statusCode !== 'number'
+    ) {
+      return;
+    }
+    const strictPayload = nodePayload as WorkflowNodeSsePayload;
+    onNodeEvent(eventName, strictPayload);
+    const outputs = strictPayload.outputs
+      ?? (strictPayload.flowNodeResponse && typeof strictPayload.flowNodeResponse === 'object'
+        ? strictPayload.flowNodeResponse as Record<string, unknown>
+        : undefined);
+    if (outputs) nodeOutputs[strictPayload.nodeId] = outputs;
+    if (strictPayload.statusCode === 503) {
+      fatalNodeError = strictPayload.log || `${strictPayload.flowNodeType} 执行失败`;
+    }
+  }
+
   function handleEvent(eventName: string, data: string) {
     if (!data || data === '[DONE]') return;
+    emitConversationDeltas(eventName, data);
 
     if (eventName === 'message') {
       try {
-        const message = JSON.parse(data) as {
-          event?: unknown;
-          choices?: Array<{ delta?: { content?: string; reasoning_content?: string } }>;
-        };
+        const message = JSON.parse(data) as { event?: unknown };
         const embeddedEvent = typeof message.event === 'string' ? message.event.trim() : '';
         if (embeddedEvent && embeddedEvent !== 'message') {
-          handleEvent(embeddedEvent, data);
-          return;
+          handleStructuredEvent(embeddedEvent, message);
         }
-        const delta = message.choices?.[0]?.delta?.content ?? '';
-        const reasoningDelta = message.choices?.[0]?.delta?.reasoning_content ?? '';
-        answerText += delta;
-        reasoningText += reasoningDelta;
-        if (delta) onMessageDelta?.(delta);
-        if (reasoningDelta) onReasoningDelta?.(reasoningDelta);
       } catch {
         // 非 JSON message 不属于当前后端契约，忽略而不猜测其含义。
       }
@@ -103,34 +156,7 @@ export async function runWorkflowStream({
 
     try {
       const payload = JSON.parse(data) as unknown;
-      if (eventName === 'workflow_finished') {
-        const finished = payload as WorkflowFinishedSsePayload;
-        if (finished?.event === 'workflow_finished' && finished.data?.status) {
-          finishedPayload = finished;
-          onWorkflowFinished?.(finished);
-        }
-        return;
-      }
-      if (!payload || typeof payload !== 'object') return;
-      const nodePayload = payload as Partial<WorkflowNodeSsePayload>;
-      if (
-        typeof nodePayload.nodeId !== 'string'
-        || typeof nodePayload.flowNodeType !== 'string'
-        || typeof nodePayload.statusCode !== 'number'
-      ) {
-        onConversationEvent?.(eventName, payload);
-        return;
-      }
-      const strictPayload = nodePayload as WorkflowNodeSsePayload;
-      onNodeEvent(eventName, strictPayload);
-      const outputs = strictPayload.outputs
-        ?? (strictPayload.flowNodeResponse && typeof strictPayload.flowNodeResponse === 'object'
-          ? strictPayload.flowNodeResponse as Record<string, unknown>
-          : undefined);
-      if (outputs) nodeOutputs[strictPayload.nodeId] = outputs;
-      if (strictPayload.statusCode === 503) {
-        fatalNodeError = strictPayload.log || `${strictPayload.flowNodeType} 执行失败`;
-      }
+      handleStructuredEvent(eventName, payload);
     } catch {
       // 无法解析的事件不参与运行状态判断。
     }
@@ -153,7 +179,14 @@ export async function runWorkflowStream({
   }
 
   while (true) {
-    const { done, value } = await reader.read();
+    let chunk: ReadableStreamReadResult<Uint8Array>;
+    try {
+      chunk = await readNextChunk();
+    } catch (error) {
+      await reader.cancel().catch(() => undefined);
+      throw error;
+    }
+    const { done, value } = chunk;
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     flushEvents();

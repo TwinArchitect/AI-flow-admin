@@ -1,14 +1,21 @@
+export type ModelCategory = 'llm' | 'multimodal' | 'embedding' | 'rerank' | 'ocr' | 'parser';
 export type ModelType = 'llm' | 'multimodal';
-export type ModelVendor = 'openai' | 'dify' | 'ollama';
+export type ModelVendor = 'openai' | 'dify' | 'ollama' | 'deepdoc' | 'mineru_http';
 
 export type AgentOpenModel = {
   id: string;
   model: string;
-  url: string;
+  name?: string;
+  url?: string;
+  baseUrl?: string;
+  apiPath?: string;
+  dimension?: number;
   params?: string;
   type?: ModelType;
+  category?: ModelCategory;
   vendor?: ModelVendor;
   status?: number;
+  isDefault?: number;
   authToken?: string;
   remark?: string;
   tenantId?: string;
@@ -16,10 +23,23 @@ export type AgentOpenModel = {
   createTime?: string;
 };
 
+export type ModelCategoryItem = {
+  code: ModelCategory;
+  label: string;
+  defaultApiPath: string;
+  count: number;
+};
+
+export type ModelCategoriesResult = {
+  total: number;
+  categories: ModelCategoryItem[];
+};
+
 export type ModelQuery = {
   pageNum: number;
   pageSize: number;
   model?: string;
+  category?: ModelCategory;
   type?: ModelType;
   status?: number;
 };
@@ -27,10 +47,16 @@ export type ModelQuery = {
 export type ModelSavePayload = {
   id?: string;
   model: string;
-  url: string;
+  name?: string;
+  url?: string;
+  baseUrl?: string;
+  apiPath?: string;
+  dimension?: number;
   type?: ModelType;
+  category?: ModelCategory;
   vendor?: ModelVendor;
   status?: number;
+  isDefault?: number;
   authToken?: string;
   remark?: string;
   params?: string;
@@ -39,6 +65,10 @@ export type ModelSavePayload = {
 export type ModelDebugPayload = {
   id: string;
   prompt?: string;
+  text?: string;
+  query?: string;
+  documents?: string[];
+  imageBase64?: string;
   timeoutSeconds?: number;
 };
 

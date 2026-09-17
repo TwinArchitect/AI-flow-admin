@@ -7,7 +7,12 @@ export interface KBFile {
   metadataFields: number;
   parser: string;
   progress: number;
-  status: 'parsing' | 'success' | 'failed';
+  status: 'waiting' | 'parsing' | 'success' | 'failed';
+  rawStatus?: string;
+  errorMessage?: string | null;
+  progressMessage?: string | null;
+  taskStatus?: string;
+  retryCount?: number;
 }
 
 export interface KnowledgeBaseItem {

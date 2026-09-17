@@ -107,3 +107,7 @@ VITE_API_BASE_URL=http://localhost:3000/api
 
 本项目当前可稳定用于 **样式开发 / 原型交付 / 视觉走查**。  
 真实业务接入后的补充项（上传、权限、动态路由、CRUD 脚手架等）已在 `PROJECT.md` 给出分阶段计划。
+
+
+账号：glf
+密码：rma@new123

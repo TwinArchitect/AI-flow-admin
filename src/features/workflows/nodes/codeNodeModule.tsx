@@ -15,10 +15,11 @@ import type { CodeNodeConfig } from '../types';
 import { buildErrorCatchHandle, buildSourceHandle } from '../utils/edgeHandles';
 import type { NodeConfigPanelProps, WorkflowNodeModule } from './types';
 
-function ConfigPanel({ nodeId, config, variables, onUpdate, onRemoveSourceHandle }: NodeConfigPanelProps) {
+function ConfigPanel({ nodeId, agentId, config, variables, onUpdate, onRemoveSourceHandle }: NodeConfigPanelProps) {
   return (
     <CodeConfigPanel
       nodeId={nodeId}
+      agentId={agentId}
       config={config as Record<string, unknown>}
       variables={variables}
       onUpdate={onUpdate as (config: Partial<CodeNodeConfig>) => void}

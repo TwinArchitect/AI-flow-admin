@@ -1,10 +1,12 @@
 import type { ChatContentBlock, ChatContentBlockType, MessageBlock } from '@/types';
 import type { WorkflowNodeSsePayload, WorkflowRunResult } from '../workflows/types/execution';
+import { applyConversationDelta } from './conversationBlocks';
 import { normalizeKnowledgeReference } from './knowledgeReference';
 
 export const ECHARTS_BLOCK_KIND = 'echarts';
 export const DATA_TABLE_BLOCK_KIND = 'data-table';
 export const REFERENCE_BLOCK_KIND = 'agent-search-citation';
+export const REFERENCE_IMAGES_BLOCK_KIND = 'agent-search-images';
 export const QUESTION_GUIDE_BLOCK_KIND = 'question-guide';
 
 export type ConversationContentLifecycle = 'transient' | 'durable';
@@ -32,6 +34,7 @@ const conversationCapabilitiesByKind = new Map<string, ConversationContentCapabi
 const durableCapabilitiesByPersistType = new Map<ChatContentBlockType, DurableConversationCapability>();
 const conversationLifecyclesByBlockType = new Map<MessageBlock['type'], ConversationContentLifecycle>([
   ['reasoning', 'transient'],
+  ['image', 'transient'],
 ]);
 
 /** 每种对话内容只能在这里声明一次生命周期及持久化契约。 */
@@ -55,6 +58,11 @@ export interface DataTableBlockPayload {
 
 export interface ReferenceBlockPayload {
   data: Record<string, unknown>;
+  suppressImages?: boolean;
+}
+
+export interface ReferenceImagesBlockPayload {
+  imageUrls: string[];
 }
 
 export interface QuestionGuideBlockPayload {
@@ -92,6 +100,35 @@ function isEChartsOption(value: unknown): value is Record<string, unknown> {
   return Boolean(option && (Array.isArray(option.series) || option.xAxis || option.dataset));
 }
 
+function chartBase64Block(value: unknown): MessageBlock | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const base64 = value.trim();
+  return {
+    type: 'image',
+    url: base64.startsWith('data:')
+      ? base64
+      : `data:image/png;base64,${base64.replace(/^data:image\/\w+;base64,/, '')}`,
+    alt: '图表',
+  };
+}
+
+function resolveChartBlocks(payload: WorkflowNodeSsePayload): MessageBlock[] {
+  const outputs = resolveOutputs(payload);
+  const response = asRecord(payload.flowNodeResponse);
+  const chartData = outputs.chartData
+    ?? outputs.chart_data
+    ?? response?.chartData
+    ?? response?.chart_data;
+  if (isEChartsOption(chartData)) return [chartBlock(asRecord(chartData)!)];
+  const fallback = chartBase64Block(
+    outputs.chartBase64
+      ?? outputs.chart_base64
+      ?? response?.chartBase64
+      ?? response?.chart_base64,
+  );
+  return fallback ? [fallback] : [];
+}
+
 function tablePayload(value: unknown, title?: string): DataTableBlockPayload | null {
   const parsed = parseJson(value);
   const rows = Array.isArray(parsed)
@@ -113,6 +150,28 @@ function tableBlock(table: DataTableBlockPayload): MessageBlock {
 
 function referenceBlock(data: Record<string, unknown>): MessageBlock {
   return { type: 'custom', kind: REFERENCE_BLOCK_KIND, payload: { data } satisfies ReferenceBlockPayload };
+}
+
+function referenceBlocks(value: unknown): MessageBlock[] {
+  const data = normalizeKnowledgeReference(value);
+  if (!data) return [];
+  const blocks: MessageBlock[] = [];
+  if (data.imageUrls.length) {
+    blocks.push({
+      type: 'custom',
+      kind: REFERENCE_IMAGES_BLOCK_KIND,
+      payload: { imageUrls: data.imageUrls } satisfies ReferenceImagesBlockPayload,
+    });
+  }
+  blocks.push({
+    type: 'custom',
+    kind: REFERENCE_BLOCK_KIND,
+    payload: {
+      data: data as unknown as Record<string, unknown>,
+      suppressImages: data.imageUrls.length > 0,
+    } satisfies ReferenceBlockPayload,
+  });
+  return blocks;
 }
 
 function asString(value: unknown) {
@@ -157,6 +216,12 @@ registerConversationCapability({
 });
 
 registerConversationCapability({
+  kind: REFERENCE_IMAGES_BLOCK_KIND,
+  lifecycle: 'transient',
+  merge: 'replace-kind',
+});
+
+registerConversationCapability({
   kind: QUESTION_GUIDE_BLOCK_KIND,
   lifecycle: 'transient',
   merge: 'replace-kind',
@@ -165,31 +230,48 @@ registerConversationCapability({
 type NodeResolver = (payload: WorkflowNodeSsePayload) => MessageBlock[];
 
 const NODE_RESOLVERS = new Map<string, NodeResolver>([
-  ['chartVisual', (payload) => {
-    const outputs = resolveOutputs(payload);
-    const chartData = outputs.chartData ?? outputs.chart_data;
-    return isEChartsOption(chartData) ? [chartBlock(asRecord(chartData)!)] : [];
-  }],
-  ['baseChart', (payload) => {
-    const outputs = resolveOutputs(payload);
-    const chartData = outputs.chartData ?? outputs.chart_data;
-    return isEChartsOption(chartData) ? [chartBlock(asRecord(chartData)!)] : [];
-  }],
+  ['chartVisual', resolveChartBlocks],
+  ['baseChart', resolveChartBlocks],
   ['databaseQuery', (payload) => {
     const table = tablePayload(resolveOutputs(payload).result, '查询结果');
     return table ? [tableBlock(table)] : [];
   }],
   ['datasetSearchNode', (payload) => {
     const outputs = resolveOutputs(payload);
-    const data = normalizeKnowledgeReference(outputs.agentSearchData ?? outputs.quoteQA);
-    return data ? [referenceBlock(data as unknown as Record<string, unknown>)] : [];
+    return resolveReferenceBlocks(payload, outputs);
   }],
   ['datasetSearch', (payload) => {
     const outputs = resolveOutputs(payload);
-    const data = normalizeKnowledgeReference(outputs.agentSearchData ?? outputs.quoteQA);
-    return data ? [referenceBlock(data as unknown as Record<string, unknown>)] : [];
+    return resolveReferenceBlocks(payload, outputs);
   }],
 ]);
+
+function resolveReferenceBlocks(
+  payload: WorkflowNodeSsePayload,
+  outputs: Record<string, unknown>,
+) {
+  const root = payload as unknown as Record<string, unknown>;
+  const nestedData = asRecord(root.data);
+  const nestedResponse = asRecord(nestedData?.flowNodeResponse);
+  const response = asRecord(payload.flowNodeResponse);
+  const candidates = [
+    response?.agentSearchData,
+    response?.quoteQA,
+    outputs.agentSearchData,
+    outputs.quoteQA,
+    root.agentSearchData,
+    root.quoteQA,
+    nestedData?.agentSearchData,
+    nestedData?.quoteQA,
+    nestedResponse?.agentSearchData,
+    nestedResponse?.quoteQA,
+  ];
+  for (const candidate of candidates) {
+    const blocks = referenceBlocks(candidate);
+    if (blocks.length) return blocks;
+  }
+  return [];
+}
 
 export function resolveWorkflowNodeRichBlocks(
   eventName: string,
@@ -201,6 +283,14 @@ export function resolveWorkflowNodeRichBlocks(
 
   const outputs = resolveOutputs(payload);
   if (isEChartsOption(outputs.chartData)) return [chartBlock(asRecord(outputs.chartData)!)];
+  const response = asRecord(payload.flowNodeResponse);
+  const fallbackImage = chartBase64Block(
+    outputs.chartBase64
+      ?? outputs.chart_base64
+      ?? response?.chartBase64
+      ?? response?.chart_base64,
+  );
+  if (fallbackImage) return [fallbackImage];
   return [];
 }
 
@@ -213,9 +303,9 @@ export function resolveWorkflowResultRichBlocks(result: WorkflowRunResult): Mess
     }
     const valueRecord = asRecord(value);
     if (key === 'agentSearchData' || key === 'quoteQA' || valueRecord?.contentType === 'reference') {
-      const reference = normalizeKnowledgeReference(value);
-      if (reference) {
-        blocks.push(referenceBlock(reference as unknown as Record<string, unknown>));
+      const references = referenceBlocks(value);
+      if (references.length) {
+        blocks.push(...references);
         return;
       }
     }
@@ -230,9 +320,7 @@ export function resolveWorkflowResultRichBlocks(result: WorkflowRunResult): Mess
  * 两个对话入口共同调用；是否落库由 registry 生命周期决定。
  */
 export function filterConversationRichBlocks(blocks: MessageBlock[]) {
-  return blocks.filter(
-    (block) => block.type === 'custom' && conversationCapabilitiesByKind.has(block.kind),
-  );
+  return blocks.filter((block) => getConversationContentLifecycle(block) !== null);
 }
 
 export function getConversationContentLifecycle(block: MessageBlock): ConversationContentLifecycle | null {
@@ -304,23 +392,11 @@ export function resolveConversationSpecialEventBlocks(eventName: string, payload
   })]);
 }
 
-function blockSignature(block: MessageBlock) {
-  if (block.type !== 'custom') return JSON.stringify(block);
-  return `${block.kind}:${JSON.stringify(block.payload)}`;
-}
-
 export function appendUniqueMessageBlocks(current: MessageBlock[], incoming: MessageBlock[]) {
   if (!incoming.length) return current;
-  let next = [...current];
+  let next = current;
   incoming.forEach((block) => {
-    if (block.type === 'custom') {
-      const capability = conversationCapabilitiesByKind.get(block.kind);
-      if (capability?.merge === 'replace-kind') {
-        next = next.filter((item) => item.type !== 'custom' || item.kind !== block.kind);
-      }
-    }
-    const signature = blockSignature(block);
-    if (!next.some((item) => blockSignature(item) === signature)) next.push(block);
+    next = applyConversationDelta(next, { kind: 'add-block', block });
   });
   return next;
 }

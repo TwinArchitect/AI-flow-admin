@@ -3,14 +3,14 @@ import {
   LayoutDashboard,
   Bot,
   Database,
-  Link2,
-  Terminal,
-  Puzzle,
-  Settings,
   User,
   Component,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MenuItem {
   icon: React.ElementType;
@@ -20,16 +20,9 @@ interface MenuItem {
   children?: { label: string; path: string }[];
 }
 const agentslist = [
-  { label: '智能体广场', path: '/agents/AgentPlaza' },
   { label: '智能体助手', path: '/agents/overview' },
   { label: '我的智能体', path: '/agents/myAgents' },
-  { label: '知识库', path: '/agents/knowledge' },
   { label: '模型管理', path: '/agents/models' },
-  { label: '记忆维护', path: '/agents/memory' },
-  { icon: Link2, label: 'HTTP 工具', path: '/agents/httpTools' },
-  { icon: Terminal, label: 'MCP 工具', path: '/agents/mcpTools' },
-  { label: '标签页', path: '/agents/tags' },
-  { label: '移动端', path: '/agents/mobile-overview' },
 ];
 const componentLinks = [
   { label: 'Button', path: '/components/button' },
@@ -64,34 +57,50 @@ const componentLinks = [
   { label: 'Time Picker', path: '/components/time-picker' },
   { label: 'React Query', path: '/components/react-query' },
 ];
+const knowledgeLinks = [
+  { label: '知识库管理', path: '/agents/knowledge' },
+  { label: '引擎设置', path: '/agents/knowledge/settings' },
+];
 const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: '工作台', path: '/' },
-  { icon: Bot, label: '智能体', path: '/agents', badge: 8, children: agentslist },
+  { icon: Bot, label: '智能体', path: '/agents', children: agentslist },
   { icon: Component, label: '组件示例', path: '/components', children: componentLinks },
-  { icon: Database, label: '知识库', path: '/agents/knowledge' },
-  { icon: Puzzle, label: '插件市场', path: '/plugins' },
-  { icon: Settings, label: '系统设置', path: '/settings' },
+  { icon: Database, label: '知识库', path: '/agents/knowledge', children: knowledgeLinks },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
 
   return (
-    <aside className="w-56 flex flex-col bg-[var(--color-bg-card)] border-r border-[var(--color-border-default)] shrink-0 overflow-hidden">
-      {/* Logo 区域 */}
-      <div className="px-5 pt-6 pb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-            <Bot size={17} className="text-white" />
+    <aside className={cn(
+      'flex shrink-0 flex-col overflow-hidden border-r border-[var(--color-border-default)] bg-[var(--color-bg-card)] transition-[width] duration-200',
+      collapsed ? 'w-16' : 'w-56',
+    )}>
+      <div className={cn('flex h-20 shrink-0 items-center px-3', collapsed ? 'justify-center' : 'justify-between')}>
+        {!collapsed && (
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+              <Bot size={17} className="text-white" />
+            </div>
+            <span className="truncate text-base font-bold tracking-wide text-[var(--color-text-primary)]">智构平台</span>
           </div>
-          <span className="text-base font-bold text-[var(--color-text-primary)] tracking-wide">
-            智构平台
-          </span>
-        </div>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={onToggle} aria-label={collapsed ? '展开侧边栏' : '收起侧边栏'}>
+              {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{collapsed ? '展开侧边栏' : '收起侧边栏'}</TooltipContent>
+        </Tooltip>
       </div>
 
-      {/* 导航菜单 */}
-      <nav className="flex-1 overflow-y-auto px-3">
+      <nav className={cn('flex-1 overflow-y-auto', collapsed ? 'px-2' : 'px-3')}>
         <ul className="space-y-0.5">
           {menuItems.map((item) => {
             const isActive =
@@ -100,45 +109,54 @@ export function Sidebar() {
                 : location.pathname.startsWith(item.path);
             // const showChildren = item.path === '/components' && isActive;
 
+            const link = (
+              <NavLink
+                to={item.path}
+                className={cn(
+                  'flex rounded-lg py-2.5 text-sm transition-all duration-200',
+                  collapsed ? 'justify-center px-2' : 'items-center justify-between px-3',
+                  isActive
+                    ? 'bg-primary/10 font-medium text-primary'
+                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
+                )}
+              >
+                <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-3')}>
+                  <item.icon size={18} />
+                  {!collapsed && <span>{item.label}</span>}
+                </div>
+                {!collapsed && item.badge !== undefined && (
+                  <span className={cn(
+                    'flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-medium',
+                    isActive
+                      ? 'bg-primary/15 text-primary'
+                      : 'bg-[var(--color-bg-muted)] text-[var(--color-text-tertiary)]',
+                  )}>
+                    {item.badge}
+                  </span>
+                )}
+              </NavLink>
+            );
+
             return (
               <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  className={cn(
-                    'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200',
-                    isActive
-                      ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 font-medium'
-                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon size={18} />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge !== undefined && (
-                    <span
-                      className={cn(
-                        'min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] font-medium px-1.5',
-                        isActive
-                          ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400'
-                          : 'bg-[var(--color-bg-muted)] text-[var(--color-text-tertiary)]'
-                      )}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </NavLink>
-                {item.children && isActive && (
+                {collapsed ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{link}</TooltipTrigger>
+                    <TooltipContent side="right">{item.label}</TooltipContent>
+                  </Tooltip>
+                ) : link}
+                {!collapsed && item.children && isActive && (
                   <div className="mt-1 space-y-0.5 border-l border-[var(--color-border-default)] py-1 pl-4">
                     {item.children.map((child) => (
                       <NavLink
                         key={child.path}
                         to={child.path}
+                        end
                         className={({ isActive: isChildActive }) =>
                           cn(
                             'block rounded-md px-3 py-1.5 text-xs transition-colors',
                             isChildActive
-                              ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                              ? 'bg-primary/10 text-primary'
                               : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'
                           )
                         }
@@ -154,16 +172,15 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* 底部用户信息 */}
-      <div className="px-4 py-4 border-t border-[var(--color-border-default)]">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+      <div className={cn('border-t border-[var(--color-border-default)] py-4', collapsed ? 'px-3' : 'px-4')}>
+        <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-2.5')}>
+          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
             <User size={14} className="text-white" />
           </div>
-          <div>
+          {!collapsed && <div>
             <div className="text-xs font-medium text-[var(--color-text-primary)]">张昊</div>
             <div className="text-[10px] text-[var(--color-text-tertiary)]">产品工程师</div>
-          </div>
+          </div>}
         </div>
       </div>
     </aside>

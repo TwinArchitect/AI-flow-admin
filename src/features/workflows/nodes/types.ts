@@ -22,6 +22,7 @@ export interface NodeConnectionEdge {
 
 export interface NodeConfigPanelProps {
   nodeId: string;
+  agentId?: string;
   config: WorkflowNodeConfig;
   variables: WorkflowVariableOption[];
   onUpdate: (patch: Record<string, unknown>) => void;
@@ -66,6 +67,7 @@ export interface WorkflowNodeModule {
   icon: ElementType;
   CanvasComponent?: ComponentType<NodeProps<WorkflowCanvasNode>>;
   backendType?: BackendFlowNodeType;
+  backendAliases?: BackendFlowNodeType[];
   backendRunnable: boolean;
   paletteVisible?: boolean;
   createDefaultConfig: () => Record<string, unknown>;

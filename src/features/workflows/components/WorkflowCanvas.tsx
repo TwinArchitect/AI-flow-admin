@@ -585,6 +585,7 @@ function WorkflowCanvasInner({
         </div>
         {selectedNodeId && (
           <NodeConfigPanel
+            agentId={agentId}
             active={activeSidePanel === 'node'}
             collapsed={sidePanelCollapsed}
             onCollapsedChange={setSidePanelCollapsed}

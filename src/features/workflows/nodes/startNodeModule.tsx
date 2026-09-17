@@ -13,10 +13,11 @@ import {
 import type { StartNodeConfig } from '../types';
 import type { NodeConfigPanelProps, WorkflowNodeModule } from './types';
 
-function ConfigPanel({ config, onUpdate }: NodeConfigPanelProps) {
+function ConfigPanel({ config, agentId, onUpdate }: NodeConfigPanelProps) {
   return (
     <StartConfigPanel
       config={config as Record<string, unknown>}
+      agentId={agentId}
       onUpdate={onUpdate as (config: Partial<StartNodeConfig>) => void}
     />
   );

@@ -10,6 +10,7 @@ import type {
   WorkflowValueType,
 } from '../types';
 import { moduleRefToString, parseVariableRef, stringToModuleRef } from '../utils/variableRefs';
+import { normalizeCodeLineEndings, normalizeCodeSource } from '../utils/normalizeCodeSource';
 import { createCanvasNode, DEFAULT_MODULE_VERSION, parseStringInput } from './shared';
 
 export const CODE_NODE_DESCRIPTION = '在沙盒中执行脚本，进行复杂数据处理与逻辑转换';
@@ -37,10 +38,10 @@ export const CODE_FIXED_OUTPUTS: WorkflowOutputSchema[] = [
   { key: 'error', label: '错误信息', valueType: 'string' },
 ];
 
-const DEFAULT_CODE = `function main(str1) {
-  return JSON.parse(str1);
+const DEFAULT_CODE = `function main() {
+  return {};
 }
-return main(arg0)`;
+return main();`;
 
 const RESERVED_INPUT_KEYS = new Set(['system_addInputParam', 'codeType', 'code']);
 const RESERVED_OUTPUT_KEYS = new Set(['system_rawResponse', 'error', 'system_addOutputParam']);
@@ -104,24 +105,19 @@ function normalizeOutputs(value: unknown): CodeOutputVariable[] {
   }), 'code-output');
 }
 
+function normalizeExtractPath(value: string) {
+  const path = value.trim();
+  if (path.startsWith('$.')) return path.slice(2);
+  if (path.startsWith('$[')) return path.slice(1);
+  return path;
+}
+
 export function createDefaultCodeConfig(): CodeNodeConfig {
   return {
     codeType: 'js',
     code: DEFAULT_CODE,
-    inputVariables: [{
-      id: 'code-input-0',
-      key: 'str1',
-      label: 'str1',
-      value: '',
-      required: true,
-      valueType: 'string',
-    }],
-    outputVariables: [{
-      id: 'code-output-0',
-      key: 'name',
-      label: 'name',
-      valueType: 'string',
-    }],
+    inputVariables: [],
+    outputVariables: [],
     catchError: false,
   };
 }
@@ -132,8 +128,8 @@ export function normalizeCodeConfig(config: unknown): CodeNodeConfig {
   const inputs = normalizeInputs(raw.inputVariables);
   const outputs = normalizeOutputs(raw.outputVariables);
   return {
-    codeType: raw.codeType === 'py' ? 'py' : 'js',
-    code: typeof raw.code === 'string' ? raw.code : defaults.code,
+    codeType: 'js',
+    code: normalizeCodeLineEndings(typeof raw.code === 'string' ? raw.code : defaults.code),
     inputVariables: raw.inputVariables === undefined ? defaults.inputVariables : inputs,
     outputVariables: raw.outputVariables === undefined ? defaults.outputVariables : outputs,
     catchError: Boolean(raw.catchError),
@@ -142,10 +138,10 @@ export function normalizeCodeConfig(config: unknown): CodeNodeConfig {
 
 export function resolveCodeNodeOutputs(node: WorkflowCanvasNode): WorkflowOutputSchema[] {
   const custom = normalizeCodeConfig(node.data.config).outputVariables
-    .filter((item) => item.key.trim())
+    .filter((item) => item.key.trim() || item.label.trim())
     .map((item) => ({
-      key: item.key.trim(),
-      label: item.label.trim() || item.key.trim(),
+      key: item.key.trim() || normalizeExtractPath(item.label),
+      label: normalizeExtractPath(item.label) || item.key.trim(),
       valueType: item.valueType,
     }));
   return [...CODE_FIXED_OUTPUTS, ...custom];
@@ -175,7 +171,7 @@ function buildCodeInputs(config: CodeNodeConfig): WorkflowModuleInput[] {
       label: '',
       valueType: 'string',
       renderTypeList: ['custom'],
-      value: config.code,
+      value: normalizeCodeSource(config.code),
     },
     ...config.inputVariables
       .filter((item) => item.key.trim())
@@ -219,19 +215,19 @@ function buildCodeOutputs(config: CodeNodeConfig): WorkflowModuleOutput[] {
       valueType: 'dynamic',
       valueDesc: '',
       label: '',
-      description: '将代码中 return 的对象作为输出，传递给后续的节点。变量名需要对应 return 的 key',
+      description: '将代码返回值按 JSONPath 提取为输出字段；字段名为下游引用名，路径相对 return 结果',
       customFieldConfig: CODE_CUSTOM_OUTPUT_CONFIG,
     },
   ];
   return [...fixed, ...config.outputVariables
-    .filter((item) => item.key.trim())
+    .filter((item) => item.key.trim() || item.label.trim())
     .map((item) => ({
       id: item.id,
-      key: item.key.trim(),
+      key: normalizeExtractPath(item.label) || item.key.trim(),
       type: 'dynamic',
       valueType: item.valueType,
       valueDesc: '',
-      label: item.label.trim() || item.key.trim(),
+      label: item.key.trim() || normalizeExtractPath(item.label),
       description: '',
     }))];
 }
@@ -269,16 +265,15 @@ export function parseCodeModule(module: WorkflowModule) {
     .filter((output) => output.key && output.type === 'dynamic' && !RESERVED_OUTPUT_KEYS.has(output.key))
     .map((output, index) => ({
       id: output.id || rowId('code-output', index),
-      key: output.key,
-      label: output.label ?? output.key,
+      key: output.label && output.label !== output.key ? output.label : output.key,
+      label: normalizeExtractPath(output.key),
       valueType: normalizeValueType(output.valueType, 'any'),
     }));
-  const defaults = createDefaultCodeConfig();
   const node = createCanvasNode('code', module, normalizeCodeConfig({
-    codeType: parseStringInput(inputs, 'codeType') === 'py' ? 'py' : 'js',
-    code: parseStringInput(inputs, 'code') || DEFAULT_CODE,
-    inputVariables: parsedInputs.length ? parsedInputs : defaults.inputVariables,
-    outputVariables: parsedOutputs.length ? parsedOutputs : defaults.outputVariables,
+    codeType: 'js',
+    code: normalizeCodeSource(parseStringInput(inputs, 'code') || DEFAULT_CODE),
+    inputVariables: parsedInputs,
+    outputVariables: parsedOutputs,
     catchError: Boolean(module.catchError),
   }));
   node.data.description = CODE_NODE_DESCRIPTION;
@@ -323,7 +318,8 @@ export function validateCodeNode(node: WorkflowCanvasNode) {
     }
   });
   config.outputVariables.forEach((item, index) => {
-    if (!item.key.trim()) errors.push(`节点 ${node.data.label} 的第 ${index + 1} 个输出变量缺少变量名`);
+    if (!item.key.trim()) errors.push(`节点 ${node.data.label} 的第 ${index + 1} 个输出字段缺少字段名`);
+    if (!item.label.trim()) errors.push(`节点 ${node.data.label} 的第 ${index + 1} 个输出字段缺少 JSONPath`);
     if (RESERVED_OUTPUT_KEYS.has(item.key.trim())) {
       errors.push(`节点 ${node.data.label} 的输出变量 ${item.key} 使用了系统保留名称`);
     }

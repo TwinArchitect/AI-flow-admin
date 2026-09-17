@@ -332,8 +332,10 @@ export function HttpConfigPanel({
             />
             <Input
               value={output.jsonPath}
-              onChange={(event) => updateOutput(index, { jsonPath: event.target.value })}
-              placeholder="choices[0].message.content"
+              onChange={(event) => updateOutput(index, {
+                jsonPath: event.target.value.replace(/^\$\.?/, ''),
+              })}
+              placeholder="data.id（无需 $.）"
               className="h-8 font-mono text-xs"
             />
             <Select

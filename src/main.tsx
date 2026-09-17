@@ -1,7 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster, toast } from 'sonner';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -48,7 +47,6 @@ createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <RouterProvider router={router} />
-      <ReactQueryDevtools initialIsOpen={false} />
       <Toaster
         position="top-center"
         toastOptions={{

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, MotionConfig } from 'framer-motion';
 import {
   Workflow,
   Mail,
   Lock,
   Loader2,
-  CheckCircle2,
   Bot,
   GitBranch,
   Puzzle,
@@ -40,190 +40,174 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* ---------- 左侧：品牌展示区 ---------- */}
-      <div className="hidden lg:flex w-1/2 flex-col justify-between bg-gradient-to-br from-[var(--color-slate-900)] via-[#2d2d7a] to-violet-800 text-white relative overflow-hidden">
-        {/* 背景装饰 */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-20 -left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 -right-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl" />
-        </div>
+    <MotionConfig reducedMotion="user">
+      <div className="relative flex min-h-screen overflow-hidden bg-background text-foreground">
+      <motion.div
+        className="pointer-events-none absolute left-[35%] top-[-18rem] h-[38rem] w-[38rem] rounded-full bg-primary/10 blur-3xl"
+        animate={{ opacity: [0.45, 0.8, 0.45], scale: [0.96, 1.04, 0.96] }}
+        transition={{ duration: 8, ease: 'easeInOut', repeat: Infinity }}
+      />
 
-        {/* 顶部 Logo */}
-        <div className="relative z-10 p-8 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-            <Bot size={18} className="text-white" />
+      <section className="relative hidden w-[56%] flex-col justify-between border-r border-border bg-card/65 px-14 py-12 backdrop-blur-xl lg:flex xl:px-20">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:36px_36px]" />
+        <motion.div
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent"
+          animate={{ y: ['8vh', '88vh'], opacity: [0, 0.7, 0] }}
+          transition={{ duration: 9, ease: 'linear', repeat: Infinity, repeatDelay: 2 }}
+        />
+        <motion.div
+          className="flex items-center gap-3"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <Bot size={20} />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">智构平台</span>
-            <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-white/70">v2.4</span>
+          <div>
+            <div className="text-sm font-semibold tracking-wide">智构平台</div>
+            <div className="text-xs text-muted-foreground">企业级智能体开发与运营平台</div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* 中间内容 */}
-        <div className="relative z-10 px-8 max-w-md">
-          <h1 className="text-3xl font-bold leading-tight mb-3">
-            大规模构建<br />智能体应用
+        <motion.div
+          className="max-w-2xl"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.08, ease: 'easeOut' }}
+        >
+          <div className="mb-6 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            AI Agent Platform
+          </div>
+          <h1 className="max-w-xl text-4xl font-semibold leading-[1.18] tracking-tight xl:text-5xl">
+            让智能体真正进入
+            <span className="mt-2 block text-primary">企业业务流程</span>
           </h1>
-          <p className="text-sm text-white/60 leading-relaxed mb-8">
-            编排大语言模型、连接知识库、自动化工作流——一站式 AI 智能体开发平台。
+          <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground">
+            统一连接模型、知识与业务系统，在安全可控的环境中完成智能体构建、编排、发布和运营。
           </p>
 
-          {/* 功能卡片 */}
-          <div className="space-y-3">
-            <div className="group flex items-start gap-3 p-3.5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shrink-0">
-                <Workflow size={15} className="text-white" />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-white">多模型编排</h3>
-                <p className="text-xs text-white/50 mt-0.5">Claude, GPT-4o, Gemini 等主流模型</p>
-              </div>
-            </div>
-
-            <div className="group flex items-start gap-3 p-3.5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center shrink-0">
-                <GitBranch size={15} className="text-white" />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-white">可视化工作流构建器</h3>
-                <p className="text-xs text-white/50 mt-0.5">拖拽式节点编排，所见即所得</p>
-              </div>
-            </div>
-
-            <div className="group flex items-start gap-3 p-3.5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/5 hover:bg-white/10 transition-colors cursor-pointer">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shrink-0">
-                <Puzzle size={15} className="text-white" />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-white">插件生态市场</h3>
-                <p className="text-xs text-white/50 mt-0.5">200+ 预置集成，开箱即用</p>
-              </div>
-            </div>
+          <div className="mt-10 grid max-w-xl grid-cols-3 gap-6 border-t border-border pt-7">
+            {[
+              { icon: Workflow, title: '模型编排', desc: '统一接入与调度' },
+              { icon: GitBranch, title: '工作流', desc: '可视化业务编排' },
+              { icon: Puzzle, title: '开放集成', desc: '连接企业系统' },
+            ].map(({ icon: Icon, title, desc }) => (
+              <motion.div
+                key={title}
+                whileHover={{ y: -3 }}
+                transition={{ duration: 0.18 }}
+              >
+                <Icon size={18} className="mb-3 text-primary" />
+                <div className="text-sm font-medium">{title}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{desc}</div>
+              </motion.div>
+            ))}
           </div>
-        </div>
+        </motion.div>
 
-        {/* 底部统计数据 */}
-        <div className="relative z-10 p-8">
-          <div className="flex items-center gap-12">
-            <div>
-              <div className="text-2xl font-bold">50K+</div>
-              <div className="text-xs text-white/50">已部署智能体</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">24亿</div>
-              <div className="text-xs text-white/50">月均 API 调用</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">99.9%</div>
-              <div className="text-xs text-white/50">可用性 SLA</div>
-            </div>
-          </div>
-        </div>
-      </div>
+        <motion.div
+          className="flex items-center gap-6 text-xs text-muted-foreground"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, delay: 0.25 }}
+        >
+          <span>安全可控</span>
+          <span className="h-1 w-1 rounded-full bg-border" />
+          <span>统一治理</span>
+          <span className="h-1 w-1 rounded-full bg-border" />
+          <span>持续运营</span>
+        </motion.div>
+      </section>
 
-      {/* ---------- 右侧：登录表单 ---------- */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-[var(--color-bg-page)] px-6 py-12">
-        <div className="w-full max-w-sm">
-          {/* 标题 */}
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">欢迎回来</h2>
-            <p className="text-sm text-[var(--color-text-tertiary)] mt-1">登录您的工作空间</p>
+      <section className="relative flex flex-1 items-center justify-center px-6 py-12 lg:px-12">
+        <motion.div
+          className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card/80 p-7 shadow-lg backdrop-blur-xl sm:p-9"
+          initial={{ opacity: 0, x: 20, scale: 0.985 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.12, ease: 'easeOut' }}
+        >
+          <motion.div
+            className="pointer-events-none absolute left-0 top-0 h-px w-28 bg-gradient-to-r from-transparent via-primary/70 to-transparent"
+            animate={{ x: ['-140%', '460%'], opacity: [0, 1, 0] }}
+            transition={{ duration: 3.8, ease: 'easeInOut', repeat: Infinity, repeatDelay: 3.5 }}
+          />
+          <div className="mb-8 flex items-center gap-3 lg:hidden">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Bot size={18} />
+            </div>
+            <span className="font-semibold">智构平台</span>
           </div>
 
-          {/* 表单 */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[var(--color-text-secondary)]">用户名</label>
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold tracking-tight">登录工作空间</h2>
+            <p className="mt-2 text-sm text-muted-foreground">使用您的企业账号继续访问平台</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">用户名</label>
               <div className="relative">
-                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] z-10 pointer-events-none" />
+                <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="pl-9 h-10"
+                  className="h-11 pl-10"
                   placeholder="请输入用户名"
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-[var(--color-text-secondary)]">密码</label>
-                <a href="#" className="text-xs text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition-colors">
+                <label className="text-sm font-medium">密码</label>
+                <a href="#" className="text-xs text-primary transition-colors hover:text-primary/80">
                   忘记密码？
                 </a>
               </div>
               <div className="relative">
-                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] z-10 pointer-events-none" />
+                <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-9 h-10"
+                  className="h-11 pl-10"
                   placeholder="••••••••"
                 />
               </div>
             </div>
 
-            {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
             <Button
               type="submit"
               disabled={loginMutation.isPending}
-              className="w-full h-10 gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white"
+              className="h-11 w-full gap-2"
             >
               {loginMutation.isPending ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <>
-                  <ArrowRight size={16} />
-                  立即登录
+                  登录
+                  <motion.span
+                    className="inline-flex"
+                    animate={{ x: [0, 3, 0] }}
+                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 2.5 }}
+                  >
+                    <ArrowRight size={16} />
+                  </motion.span>
                 </>
               )}
             </Button>
           </form>
 
-          {/* 终端风格状态卡片 */}
-          <div className="mt-6 p-4 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-default)] shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-              </div>
-              <span className="text-xs font-mono text-[var(--color-text-tertiary)]">agent.run()</span>
-            </div>
-            <div className="space-y-1 font-mono text-xs">
-              <div className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
-                <span className="text-[var(--color-text-tertiary)]">&gt;</span>
-                <span>正在初始化智能体运行时...</span>
-              </div>
-              <div className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
-                <span className="text-[var(--color-text-tertiary)]">&gt;</span>
-                <span className="flex items-center gap-1">
-                  加载知识库
-                  <CheckCircle2 size={11} className="text-green-500" />
-                </span>
-              </div>
-              <div className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
-                <span className="text-[var(--color-text-tertiary)]">&gt;</span>
-                <span className="flex items-center gap-1">
-                  连接模型网关
-                  <CheckCircle2 size={11} className="text-green-500" />
-                </span>
-              </div>
-              <div className="flex items-start gap-1.5 text-[var(--color-text-secondary)]">
-                <span className="text-[var(--color-text-tertiary)]">&gt;</span>
-                <span>
-                  就绪 — <span className="text-violet-600 font-medium">24</span> 个智能体运行中
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+          <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
+            登录即表示您同意平台的使用规范与数据安全政策
+          </p>
+        </motion.div>
+      </section>
       </div>
-    </div>
+    </MotionConfig>
   );
 }

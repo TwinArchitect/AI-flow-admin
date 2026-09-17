@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { login, logout, getCurrentUser } from '@/api';
 import { useAuthStore } from '@/stores/auth';
+import { useLayoutStore } from '@/stores/layout';
 import type { LoginPayload } from '@/types';
 
 // 登录
@@ -23,7 +24,8 @@ export function useLogout() {
     onSettled: () => {
       // 无论成功失败都清除本地状态并跳登录页
       clear();
-      window.location.href = '/login';
+      useLayoutStore.getState().resetLayout();
+      window.location.replace('/login');
     },
   });
 }

@@ -9,8 +9,7 @@ import {
 } from '../dashboard.data';
 
 /**
- * 架构图 — 刻意深色背景，不跟随亮/暗切换。
- * TabsList / TabsTrigger 在此处覆写为暗色主题适配样式。
+ * 架构图全部使用项目语义色，随亮暗主题切换。
  */
 
 function LayerLabel({ dotColor, labelColor, label }: { dotColor: string; labelColor: string; label: string }) {
@@ -26,7 +25,7 @@ function Connector({ gradient }: { gradient: string }) {
   return (
     <div className="h-6 flex items-center justify-center">
       <div className={cn('w-[1px] h-full bg-gradient-to-b relative', gradient)}>
-        <span className="absolute text-[8px] font-black text-slate-600 font-mono -right-9 bg-slate-950 px-1 border border-slate-800/20 rounded">
+        <span className="absolute -right-9 rounded border border-border bg-card px-1 font-mono text-[8px] font-black text-muted-foreground">
           DATA_SYNC
         </span>
       </div>
@@ -39,10 +38,10 @@ function FlowTab() {
     <div className="space-y-6">
       {/* Layer 1: 用户层 */}
       <div className="space-y-2">
-        <LayerLabel dotColor="bg-blue-500" labelColor="text-blue-400" label="用户层 (User Presentation)" />
-        <div className="bg-slate-900/40 border border-slate-800/40 p-4 rounded-2xl flex flex-wrap gap-3 items-center justify-around">
+        <LayerLabel dotColor="bg-blue-500" labelColor="text-blue-600 dark:text-blue-400" label="用户层 (User Presentation)" />
+        <div className="flex flex-wrap items-center justify-around gap-3 rounded-2xl border border-border bg-muted/50 p-4">
           {userLayerItems.map((item) => (
-            <span key={item} className="px-3.5 py-1.5 bg-slate-900 text-xs font-black text-slate-200 border border-slate-800/35 rounded-xl flex items-center gap-1.5">
+            <span key={item} className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-1.5 text-xs font-black text-foreground">
               <span className="w-1.5 h-1.5 bg-blue-400 rounded-full shrink-0" />
               {item}
             </span>
@@ -50,14 +49,14 @@ function FlowTab() {
         </div>
       </div>
 
-      <Connector gradient="from-blue-500/50 to-emerald-500/50" />
+      <Connector gradient="from-primary/50 to-primary/20" />
 
       {/* Layer 2: 智能体层 */}
       <div className="space-y-2">
-        <LayerLabel dotColor="bg-emerald-500" labelColor="text-emerald-400" label="智能体层 (Multi-Agent Core)" />
-        <div className="bg-slate-900/40 border border-slate-800/40 p-4 rounded-2xl grid grid-cols-2 md:grid-cols-5 gap-3">
+        <LayerLabel dotColor="bg-emerald-500" labelColor="text-emerald-600 dark:text-emerald-400" label="智能体层 (Multi-Agent Core)" />
+        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-muted/50 p-4 md:grid-cols-5">
           {agentLayerItems.map((ag, i) => (
-            <div key={ag.id} className={cn('bg-slate-900 p-3.5 rounded-xl border bg-gradient-to-tr flex flex-col items-center justify-center text-center leading-normal', ag.className)}>
+            <div key={ag.id} className={cn('flex flex-col items-center justify-center rounded-xl border bg-card p-3.5 text-center leading-normal', ag.className)}>
               <span className="text-xs font-black">{ag.label}</span>
               <span className="text-[10px] opacity-75 mt-1 font-medium font-mono">NODE_0{i + 1}</span>
             </div>
@@ -65,46 +64,46 @@ function FlowTab() {
         </div>
       </div>
 
-      <Connector gradient="from-emerald-500/50 to-purple-500/50" />
+      <Connector gradient="from-primary/50 to-primary/20" />
 
       {/* Layer 3: 能力层 */}
       <div className="space-y-2">
-        <LayerLabel dotColor="bg-purple-500" labelColor="text-purple-400" label="平台能力层 (Orchestration Engine)" />
-        <div className="bg-slate-900/40 border border-slate-800/40 p-4 rounded-2xl grid grid-cols-2 md:grid-cols-5 gap-3">
+        <LayerLabel dotColor="bg-primary" labelColor="text-primary" label="平台能力层 (Orchestration Engine)" />
+        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-muted/50 p-4 md:grid-cols-5">
           {capabilityLayerItems.map((cap) => (
-            <span key={cap.id} className="px-3.5 py-4 bg-slate-900 text-xs font-black text-slate-300 border border-slate-800/35 rounded-xl text-center flex flex-col justify-center">
+            <span key={cap.id} className="flex flex-col justify-center rounded-xl border border-border bg-card px-3.5 py-4 text-center text-xs font-black text-foreground">
               <span>{cap.name}</span>
-              <span className="text-[9px] text-slate-500 font-mono mt-1">SERVICE</span>
+              <span className="mt-1 font-mono text-[9px] text-muted-foreground">SERVICE</span>
             </span>
           ))}
         </div>
       </div>
 
-      <Connector gradient="from-purple-500/50 to-amber-500/50" />
+      <Connector gradient="from-primary/50 to-primary/20" />
 
       {/* Layer 4: 模型层 */}
       <div className="space-y-2">
-        <LayerLabel dotColor="bg-amber-500" labelColor="text-amber-400" label="模型层 (Unified Model Router)" />
-        <div className="bg-slate-900/40 border border-slate-800/40 p-4 rounded-2xl flex flex-wrap gap-3.5 items-center justify-around">
+        <LayerLabel dotColor="bg-amber-500" labelColor="text-amber-600 dark:text-amber-400" label="模型层 (Unified Model Router)" />
+        <div className="flex flex-wrap items-center justify-around gap-3.5 rounded-2xl border border-border bg-muted/50 p-4">
           {modelLayerItems.map((md) => (
-            <div key={md.id} className="px-3.5 py-2.5 bg-slate-900 border border-slate-800/40 rounded-xl flex flex-col shrink-0 min-w-[120px] text-center">
-              <span className="text-xs font-black text-slate-200">{md.name}</span>
-              <span className="text-[9px] text-slate-500 font-medium mt-0.5">{md.extra}</span>
+            <div key={md.id} className="flex min-w-[120px] shrink-0 flex-col rounded-xl border border-border bg-card px-3.5 py-2.5 text-center">
+              <span className="text-xs font-black text-foreground">{md.name}</span>
+              <span className="mt-0.5 text-[9px] font-medium text-muted-foreground">{md.extra}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <Connector gradient="from-amber-500/50 to-rose-500/50" />
+      <Connector gradient="from-primary/50 to-primary/20" />
 
       {/* Layer 5: 数据层 */}
       <div className="space-y-2">
-        <LayerLabel dotColor="bg-rose-500" labelColor="text-rose-400" label="数据层 (Enterprise Storage)" />
-        <div className="bg-slate-900/40 border border-slate-800/40 p-4 rounded-2xl grid grid-cols-2 md:grid-cols-4 gap-4">
+        <LayerLabel dotColor="bg-rose-500" labelColor="text-rose-600 dark:text-rose-400" label="数据层 (Enterprise Storage)" />
+        <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-muted/50 p-4 md:grid-cols-4">
           {dataLayerItems.map((dt) => (
-            <div key={dt.id} className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/40">
-              <span className="text-xs font-black text-slate-200 block">{dt.label}</span>
-              <span className="text-[10px] text-slate-500 block mt-0.5">{dt.desc}</span>
+            <div key={dt.id} className="rounded-xl border border-border bg-card p-3">
+              <span className="block text-xs font-black text-foreground">{dt.label}</span>
+              <span className="mt-0.5 block text-[10px] text-muted-foreground">{dt.desc}</span>
             </div>
           ))}
         </div>
@@ -115,9 +114,9 @@ function FlowTab() {
 
 function DetailsTab() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-slate-200 text-xs leading-relaxed font-medium">
-      <div className="bg-slate-900/50 border border-slate-800/40 p-5 rounded-2xl space-y-3">
-        <h4 className="text-sm font-black text-blue-400 flex items-center gap-2">
+    <div className="grid grid-cols-1 gap-6 text-xs font-medium leading-relaxed text-foreground md:grid-cols-2">
+      <div className="space-y-3 rounded-2xl border border-border bg-card p-5">
+        <h4 className="flex items-center gap-2 text-sm font-black text-blue-600 dark:text-blue-400">
           <span className="w-1.5 h-4 bg-blue-500 rounded-full" />
           自上而下：极速决策链路
         </h4>
@@ -125,8 +124,8 @@ function DetailsTab() {
         <p><strong>角色映射：</strong>根据请求业务范畴，智能路由引擎在"智能体层"精准激活适配的 AI 巡检、分析或专家节点。</p>
         <p><strong>指令编排：</strong>通过"平台能力层"配置的流程图拓扑图（如分支判断、MCP工具拉取），自主补充任务相关上下文。</p>
       </div>
-      <div className="bg-slate-900/50 border border-slate-800/40 p-5 rounded-2xl space-y-3">
-        <h4 className="text-sm font-black text-emerald-400 flex items-center gap-2">
+      <div className="space-y-3 rounded-2xl border border-border bg-card p-5">
+        <h4 className="flex items-center gap-2 text-sm font-black text-emerald-600 dark:text-emerald-400">
           <span className="w-1.5 h-4 bg-emerald-500 rounded-full" />
           自下而上：高安全数据兜底
         </h4>
@@ -142,7 +141,7 @@ export function DashboardArchitecture() {
   return (
     <section className="space-y-6">
       <div className="text-center max-w-2xl mx-auto space-y-2">
-        <p className="text-purple-400 font-black text-xs uppercase tracking-widest">ARCHITECT DESIGN</p>
+        <p className="text-xs font-black uppercase tracking-widest text-primary">ARCHITECT DESIGN</p>
         <h2 className="text-3xl font-black tracking-tight text-foreground">平台深度架构</h2>
         <p className="text-muted-foreground text-sm font-medium">
           多层高聚合技术蓝图，确保多数据打通、底层无缝链接与全闭环高灵敏控制
@@ -152,19 +151,18 @@ export function DashboardArchitecture() {
       {/* 手写 Tab → shadcn Tabs */}
       <Tabs defaultValue="flow">
         <div className="flex justify-center pb-2">
-          <TabsList className="bg-slate-100 border ">
-            <TabsTrigger value="flow" className="px-4 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer text-xs font-black data-[state=active]:bg-slate-800 data-[state=active]:text-slate-100 text-slate-400">
+          <TabsList className="border border-border bg-muted">
+            <TabsTrigger value="flow" className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-black text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground">
               交互蓝图
             </TabsTrigger>
-            <TabsTrigger value="details" className="px-4 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer text-xs font-black data-[state=active]:bg-slate-800 data-[state=active]:text-slate-100 text-slate-400">
+            <TabsTrigger value="details" className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-black text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground">
               流向与关联解析
             </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* 架构图主体：刻意深色背景 */}
-        <div className="bg-slate-950 p-6 md:p-8 rounded-[28px] border border-slate-900/40 relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-purple-500/20 to-transparent" />
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-sm md:p-8">
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
           <TabsContent value="flow" className="mt-0">
             <FlowTab />

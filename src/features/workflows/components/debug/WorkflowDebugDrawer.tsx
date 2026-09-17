@@ -23,13 +23,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { MessageBlock } from '@/types';
 import { ConversationMessageContent } from '@/features/message-render/ConversationMessageContent';
-import { applyConversationDelta, parseConversationText, resolveConversationReply } from '@/features/message-render/conversationBlocks';
+import {
+  applyConversationDelta,
+  parseConversationText,
+  removeRedundantStructuredConversationText,
+  resolveConversationReply,
+} from '@/features/message-render/conversationBlocks';
 import {
   appendUniqueMessageBlocks,
   removeTransientConversationBlocks,
-  resolveConversationNodeRichBlocks,
   resolveConversationResultRichBlocks,
-  resolveConversationSpecialEventBlocks,
 } from '@/features/message-render/richContent';
 import { resolveWorkflowFileType, type WorkflowDebugFile } from '../../api/workflowDebugApi';
 import { useRunWorkflowStream, useUploadWorkflowDebugFile } from '../../hooks/useWorkflowRuntime';
@@ -44,8 +47,12 @@ import type { WorkflowDebugContext } from '../../utils/workflowDebugContext';
 import {
   buildDebugVariableDefaults,
   buildWorkflowRunVariables,
+  parseDebugFileValue,
+  serializeDebugFileValue,
   validateDebugVariables,
+  validateWorkflowUploadFile,
 } from '../../utils/workflowDebugContext';
+import { sanitizePastedText } from '../../utils/sanitizePastedText';
 
 interface DebugMessage {
   id: string;
@@ -72,27 +79,47 @@ interface WorkflowDebugDrawerProps {
   onRunningChange: (running: boolean) => void;
 }
 
-const ALLOWED_EXTENSIONS = new Set([
-  'txt', 'doc', 'docx', 'csv', 'xls', 'xlsx', 'zip', 'pdf', 'ppt', 'pptx',
-  'bmp', 'mp3', 'mp4', 'flv', 'svg', 'jpg', 'jpeg', 'png',
-]);
-
 function DebugVariableField({
   variable,
   value,
   onChange,
+  onUpload,
+  uploading,
 }: {
   variable: StartVariable;
   value: string;
   onChange: (value: string) => void;
+  onUpload: (file: File) => Promise<void>;
+  uploading: boolean;
 }) {
   const label = variable.description?.trim() || variable.label?.trim() || variable.key;
+  const uploadedFile = variable.valueType === 'file' ? parseDebugFileValue(value) : null;
   return (
     <div className="space-y-2">
       <Label htmlFor={`debug-variable-${variable.id}`}>
         {label}{variable.required && <span className="ml-1 text-destructive">*</span>}
       </Label>
-      {variable.valueType === 'boolean' ? (
+      {variable.valueType === 'file' ? (
+        uploadedFile ? (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
+            <FileText size={15} className="shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-xs">{uploadedFile.fileName}</span>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={() => onChange('')} aria-label={`移除${uploadedFile.fileName}`}>
+              <X size={13} />
+            </Button>
+          </div>
+        ) : (
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground hover:border-primary hover:text-primary">
+            {uploading ? <Loader2 size={15} className="animate-spin" /> : <Paperclip size={15} />}
+            {uploading ? '正在上传…' : '选择文件上传'}
+            <input type="file" className="sr-only" disabled={uploading} onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) void onUpload(file);
+            }} />
+          </label>
+        )
+      ) : variable.valueType === 'boolean' ? (
         <Select value={value} onValueChange={onChange}>
           <SelectTrigger id={`debug-variable-${variable.id}`}><SelectValue placeholder="请选择" /></SelectTrigger>
           <SelectContent>
@@ -100,13 +127,25 @@ function DebugVariableField({
             <SelectItem value="false">false</SelectItem>
           </SelectContent>
         </Select>
-      ) : variable.valueType === 'object' || variable.valueType === 'array' ? (
+      ) : variable.valueType === 'object' || variable.valueType === 'array' || variable.valueType === 'string' ? (
         <Textarea
           id={`debug-variable-${variable.id}`}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => onChange(sanitizePastedText(event.target.value))}
+          onPaste={(event) => {
+            event.preventDefault();
+            const text = sanitizePastedText(event.clipboardData.getData('text/plain'));
+            const element = event.currentTarget;
+            const start = element.selectionStart ?? value.length;
+            const end = element.selectionEnd ?? value.length;
+            onChange(sanitizePastedText(`${value.slice(0, start)}${text}${value.slice(end)}`));
+          }}
           className="min-h-24 font-mono text-xs"
-          placeholder={variable.valueType === 'array' ? '["a", "b"]' : '{"key": "value"}'}
+          placeholder={variable.valueType === 'array'
+            ? '["a", "b"]'
+            : variable.valueType === 'object'
+              ? '{"key": "value"}'
+              : variable.defaultValue || '请输入（支持多行）'}
         />
       ) : (
         <Input
@@ -148,6 +187,7 @@ export function WorkflowDebugDrawer({
   const [messages, setMessages] = useState<DebugMessage[]>([]);
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<WorkflowDebugFile[]>([]);
+  const [uploadingVariableKey, setUploadingVariableKey] = useState<string>();
   const [expanded, setExpanded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const chatGroupIdRef = useRef(`debug-${agentId}-${Date.now()}`);
@@ -190,6 +230,26 @@ export function WorkflowDebugDrawer({
     () => buildWorkflowRunVariables(variableValues, context.customStartVariables),
     [context.customStartVariables, variableValues],
   );
+  async function uploadVariableFile(variable: StartVariable, file: File) {
+    const validationError = validateWorkflowUploadFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+    setUploadingVariableKey(variable.key);
+    try {
+      const uploaded = await uploadMutation.mutateAsync({ file, voucherId: agentId });
+      setVariableValues((current) => ({
+        ...current,
+        [variable.key]: serializeDebugFileValue(uploaded.id, uploaded.name),
+      }));
+      setVariableError(undefined);
+    } catch (error) {
+      toast.error('文件上传失败', { description: error instanceof Error ? error.message : '未知错误' });
+    } finally {
+      setUploadingVariableKey(undefined);
+    }
+  }
 
   function stopRun() {
     if (!isRunning) return;
@@ -228,13 +288,9 @@ export function WorkflowDebugDrawer({
         toast.error('最多上传 5 个文件');
         break;
       }
-      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-      if (!ALLOWED_EXTENSIONS.has(extension)) {
-        toast.error(`不支持的文件类型：${extension || '未知'}`);
-        continue;
-      }
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error(`「${file.name}」超过 50MB 限制`);
+      const validationError = validateWorkflowUploadFile(file);
+      if (validationError) {
+        toast.error(validationError);
         continue;
       }
       try {
@@ -293,49 +349,38 @@ export function WorkflowDebugDrawer({
         signal: controller.signal,
         onNodeEvent: (eventName, payload) => {
           onNodeExecutionEvent(eventName, payload);
-          const blocks = resolveConversationNodeRichBlocks(eventName, payload);
-          if (!blocks.length) return;
-          setMessages((current) => current.map((message) =>
-            message.id === assistantId
-              ? { ...message, blocks: appendUniqueMessageBlocks(message.blocks ?? [], blocks) }
-              : message,
-          ));
         },
-        onConversationEvent: (eventName, payload) => {
-          const blocks = resolveConversationSpecialEventBlocks(eventName, payload);
-          if (!blocks.length) return;
+        onContentDelta: (delta) => {
           setMessages((current) => current.map((message) =>
             message.id === assistantId
-              ? { ...message, blocks: appendUniqueMessageBlocks(message.blocks ?? [], blocks) }
-              : message,
-          ));
-        },
-        onMessageDelta: (delta) => {
-          setMessages((current) => current.map((message) =>
-            message.id === assistantId
-              ? { ...message, content: message.content + delta }
-              : message,
-          ));
-        },
-        onReasoningDelta: (delta) => {
-          setMessages((current) => current.map((message) =>
-            message.id === assistantId
-              ? { ...message, blocks: applyConversationDelta(message.blocks ?? [], { kind: 'append-reasoning', text: delta }) }
+              ? { ...message, blocks: applyConversationDelta(message.blocks ?? [], delta) }
               : message,
           ));
         },
       });
-      setMessages((current) => current.map((message) =>
-        message.id === assistantId
-          ? {
-              ...message,
-              content: !message.content.trim() && !removeTransientConversationBlocks(message.blocks ?? []).length
-                ? resolveConversationReply(result)
-                : message.content,
-              blocks: appendUniqueMessageBlocks(message.blocks ?? [], resolveConversationResultRichBlocks(result)),
-            }
-          : message,
-      ));
+      setMessages((current) => current.map((message) => {
+        if (message.id !== assistantId) return message;
+        const resultBlocks = resolveConversationResultRichBlocks(result);
+        const mergedBlocks = appendUniqueMessageBlocks(message.blocks ?? [], resultBlocks);
+        const blocks = removeRedundantStructuredConversationText([
+          ...parseConversationText(message.content, message.role),
+          ...mergedBlocks,
+        ]);
+        const contentWasRemoved = message.content.trim()
+          && !blocks.some((block) => (
+            (block.type === 'markdown' && block.source === message.content)
+            || (block.type === 'text' && block.text === message.content)
+          ));
+        return {
+          ...message,
+          content: contentWasRemoved
+            ? ''
+            : !message.content.trim() && !removeTransientConversationBlocks(mergedBlocks).length
+              ? resolveConversationReply(result)
+              : message.content,
+          blocks,
+        };
+      }));
       onExecutionFinish('success');
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -436,6 +481,8 @@ export function WorkflowDebugDrawer({
                   setVariableValues((current) => ({ ...current, [variable.key]: value }));
                   setVariableError(undefined);
                 }}
+                onUpload={(file) => uploadVariableFile(variable, file)}
+                uploading={uploadingVariableKey === variable.key}
               />
             ))}
             {variableError && <p className="text-xs text-destructive">{variableError}</p>}
@@ -461,7 +508,7 @@ export function WorkflowDebugDrawer({
                   {message.role === 'user' ? '我' : <Sparkles size={13} />}
                 </span>
                 <div className={cn(
-                  'max-w-[85%] space-y-2 rounded-md border px-3 py-2 text-xs leading-relaxed',
+                  'min-w-0 max-w-[85%] space-y-2 overflow-hidden rounded-md border px-3 py-2 text-xs leading-relaxed [overflow-wrap:anywhere]',
                   message.role === 'user'
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border bg-muted/60 text-foreground',

@@ -143,6 +143,16 @@ export interface ReplyNodeConfig {
 
 export interface ConcatNodeConfig {
   template: string;
+  inputVariables: TemplateInputVariable[];
+}
+
+export interface TemplateInputVariable {
+  id: string;
+  key: string;
+  label: string;
+  value: string;
+  required: boolean;
+  valueType: WorkflowValueType;
 }
 
 export type ConditionBranchLogic = 'AND' | 'OR';
@@ -397,6 +407,7 @@ export type BackendFlowNodeType =
   | 'httpRequest468'
   | 'answerNode'
   | 'textEditor'
+  | 'templateTransform'
   | 'ifElseNode'
   | 'variableUpdate'
   | 'classifyQuestion'

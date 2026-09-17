@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
@@ -64,6 +64,8 @@ export function DatasetSearchParamsDialog({
   onOpenChange: (open: boolean) => void;
   onConfirm: (config: ParamsDraft) => void;
 }) {
+  const configRef = useRef(config);
+  configRef.current = config;
   const [draft, setDraft] = useState<ParamsDraft>(() => paramsFromConfig(config));
   const rerankQuery = useQuery({
     queryKey: ['workflow', 'models', 'rerank'],
@@ -72,8 +74,8 @@ export function DatasetSearchParamsDialog({
   });
 
   useEffect(() => {
-    if (open) setDraft(paramsFromConfig(config));
-  }, [open, config]);
+    if (open) setDraft(paramsFromConfig(configRef.current));
+  }, [open]);
 
   const patch = (value: Partial<ParamsDraft>) => setDraft((current) => ({ ...current, ...value }));
 

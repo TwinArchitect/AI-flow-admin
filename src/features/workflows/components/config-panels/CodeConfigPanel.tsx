@@ -1,4 +1,5 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { BookOpen, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,9 @@ import type {
   WorkflowVariableOption,
 } from '../../types';
 import { buildErrorCatchHandle } from '../../utils/edgeHandles';
+import { normalizeCodeSource } from '../../utils/normalizeCodeSource';
+import { CodeExamplesDialog } from './CodeExamplesDialog';
+import { PromptOptimizeControl } from './shared/PromptOptimizeControl';
 import { VariablePicker } from './shared/VariablePicker';
 
 function createInputVariable(): CodeInputVariable {
@@ -49,18 +53,21 @@ function createOutputVariable(): CodeOutputVariable {
 
 export function CodeConfigPanel({
   nodeId,
+  agentId,
   config,
   variables,
   onUpdate,
   onRemoveSourceHandle,
 }: {
   nodeId: string;
+  agentId?: string;
   config: Record<string, unknown>;
   variables: WorkflowVariableOption[];
   onUpdate: (config: Partial<CodeNodeConfig>) => void;
   onRemoveSourceHandle: (handleId: string) => void;
 }) {
   const value = normalizeCodeConfig(config);
+  const [examplesOpen, setExamplesOpen] = useState(false);
 
   function updateInput(index: number, patch: Partial<CodeInputVariable>) {
     onUpdate({
@@ -81,7 +88,7 @@ export function CodeConfigPanel({
   return (
     <div className="space-y-5">
       <p className="rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-        在沙盒中执行脚本。输入变量按顺序对应 arg0、arg1…，return 对象的 key 应与输出变量名一致。
+        在 Rhino JavaScript 沙盒中执行脚本。输入变量按顺序对应 arg0、arg1…；输出字段按相对 JSONPath 从 return 结果提取。
       </p>
 
       <section className="space-y-3">
@@ -168,35 +175,47 @@ export function CodeConfigPanel({
 
       <section className="space-y-3 border-t border-border pt-4">
         <div className="text-xs font-semibold text-foreground">代码内容</div>
-        <Select
-          value={value.codeType}
-          onValueChange={(codeType) => onUpdate({ codeType: codeType === 'py' ? 'py' : 'js' })}
-        >
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="js">JavaScript</SelectItem>
-            <SelectItem value="py">Python</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="relative">
-          <Textarea
-            value={value.code}
-            onChange={(event) => onUpdate({ code: event.target.value })}
-            spellCheck={false}
-            className="min-h-64 resize-y font-mono text-xs leading-relaxed"
-            placeholder="编写执行脚本"
-          />
-          <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] tabular-nums text-muted-foreground">
-            {value.code.length}
-          </span>
+        <div className="flex items-center justify-between gap-2">
+          <Badge variant="secondary" className="font-mono text-[10px]">JavaScript</Badge>
+          <Button type="button" variant="outline" size="sm" onClick={() => setExamplesOpen(true)}>
+            <BookOpen size={13} />代码示例
+          </Button>
         </div>
+        <PromptOptimizeControl
+          scene="code_optimize"
+          content={value.code}
+          agentId={agentId}
+          codeLanguage="js"
+          inputParams={value.inputVariables.map((item, index) => (
+            `${item.key.trim() || `arg${index}`}=${item.label.trim() || item.valueType}`
+          )).join(', ') || undefined}
+          outputHint={value.outputVariables.map((item) => (
+            item.label.trim()
+              ? `${item.key.trim() || 'result'}=${item.label.trim()}`
+              : `${item.key.trim() || 'result'}:${item.valueType}`
+          )).join(', ') || undefined}
+          onApply={(code) => onUpdate({ code: normalizeCodeSource(code) })}
+        >
+          <div className="relative">
+            <Textarea
+              value={value.code}
+              onChange={(event) => onUpdate({ code: event.target.value })}
+              spellCheck={false}
+              className="min-h-64 resize-y pb-10 font-mono text-xs leading-relaxed"
+              placeholder="编写执行脚本"
+            />
+            <span className="pointer-events-none absolute bottom-2 left-3 text-[10px] tabular-nums text-muted-foreground">
+              {value.code.length}
+            </span>
+          </div>
+        </PromptOptimizeControl>
       </section>
 
       <section className="space-y-3 border-t border-border pt-4">
         <div className="flex items-center justify-between gap-2">
           <div>
             <div className="text-xs font-semibold text-foreground">输出变量</div>
-            <p className="text-[10px] text-muted-foreground">变量名需对应 return 对象的 key</p>
+            <p className="text-[10px] text-muted-foreground">字段名供下游引用，JSONPath 相对 return 结果且无需填写 $.</p>
           </div>
           <Button
             type="button"
@@ -214,14 +233,17 @@ export function CodeConfigPanel({
           </div>
         )}
         {value.outputVariables.map((item, index) => (
-          <div key={item.id} className="grid grid-cols-[1fr_104px_28px] gap-2">
+          <div key={item.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_104px_28px] gap-2">
             <Input
               value={item.key}
-              onChange={(event) => updateOutput(index, {
-                key: event.target.value,
-                label: event.target.value,
-              })}
-              placeholder="变量名"
+              onChange={(event) => updateOutput(index, { key: event.target.value })}
+              placeholder="字段名"
+              className="h-8 font-mono text-xs"
+            />
+            <Input
+              value={item.label}
+              onChange={(event) => updateOutput(index, { label: event.target.value.replace(/^\$\.?/, '') })}
+              placeholder="data.id 或 [0].scene"
               className="h-8 font-mono text-xs"
             />
             <Select
@@ -279,6 +301,12 @@ export function CodeConfigPanel({
           ))}
         </div>
       </section>
+
+      <CodeExamplesDialog
+        open={examplesOpen}
+        onOpenChange={setExamplesOpen}
+        onSelect={(code) => onUpdate({ code: normalizeCodeSource(code) })}
+      />
     </div>
   );
 }
