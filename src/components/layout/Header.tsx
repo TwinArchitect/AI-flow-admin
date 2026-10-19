@@ -1,11 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import {
-  Bell,
   // Search,
   // Globe,
-  Clock,
-  CheckCheck,
   Sun,
   Moon,
   ChevronRight,
@@ -13,40 +10,15 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 // import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { useThemeStore } from '@/stores/theme';
 import { useLogout } from '@/hooks/useAuth';
-import { cn } from '@/lib/utils';
-import { notifications, typeConfig } from '@/data/notifications';
+import { useLocation } from 'react-router-dom';
+import { resolveRouteTitle } from './RouteTabs';
 
 export function Header() {
   const { isDark, setTheme } = useThemeStore();
   const logoutMutation = useLogout();
   const [isAnimating, setIsAnimating] = useState(false);
-
-  // 下拉面板状态
-  const [notifyOpen, setNotifyOpen] = useState(false);
-
-  // Refs 用于点击外部关闭
-  const notifyRef = useRef<HTMLDivElement>(null);
-  const notifyBtnRef = useRef<HTMLButtonElement>(null);
-
-  // 点击外部关闭通知面板
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        notifyRef.current && !notifyRef.current.contains(target) &&
-        notifyBtnRef.current && !notifyBtnRef.current.contains(target)
-      ) {
-        setNotifyOpen(false);
-      }
-    }
-    if (notifyOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [notifyOpen]);
 
   // View Transitions 动画切换主题
   const toggleTheme = useCallback(async () => {
@@ -73,7 +45,8 @@ export function Header() {
     logoutMutation.mutate();
   };
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const location = useLocation();
+  const title = resolveRouteTitle(location.pathname);
 
   return (
     <header className="flex items-center justify-between h-14 px-5 bg-background border-b border-border shrink-0">
@@ -81,11 +54,11 @@ export function Header() {
       <div className="flex items-center gap-1 text-xs text-muted-foreground">
         <span>平台</span>
         <ChevronRight size={10} />
-        <span className="text-foreground font-medium">工作台</span>
+        <span className="text-foreground font-medium">{title}</span>
       </div>
 
       {/* 右侧操作 */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {/* 全局搜索 */}
         {/*<div className="relative w-56">*/}
         {/*  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10 pointer-events-none" />*/}
@@ -101,6 +74,7 @@ export function Header() {
         <Button
           variant="ghost"
           size="icon-sm"
+          aria-label="切换主题"
           onClick={toggleTheme}
           disabled={isAnimating}
           className="rounded-lg text-muted-foreground hover:text-foreground"
@@ -108,75 +82,11 @@ export function Header() {
           {isDark ? <Sun size={16} /> : <Moon size={16} />}
         </Button>
 
-        {/* ====== 通知 ====== */}
-        <div className="relative">
-          <Button
-            ref={notifyBtnRef}
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setNotifyOpen(!notifyOpen)}
-            className="relative rounded-lg text-muted-foreground hover:text-foreground"
-          >
-            <Bell size={16} />
-            {unreadCount > 0 && (
-              <Badge
-                variant="destructive"
-                className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center rounded-full px-[3px] text-[9px] font-bold leading-none"
-              >
-                {unreadCount}
-              </Badge>
-            )}
-          </Button>
-
-          {/* 通知下拉面板 */}
-          {notifyOpen && (
-            <div
-              ref={notifyRef}
-              className="absolute right-0 top-full mt-2 z-50 w-80 rounded-xl bg-card border border-border shadow-xl animate-in fade-in zoom-in-95 origin-top-right"
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                <span className="text-sm font-semibold text-foreground">通知</span>
-                <Button variant="ghost" size="xs" className="text-xs text-muted-foreground hover:text-foreground">
-                  <CheckCheck size={12} />
-                  全部已读
-                </Button>
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                {notifications.map((n) => {
-                  const cfg = typeConfig[n.type] || typeConfig.info;
-                  const Icon = cfg.icon;
-                  return (
-                    <div
-                      key={n.id}
-                      className="flex items-start gap-3 px-4 py-3 hover:bg-accent transition-colors cursor-pointer border-b border-border last:border-b-0"
-                    >
-                      <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center shrink-0', cfg.bg)}>
-                        <Icon size={14} className={cfg.color} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-medium text-foreground text-truncate">{n.title}</span>
-                          {n.unread && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{n.desc}</p>
-                        <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                          <Clock size={10} />{n.time}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* 退出 */}
         <Button
           variant="ghost"
           size="icon-sm"
+          aria-label="退出登录"
           onClick={handleLogout}
           className="rounded-lg text-muted-foreground hover:text-destructive"
         >

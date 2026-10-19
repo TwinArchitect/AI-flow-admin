@@ -43,6 +43,7 @@ export interface AgentQueryParams {
   pageSize: number;
   agentName?: string;
   status?: number;
+  flowType?: number;
   type?: string;
   protal?: string;
 }

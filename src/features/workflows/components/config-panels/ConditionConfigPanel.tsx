@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import {
   Select,
   SelectContent,
@@ -113,7 +113,7 @@ export function ConditionConfigPanel({
             return (
               <div key={rule.id} className="space-y-2 rounded-md bg-muted/50 p-2.5">
                 <div className="flex items-center gap-2">
-                  <Input
+                  <Input variables={variables}
                     value={rule.variableRef}
                     readOnly
                     placeholder="选择上游变量"
@@ -175,7 +175,7 @@ export function ConditionConfigPanel({
                     </Select>
                     {rule.valueMode === 'reference' ? (
                       <div className="flex items-center gap-2">
-                        <Input
+                        <Input variables={variables}
                           value={rule.value}
                           readOnly
                           placeholder="选择比较变量"
@@ -189,7 +189,7 @@ export function ConditionConfigPanel({
                         />
                       </div>
                     ) : (
-                      <Input
+                      <Input variables={variables}
                         value={rule.value}
                         onChange={(event) => updateRule(branchIndex, ruleIndex, {
                           value: event.target.value,

@@ -40,7 +40,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { deleteAgent, isWorkflowAgent, queryAgents } from '../api/agentApi';
+import { deleteAgent, queryAgents, saveAgent } from '../api/agentApi';
+import { queryModels } from '../model-management/modelApi';
+import { buildChatAgentSettingString, createDefaultChatAgentConfig } from '../orchestration/chatAgentConfig';
 import { AgentListCard } from './components/AgentListCard';
 import { CreateAgentDialog, type CreateAgentDraft } from './components/CreateAgentDialog';
 import type { AgentOpenSysAgent } from '@/types/agent';
@@ -92,14 +94,36 @@ export function MyAgentsPage() {
   const handleSearch = () => setAppliedSearch(searchTerm.trim());
 
   const openAgent = (agent: AgentOpenSysAgent) => {
-    if (!isWorkflowAgent(agent)) {
-      toast.info('对话式智能体编辑入口将在正式会话阶段接入');
-      return;
-    }
-    navigate(`/workflows?id=${encodeURIComponent(agent.id)}`);
+    navigate(agent.flowType === 0
+      ? `/agents/orchestration?id=${encodeURIComponent(agent.id)}`
+      : `/workflows?id=${encodeURIComponent(agent.id)}`);
   };
 
-  const createAgent = (draft: CreateAgentDraft) => {
+  const createAgent = async (draft: CreateAgentDraft) => {
+    if (draft.type === 'chat') {
+      try {
+        const [llmPage, multimodalPage] = await Promise.all([
+          queryModels({ pageNum: 1, pageSize: 200, category: 'llm', status: 0 }),
+          queryModels({ pageNum: 1, pageSize: 200, category: 'multimodal', status: 0 }),
+        ]);
+        const candidates = [...llmPage.records, ...multimodalPage.records]
+          .filter((model) => model.status === 0 && model.id?.trim() && model.model?.trim());
+        const planModel = candidates.find((model) => model.isDefault === 1) ?? candidates[0];
+        if (!planModel) throw new Error('暂无可用规划模型，请先在模型管理配置 LLM 或多模态模型');
+        const config = createDefaultChatAgentConfig({ name: draft.name.trim(), intro: draft.remark.trim() });
+        config.dialogue.plan = { modelId: planModel.id };
+        const saved = await saveAgent({
+          agentName: draft.name.trim(), remark: draft.remark.trim(), flowType: 0, status: 0,
+          userGuide: config.dialogue.opening,
+          agentSetting: buildChatAgentSettingString(config),
+        });
+        await agentsQuery.refetch();
+        navigate(`/agents/orchestration?id=${encodeURIComponent(saved.id)}`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : '创建对话式智能体失败');
+      }
+      return;
+    }
     navigate('/workflows?new=1', {
       state: {
         workflowDraft: {

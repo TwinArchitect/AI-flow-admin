@@ -20,6 +20,12 @@ export function valueTypeToRenderType(valueType: WorkflowValueType) {
     case 'file':
       return 'file';
     case 'object':
+    case 'arrayString':
+    case 'arrayNumber':
+    case 'arrayBoolean':
+    case 'arrayObject':
+    case 'arrayAny':
+    case 'any':
     case 'array':
       return 'textarea';
     default:

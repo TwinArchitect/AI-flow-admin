@@ -19,6 +19,7 @@ const routeTitles: Record<string, string> = {
   '/agents/AgentPlaza': '智能体广场',
   '/agents/overview': '智能体助手',
   '/agents/myAgents': '我的智能体',
+  '/agents/orchestration': '对话式智能体编排',
   '/agents/knowledge': '知识库',
   '/agents/knowledge/settings': '知识库 · 引擎设置',
   '/agents/tags': '标签页',
@@ -45,13 +46,13 @@ const componentTitles: Record<string, string> = {
   'react-query': 'React Query',
 };
 
-const tablessRoutePaths = new Set(['/agents', '/components']);
+const tablessRoutePaths = new Set(['/agents', '/components', '/agents/traffic', '/agents/channels']);
 
 function isTablessRoute(path: string) {
   return tablessRoutePaths.has(path.split(/[?#]/, 1)[0]);
 }
 
-function resolveRouteTitle(pathname: string) {
+export function resolveRouteTitle(pathname: string) {
   if (routeTitles[pathname]) return routeTitles[pathname];
   if (pathname.startsWith('/components/')) {
     const segment = pathname.split('/').filter(Boolean).at(-1) ?? '';

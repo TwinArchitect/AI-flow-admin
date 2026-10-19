@@ -13,14 +13,14 @@ export function queryChatGroups() {
   return http.get<AgentOpenChatGroup[]>(`${GROUP_BASE}/query`).then((response) => response.data);
 }
 
-export function saveChatGroup(groupName: string) {
+export function saveChatGroup(groupName: string, agentId?: string) {
   return http
-    .post<AgentOpenChatGroup>(`${GROUP_BASE}/save`, { groupName })
+    .post<AgentOpenChatGroup>(`${GROUP_BASE}/save`, { groupName, ...(agentId ? { agentId } : {}) })
     .then((response) => response.data);
 }
 
 export function deleteChatGroup(id: string) {
-  return http.delete<void>(`${GROUP_BASE}/delete/${encodeURIComponent(id)}`);
+  return http.post<void>(`${GROUP_BASE}/delete/${encodeURIComponent(id)}`);
 }
 
 export function queryChatMessages(groupId: string) {

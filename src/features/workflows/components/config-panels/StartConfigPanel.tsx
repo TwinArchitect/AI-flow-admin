@@ -1,3 +1,4 @@
+import { getValueTypeLabel } from '../../utils/valueTypes';
 import { useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -55,7 +56,7 @@ export function StartConfigPanel({
                     {variable.description?.trim() || variable.label || variable.key}
                   </span>
                   <Badge variant="secondary" className="text-[9px]">
-                    {variable.valueType === 'file' ? '文件数组' : variable.valueType}
+                    {getValueTypeLabel(variable.valueType)}
                   </Badge>
                   <Badge variant="default" className="text-[9px]">全局</Badge>
                   {variable.required && <Badge variant="destructive" className="text-[9px]">必填</Badge>}

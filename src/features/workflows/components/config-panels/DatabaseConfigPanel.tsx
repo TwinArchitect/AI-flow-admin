@@ -1,8 +1,8 @@
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
+import { VariableTextarea as Textarea } from './shared/VariableValueField';
 import {
   DATABASE_NODE_OUTPUTS,
   DATABASE_TIMEOUT_MAX,
@@ -51,14 +51,14 @@ export function DatabaseConfigPanel({
           </Select>
         </Field>
         <Field label="数据库名称">
-          <Input
+          <Input variables={variables}
             value={value.databaseName}
             onChange={(event) => onUpdate({ databaseName: event.target.value })}
             placeholder="例如：agent_db"
           />
         </Field>
         <Field label="地址">
-          <Input
+          <Input variables={variables}
             value={value.host}
             onChange={(event) => onUpdate({ host: event.target.value })}
             placeholder="127.0.0.1:3306"
@@ -66,7 +66,7 @@ export function DatabaseConfigPanel({
           <p className="text-[10px] text-muted-foreground">主机与端口，例如 127.0.0.1:3306</p>
         </Field>
         <Field label="用户名">
-          <Input
+          <Input variables={variables}
             value={value.username}
             onChange={(event) => onUpdate({ username: event.target.value })}
             placeholder="数据库用户名"
@@ -74,7 +74,7 @@ export function DatabaseConfigPanel({
           />
         </Field>
         <Field label="密码">
-          <Input
+          <Input variables={variables}
             type="password"
             value={value.password}
             onChange={(event) => onUpdate({ password: event.target.value })}
@@ -84,7 +84,7 @@ export function DatabaseConfigPanel({
         </Field>
         <Field label="连接超时">
           <div className="relative">
-            <Input
+            <Input variables={variables}
               type="number"
               min={DATABASE_TIMEOUT_MIN}
               max={DATABASE_TIMEOUT_MAX}
@@ -120,7 +120,7 @@ export function DatabaseConfigPanel({
               <VariablePicker variables={variables} onSelect={(ref) => updateSql({ value: ref })} />
             </div>
           )}
-          <Textarea
+          <Textarea variables={variables}
             value={value.sql.value}
             onChange={(event) => updateSql({ value: event.target.value })}
             placeholder={value.sql.valueMode === 'reference' ? '选择上游字符串变量' : 'SELECT * FROM users WHERE id = 1'}

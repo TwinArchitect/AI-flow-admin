@@ -20,6 +20,7 @@ export const CODE_VALUE_TYPES: WorkflowValueType[] = [
   'number',
   'boolean',
   'object',
+  'file',
   'arrayString',
   'arrayNumber',
   'arrayBoolean',
@@ -38,7 +39,11 @@ export const CODE_FIXED_OUTPUTS: WorkflowOutputSchema[] = [
   { key: 'error', label: '错误信息', valueType: 'string' },
 ];
 
-const DEFAULT_CODE = `function main() {
+export const DEFAULT_PYTHON_CODE = `def main(*args):
+    return {}
+`;
+
+export const DEFAULT_CODE = `function main() {
   return {};
 }
 return main();`;
@@ -128,8 +133,8 @@ export function normalizeCodeConfig(config: unknown): CodeNodeConfig {
   const inputs = normalizeInputs(raw.inputVariables);
   const outputs = normalizeOutputs(raw.outputVariables);
   return {
-    codeType: 'js',
-    code: normalizeCodeLineEndings(typeof raw.code === 'string' ? raw.code : defaults.code),
+    codeType: raw.codeType === 'py' ? 'py' : 'js',
+    code: normalizeCodeLineEndings(typeof raw.code === 'string' ? raw.code : raw.codeType === 'py' ? DEFAULT_PYTHON_CODE : defaults.code),
     inputVariables: raw.inputVariables === undefined ? defaults.inputVariables : inputs,
     outputVariables: raw.outputVariables === undefined ? defaults.outputVariables : outputs,
     catchError: Boolean(raw.catchError),
@@ -171,7 +176,7 @@ function buildCodeInputs(config: CodeNodeConfig): WorkflowModuleInput[] {
       label: '',
       valueType: 'string',
       renderTypeList: ['custom'],
-      value: normalizeCodeSource(config.code),
+      value: normalizeCodeSource(config.code, config.codeType),
     },
     ...config.inputVariables
       .filter((item) => item.key.trim())
@@ -269,9 +274,10 @@ export function parseCodeModule(module: WorkflowModule) {
       label: normalizeExtractPath(output.key),
       valueType: normalizeValueType(output.valueType, 'any'),
     }));
+  const codeType = parseStringInput(inputs, 'codeType') === 'py' ? 'py' : 'js';
   const node = createCanvasNode('code', module, normalizeCodeConfig({
-    codeType: 'js',
-    code: normalizeCodeSource(parseStringInput(inputs, 'code') || DEFAULT_CODE),
+    codeType,
+    code: normalizeCodeSource(parseStringInput(inputs, 'code') || (codeType === 'py' ? DEFAULT_PYTHON_CODE : DEFAULT_CODE), codeType),
     inputVariables: parsedInputs,
     outputVariables: parsedOutputs,
     catchError: Boolean(module.catchError),

@@ -1,6 +1,8 @@
+import { WORKFLOW_DATA_TYPES } from '../../utils/valueTypes';
+import { getValueTypeLabel, getReferenceValueType } from '../../utils/valueTypes';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import {
   Select,
   SelectContent,
@@ -11,7 +13,6 @@ import {
 import {
   createVariableUpdateItem,
   normalizeVariableUpdateConfig,
-  VARIABLE_UPDATE_VALUE_TYPES,
 } from '../../contracts/variableUpdateNodeContract';
 import type {
   VariableUpdateItem,
@@ -85,7 +86,7 @@ export function VariableUpdateConfigPanel({
           <div className="space-y-1.5">
             <div className="text-xs font-medium text-foreground">目标变量</div>
             <div className="flex items-center gap-2">
-              <Input
+              <Input variables={variables}
                 value={item.variableRef}
                 readOnly
                 placeholder="选择全局变量或上游输出"
@@ -93,7 +94,7 @@ export function VariableUpdateConfigPanel({
               />
               <VariablePicker
                 variables={variables}
-                onSelect={(variableRef) => updateItem(index, { variableRef })}
+                onSelect={(variableRef) => updateItem(index, { variableRef, valueType: getReferenceValueType(variables.find((variable) => variable.ref === variableRef)?.valueType ?? item.valueType) })}
               />
             </div>
           </div>
@@ -125,8 +126,8 @@ export function VariableUpdateConfigPanel({
               >
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {VARIABLE_UPDATE_VALUE_TYPES.map((valueType) => (
-                    <SelectItem key={valueType} value={valueType}>{valueType}</SelectItem>
+                  {WORKFLOW_DATA_TYPES.map((valueType) => (
+                    <SelectItem key={valueType} value={valueType}>{getValueTypeLabel(valueType)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -139,7 +140,7 @@ export function VariableUpdateConfigPanel({
             </div>
             {item.valueMode === 'reference' ? (
               <div className="flex items-center gap-2">
-                <Input
+                <Input variables={variables}
                   value={item.value}
                   readOnly
                   placeholder="选择上游变量"
@@ -151,7 +152,7 @@ export function VariableUpdateConfigPanel({
                 />
               </div>
             ) : (
-              <Input
+              <Input variables={variables}
                 value={item.value}
                 onChange={(event) => updateItem(index, { value: event.target.value })}
                 placeholder="输入固定值"

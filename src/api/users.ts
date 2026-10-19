@@ -24,10 +24,10 @@ export function updateUser(id: number, payload: UpdateUserPayload) {
 
 // 删除用户
 export function deleteUser(id: number) {
-  return http.delete(`/users/${id}`).then(r => r.data);
+  return http.post(`/users/${id}`).then(r => r.data);
 }
 
 // 批量删除用户
 export function deleteUsers(ids: number[]) {
-  return http.delete('/users/batch', { data: { ids } }).then(r => r.data);
+  return http.post('/users/batch', { ids }).then(r => r.data);
 }

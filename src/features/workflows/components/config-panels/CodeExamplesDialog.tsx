@@ -52,7 +52,30 @@ return main(arg0);`,
   },
 ];
 
-export function CodeExamplesDialog({ open, onOpenChange, onSelect }: {
+const PYTHON_EXAMPLES = [
+  { title: '获取附件链接 url', description: '从附件列表提取链接并换行拼接', code: `import json
+
+def main(files):
+    if isinstance(files, str):
+        files = json.loads(files)
+    if not isinstance(files, list):
+        files = [files]
+    return "\\n".join(str(item["url"]) for item in files if isinstance(item, dict) and item.get("url"))
+` },
+  { title: '字符串转 JSON', description: '解析 JSON，失败返回 None', code: `import json
+
+def main(value):
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return None
+` },
+];
+
+export function CodeExamplesDialog({ language = 'js', open, onOpenChange, onSelect }: {
+  language?: 'js' | 'py';
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (code: string) => void;
@@ -65,7 +88,7 @@ export function CodeExamplesDialog({ open, onOpenChange, onSelect }: {
           <DialogDescription>选择示例后会替换当前代码。</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          {EXAMPLES.map((example) => (
+          {(language === 'py' ? PYTHON_EXAMPLES : EXAMPLES).map((example) => (
             <Button
               key={example.title}
               type="button"

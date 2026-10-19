@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import { Switch } from '@/components/ui/switch';
 import {
   normalizeReadFilesConfig,
@@ -36,7 +36,7 @@ export function ReadFilesConfigPanel({
         <div className="text-xs font-semibold text-foreground">输入参数</div>
         <Field label="文件引用">
           <div className="flex items-center gap-2">
-            <Input
+            <Input variables={variables}
               value={fileRef}
               readOnly
               placeholder="选择用户附件或上游文件变量"

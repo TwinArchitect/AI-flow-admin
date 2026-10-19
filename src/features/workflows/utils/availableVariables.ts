@@ -66,7 +66,7 @@ export function getAvailableVariablesForNode(
           outputKey,
           outputLabel: variable.key === 'files'
             ? '用户附件'
-            : variable.description?.trim() || variable.label.trim() || outputKey,
+            : variable.label.trim() || outputKey,
           valueType: variable.valueType,
         });
       });

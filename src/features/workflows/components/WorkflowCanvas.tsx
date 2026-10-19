@@ -43,6 +43,7 @@ import { NodeSidebar } from './NodeSidebar';
 import { WorkflowNode } from './WorkflowNode';
 import { WorkflowPublishDialog } from './WorkflowPublishDialog';
 import { WorkflowDebugDrawer } from './debug/WorkflowDebugDrawer';
+import { AgentOperationsButtons } from '@/features/agents/orchestration/AgentOperationsButtons';
 import { JsonViewDialog } from './JsonViewDialog';
 
 const nodeTypes = Object.fromEntries(
@@ -245,6 +246,7 @@ function WorkflowToolbar({
           </TooltipTrigger>
           <TooltipContent>查看流程 JSON</TooltipContent>
         </Tooltip>
+        <AgentOperationsButtons agentId={agentId} />
         <Button
           variant="outline"
           size="sm"

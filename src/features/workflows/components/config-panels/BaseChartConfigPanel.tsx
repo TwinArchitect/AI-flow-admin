@@ -1,8 +1,8 @@
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
+import { VariableTextarea as Textarea } from './shared/VariableValueField';
 import {
   BASE_CHART_NODE_OUTPUTS,
   BASE_CHART_TYPE_OPTIONS,
@@ -43,7 +43,7 @@ function ChartFieldEditor({
       </Select>
       {field.valueMode === 'reference' ? (
         <div className="flex gap-2">
-          <Input value={field.value} readOnly placeholder="选择上游变量" className="min-w-0 font-mono text-xs" />
+          <Input variables={variables} value={field.value} readOnly placeholder="选择上游变量" className="min-w-0 font-mono text-xs" />
           <VariablePicker variables={variables} onSelect={(value) => onChange(fieldKey, { ...field, value })} />
         </div>
       ) : isChartType ? (
@@ -54,14 +54,14 @@ function ChartFieldEditor({
           </SelectContent>
         </Select>
       ) : isAxis ? (
-        <Textarea
+        <Textarea variables={variables}
           value={field.value}
           onChange={(event) => onChange(fieldKey, { ...field, value: event.target.value })}
           placeholder={fieldKey === 'xAxis' ? '["A","B","C"]' : '[1,2,3]'}
           className="min-h-20 font-mono text-xs"
         />
       ) : (
-        <Input value={field.value} onChange={(event) => onChange(fieldKey, { ...field, value: event.target.value })} placeholder="BI 图表标题" />
+        <Input variables={variables} value={field.value} onChange={(event) => onChange(fieldKey, { ...field, value: event.target.value })} placeholder="BI 图表标题" />
       )}
     </Field>
   );

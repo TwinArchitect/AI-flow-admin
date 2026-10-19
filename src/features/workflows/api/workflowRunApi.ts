@@ -8,8 +8,6 @@ import type {
   WorkflowRunResult,
 } from '../types/execution';
 
-const STREAM_IDLE_TIMEOUT_MS = 60_000;
-
 export interface WorkflowRunRequest {
   appId: string;
   chatId?: string;
@@ -24,20 +22,35 @@ export interface WorkflowRunRequest {
   debug?: boolean;
 }
 
+export type ConversationRuntimeEvent =
+  | { type: 'content-delta'; delta: ContentDelta }
+  | { type: 'tool-status'; eventName: string; payload: unknown }
+  | { type: 'model-request'; eventName: string; payload: unknown }
+  | { type: 'node-event'; eventName: string; payload: WorkflowNodeSsePayload }
+  | { type: 'workflow-finished'; payload: WorkflowFinishedSsePayload }
+  | { type: 'auxiliary-event'; eventName: string; payload: unknown }
+  | { type: 'stream-complete' };
+
 export interface RunWorkflowStreamRequest {
   request: WorkflowRunRequest;
   onNodeEvent: (eventName: string, payload: WorkflowNodeSsePayload) => void;
+  /** 工具调用、模型请求等不属于消息正文的调试事件。 */
+  onDebugEvent?: (eventName: string, payload: unknown) => void;
   onWorkflowFinished?: (payload: WorkflowFinishedSsePayload) => void;
   /** 所有对话内容的唯一出口。 */
   onContentDelta?: (delta: ContentDelta) => void;
+  /** 四个对话入口共享的完整运行事件出口。 */
+  onRuntimeEvent?: (event: ConversationRuntimeEvent) => void;
   signal?: AbortSignal;
 }
 
 export async function runWorkflowStream({
   request,
   onNodeEvent,
+  onDebugEvent,
   onWorkflowFinished,
   onContentDelta,
+  onRuntimeEvent,
   signal,
 }: RunWorkflowStreamRequest): Promise<WorkflowRunResult> {
   const { token, tenantId, clear } = useAuthStore.getState();
@@ -60,7 +73,7 @@ export async function runWorkflowStream({
   });
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       clear();
       useLayoutStore.getState().resetLayout();
       window.location.replace('/login');
@@ -71,22 +84,6 @@ export async function runWorkflowStream({
 
   const reader = response.body?.getReader();
   if (!reader) throw new Error('响应体不可读');
-
-  const readNextChunk = async () => {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    try {
-      return await Promise.race([
-        reader.read(),
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(new Error('长时间未收到运行结果，请稍后重试'));
-          }, STREAM_IDLE_TIMEOUT_MS);
-        }),
-      ]);
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-    }
-  };
 
   const decoder = new TextDecoder();
   const nodeOutputs: Record<string, Record<string, unknown>> = {};
@@ -99,6 +96,7 @@ export async function runWorkflowStream({
   function emitConversationDeltas(eventName: string, data: string) {
     parseSseToConversationDeltas(eventName, data).forEach((delta) => {
       onContentDelta?.(delta);
+      onRuntimeEvent?.({ type: 'content-delta', delta });
       if (delta.kind === 'append-markdown' || delta.kind === 'append-text') {
         answerText += delta.text;
       } else if (delta.kind === 'append-reasoning') {
@@ -112,21 +110,36 @@ export async function runWorkflowStream({
       const finished = payload as WorkflowFinishedSsePayload;
       if (finished?.event === 'workflow_finished' && finished.data?.status) {
         finishedPayload = finished;
+        onRuntimeEvent?.({ type: 'workflow-finished', payload: finished });
         onWorkflowFinished?.(finished);
       }
       return;
     }
-    if (!payload || typeof payload !== 'object') return;
+    onDebugEvent?.(eventName, payload);
+    const normalizedEventName = eventName.trim().toLowerCase();
+    const isToolStatus = normalizedEventName === 'tool_status' || normalizedEventName === 'toolstatus';
+    const isModelRequest = normalizedEventName === 'model_request' || normalizedEventName === 'modelrequest';
+    if (isToolStatus) {
+      onRuntimeEvent?.({ type: 'tool-status', eventName, payload });
+    } else if (isModelRequest) {
+      onRuntimeEvent?.({ type: 'model-request', eventName, payload });
+    }
+    if (!payload || typeof payload !== 'object') {
+      if (!isToolStatus && !isModelRequest) onRuntimeEvent?.({ type: 'auxiliary-event', eventName, payload });
+      return;
+    }
     const nodePayload = payload as Partial<WorkflowNodeSsePayload>;
     if (
       typeof nodePayload.nodeId !== 'string'
       || typeof nodePayload.flowNodeType !== 'string'
       || typeof nodePayload.statusCode !== 'number'
     ) {
+      if (!isToolStatus && !isModelRequest) onRuntimeEvent?.({ type: 'auxiliary-event', eventName, payload });
       return;
     }
     const strictPayload = nodePayload as WorkflowNodeSsePayload;
     onNodeEvent(eventName, strictPayload);
+    onRuntimeEvent?.({ type: 'node-event', eventName, payload: strictPayload });
     const outputs = strictPayload.outputs
       ?? (strictPayload.flowNodeResponse && typeof strictPayload.flowNodeResponse === 'object'
         ? strictPayload.flowNodeResponse as Record<string, unknown>
@@ -179,13 +192,7 @@ export async function runWorkflowStream({
   }
 
   while (true) {
-    let chunk: ReadableStreamReadResult<Uint8Array>;
-    try {
-      chunk = await readNextChunk();
-    } catch (error) {
-      await reader.cancel().catch(() => undefined);
-      throw error;
-    }
+    const chunk = await reader.read();
     const { done, value } = chunk;
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
@@ -196,6 +203,8 @@ export async function runWorkflowStream({
     buffer += '\n\n';
     flushEvents(true);
   }
+
+  onRuntimeEvent?.({ type: 'stream-complete' });
 
   if (fatalNodeError) {
     throw new Error(fatalNodeError);

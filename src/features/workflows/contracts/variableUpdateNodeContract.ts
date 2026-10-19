@@ -15,6 +15,7 @@ export const VARIABLE_UPDATE_VALUE_TYPES: WorkflowValueType[] = [
   'number',
   'boolean',
   'object',
+  'file',
   'any',
   'arrayString',
   'arrayNumber',

@@ -27,6 +27,7 @@ const HTTP_VALUE_TYPES = [
   'number',
   'boolean',
   'object',
+  'file',
   'arrayString',
   'arrayNumber',
   'arrayBoolean',

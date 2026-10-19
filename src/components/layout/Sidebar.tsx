@@ -1,9 +1,9 @@
+import { useAuthStore } from '@/stores/auth';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Bot,
   Database,
-  User,
   Component,
   PanelLeftClose,
   PanelLeftOpen,
@@ -75,6 +75,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
+  const nickname = useAuthStore((state) => state.user?.nickname ?? '');
 
   return (
     <aside className={cn(
@@ -172,17 +173,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </ul>
       </nav>
 
-      <div className={cn('border-t border-[var(--color-border-default)] py-4', collapsed ? 'px-3' : 'px-4')}>
-        <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-2.5')}>
-          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-            <User size={14} className="text-white" />
-          </div>
-          {!collapsed && <div>
-            <div className="text-xs font-medium text-[var(--color-text-primary)]">张昊</div>
-            <div className="text-[10px] text-[var(--color-text-tertiary)]">产品工程师</div>
-          </div>}
+      {!collapsed && nickname && (
+        <div className="border-t border-[var(--color-border-default)] px-4 py-4">
+          <div className="truncate text-xs font-medium text-[var(--color-text-primary)]" title={nickname}>{nickname}</div>
         </div>
-      </div>
+      )}
     </aside>
   );
 }

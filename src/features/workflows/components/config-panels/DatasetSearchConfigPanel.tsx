@@ -4,7 +4,7 @@ import { BookOpen, Search, Settings2, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
+import { VariableTextarea as Textarea } from './shared/VariableValueField';
 import { queryWorkflowDatasets } from '../../api/knowledgeApi';
 import {
   DATASET_SEARCH_NODE_OUTPUTS,
@@ -83,7 +83,7 @@ export function DatasetSearchConfigPanel({
                   setAppliedKeyword(keyword.trim());
                 }}
               >
-                <Input
+                <Input variables={variables}
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   placeholder="搜索知识库名称"
@@ -167,7 +167,7 @@ export function DatasetSearchConfigPanel({
         <Field label="检索词或检索语句">
           {value.searchInput.valueMode === 'reference' && (
             <div className="mb-2 flex justify-end">
-              <VariablePicker
+              <VariablePicker mode="multiple"
                 variables={variables}
                 onSelect={(ref) => updateSearchInput({
                   value: [value.searchInput.value.trim(), ref].filter(Boolean).join(' '),
@@ -175,7 +175,7 @@ export function DatasetSearchConfigPanel({
               />
             </div>
           )}
-          <Textarea
+          <Textarea variables={variables}
             value={value.searchInput.value}
             onChange={(event) => updateSearchInput({ value: event.target.value })}
             placeholder={value.searchInput.valueMode === 'reference' ? '选择一个或多个上游变量' : '输入固定检索内容'}

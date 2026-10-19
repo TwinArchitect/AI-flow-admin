@@ -18,6 +18,9 @@ import { AgentPlazaPage, AgentChatPage } from '@/features/agents/agent-plaza';
 import { ModelManagementPage } from '@/features/agents/model-management';
 import { MemoryMaintenancePage } from '@/features/agents/memory-maintenance';
 import { MobileOverviewPage } from '@/features/agents/mobile-overview';
+import { EmbedAssistantPage } from '@/features/agents/overview/EmbedAssistantPage';
+import { ChatAgentOrchestrationPage } from '@/features/agents/orchestration';
+
 
 // Demo 页懒加载，减少首屏 bundle 体积
 const ButtonDemo = lazy(() =>
@@ -128,6 +131,7 @@ function DemoFallback() {
 }
 
 export const router = createBrowserRouter([
+  { path: '/embed/assistant', element: <EmbedAssistantPage /> },
   // 登录页（公开）
   {
     path: '/login',
@@ -149,6 +153,7 @@ export const router = createBrowserRouter([
             element: <AgentOverviewPage />,
           },
           { path: 'agents/myAgents', element: <MyAgentsPage /> },
+          { path: 'agents/orchestration', element: <ChatAgentOrchestrationPage />, handle: { contentLayout: 'fullscreen' } },
           { path: 'agents/knowledge', element: <KnowledgeBasePage /> },
           { path: 'agents/knowledge/settings', element: <KbEngineSettingsPage /> },
           { path: 'agents/tags', element: <TagManagementPage /> },

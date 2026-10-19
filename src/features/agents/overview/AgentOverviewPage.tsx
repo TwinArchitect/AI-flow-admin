@@ -31,6 +31,9 @@ import {
   ThumbsDown,
   X,
 } from 'lucide-react';
+import { prepareChatUploadFile, isMobileCaptureDevice } from '../orchestration/cameraCapture';
+import { uploadWorkflowDebugFile, type WorkflowDebugFile } from '@/features/workflows/api/workflowDebugApi';
+import { validateWorkflowUploadFile } from '@/features/workflows/utils/workflowDebugContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -46,11 +49,6 @@ import {
   buildStoppedBlock,
 } from './utils/overviewMessages';
 import { parseStringToBlocks, blocksToPlainText } from './utils/blockHelpers';
-import { applyContentDelta } from './utils/blockHelpers';
-import {
-  removeRedundantStructuredConversationText,
-  resolveConversationReply,
-} from '@/features/message-render/conversationBlocks';
 import type { AgentOpenChatGroup, ChatMessageLikes } from '@/types';
 import {
   deleteChatGroup,
@@ -60,19 +58,24 @@ import {
   saveChatMessage,
   updateChatMessageLikes,
 } from '@/features/agents/api/chatApi';
-import { runWorkflowStream } from '@/features/workflows/api/workflowRunApi';
+import { runConversationTurn } from '@/features/conversation-runtime/runConversationTurn';
 import {
-  appendUniqueMessageBlocks,
   removeTransientConversationBlocks,
   resolveConversationResultRichBlocks,
 } from '@/features/message-render/richContent';
 import { appendPersistedRichBlocks } from './utils/chatContents';
 import { getAgent } from '@/features/agents/api/agentApi';
+import {
+  ChatPreviewToolMonitor,
+  PreviewWaitingStatus,
+} from '@/features/conversation-runtime/ExecutionTraceMonitor';
 
 const SELECTED_AGENT_STORAGE_KEY = 'agent_overview_selected_agent_id_v1';
 
 export interface AgentOverviewPageProps {
   embedded?: boolean;
+  cameraCaptureEnabled?: boolean;
+  cameraCapturePreview?: boolean;
   hideToolbar?: boolean;
   lockedAgentId?: string | null;
   sidebarOpen?: boolean;
@@ -81,6 +84,8 @@ export interface AgentOverviewPageProps {
 
 export function AgentOverviewPage({
   embedded = false,
+  cameraCaptureEnabled = false,
+  cameraCapturePreview = false,
   hideToolbar = false,
   lockedAgentId: lockedAgentIdProp,
   sidebarOpen,
@@ -89,6 +94,8 @@ export function AgentOverviewPage({
   const [searchParams] = useSearchParams();
   const lockedAgentId = lockedAgentIdProp ?? searchParams.get('agentId')?.trim() ?? null;
   /* ─── 状态 ─── */
+  const [captureFile, setCaptureFile] = useState<WorkflowDebugFile | null>(null);
+  const [captureUploading, setCaptureUploading] = useState(false);
   const [groups, setGroups] = useState<AgentOpenChatGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [messages, setMessages] = useState<OverviewUiMessage[]>([]);
@@ -279,8 +286,9 @@ export function AgentOverviewPage({
 
   /* ─── 发送消息 ─── */
   const handleSendMessage = async (questionOverride?: string) => {
-    const question = (questionOverride ?? inputValue).trim();
-    if (!question || isSending) return;
+    const files = questionOverride ? [] : captureFile ? [captureFile] : [];
+    const question = (questionOverride ?? inputValue).trim() || (files.length ? '请分析这张图片' : '');
+    if (!question || isSending || captureUploading) return;
     if (!selectedPublishedAgent) {
       toast.info('请先选择一个已发布的智能体');
       setAgentPickerOpen(true);
@@ -288,6 +296,7 @@ export function AgentOverviewPage({
     }
 
     setInputValue('');
+    setCaptureFile(null);
     setIsSending(true);
 
     const userMsg: OverviewUiMessage = {
@@ -308,7 +317,7 @@ export function AgentOverviewPage({
     streamingAssistantIdRef.current = assistantLocalId;
     setMessages((prev) => [
       ...prev,
-      { id: assistantLocalId, role: 'assistant', blocks: [], timestamp: formatChatTime() },
+      { id: assistantLocalId, role: 'assistant', blocks: [], debugTraces: [], phase: 'connecting', timestamp: formatChatTime() },
     ]);
 
     const streamController = new AbortController();
@@ -333,34 +342,37 @@ export function AgentOverviewPage({
       };
 
       if (selectedPublishedAgent) {
-        const result = await runWorkflowStream({
+        const { result, blocks: nextBlocks } = await runConversationTurn({
           request: {
             appId: selectedPublishedAgent.id,
             chatGroupId: groupId,
             message: [{ role: 'user', content: question }],
+            files: files.map((file) => ({ type: 'image' as const, fileId: file.id, content: null })),
             debug: true,
           },
           signal: streamController.signal,
-          onContentDelta: (delta) => {
-            if (delta.kind === 'add-block') {
+          onBlocks: (blocks, delta) => {
+            if (delta?.kind === 'add-block') {
               richContents = appendPersistedRichBlocks(richContents, [delta.block]);
             }
-            syncAssistantBlocks(applyContentDelta(assistantBlocks, delta));
+            syncAssistantBlocks(blocks);
           },
           onNodeEvent: () => undefined,
+          onTraces: (traces) => {
+            setMessages((prev) => prev.map((message) => message.id === assistantLocalId
+              ? { ...message, debugTraces: traces }
+              : message));
+          },
+          onWorkflowFinished: (payload) => {
+            setMessages((prev) => prev.map((message) => message.id === assistantLocalId
+              ? { ...message, phase: 'main-complete', workflowRunId: payload.workflow_run_id ?? payload.data.id, taskId: payload.task_id }
+              : message));
+            if (streamAbortRef.current === streamController) setIsSending(false);
+          },
         });
 
         const resultBlocks = resolveConversationResultRichBlocks(result);
         richContents = appendPersistedRichBlocks(richContents, resultBlocks);
-        let nextBlocks = removeRedundantStructuredConversationText(
-          appendUniqueMessageBlocks(assistantBlocks, resultBlocks),
-        );
-        if (!removeTransientConversationBlocks(nextBlocks).length) {
-          nextBlocks = appendUniqueMessageBlocks(
-            nextBlocks,
-            parseStringToBlocks(resolveConversationReply(result), 'assistant'),
-          );
-        }
         syncAssistantBlocks(nextBlocks);
       } else {
         throw new Error('请先选择一个已发布的智能体');
@@ -401,9 +413,11 @@ export function AgentOverviewPage({
       );
       toast.error(message);
     } finally {
-      if (streamAbortRef.current === streamController) streamAbortRef.current = null;
-      streamingAssistantIdRef.current = null;
-      setIsSending(false);
+      if (streamAbortRef.current === streamController) {
+        streamAbortRef.current = null;
+        streamingAssistantIdRef.current = null;
+        setIsSending(false);
+      }
     }
   };
 
@@ -419,12 +433,28 @@ export function AgentOverviewPage({
     ? `向 ${selectedPublishedAgent.agentName} 提问...`
     : '请先选择一个已发布的智能体';
 
+  const capturePhoto = async (raw: File) => {
+    if (!selectedPublishedAgent || captureUploading || isSending) return;
+    setCaptureUploading(true);
+    try {
+      const file = await prepareChatUploadFile(raw);
+      const error = validateWorkflowUploadFile(file);
+      if (error) throw new Error(error);
+      setCaptureFile(await uploadWorkflowDebugFile(file, selectedPublishedAgent.id));
+    } catch (error) { toast.error(error instanceof Error ? error.message : '照片上传失败'); }
+    finally { setCaptureUploading(false); }
+  };
   const chatInputProps = {
     value: inputValue,
+    cameraCaptureEnabled: cameraCaptureEnabled && (cameraCapturePreview || isMobileCaptureDevice()),
+    onCapture: capturePhoto,
+    pendingFileName: captureUploading ? '照片上传中…' : captureFile?.name,
+    onRemoveFile: () => setCaptureFile(null),
+    hasAttachment: Boolean(captureFile),
     onChange: setInputValue,
     onSend: handleSendMessage,
     onStop: handleStopGeneration,
-    disabled: isSending || !selectedPublishedAgent,
+    disabled: isSending || captureUploading || !selectedPublishedAgent,
     isSending,
     placeholder: inputPlaceholder,
     onOpenAgentPicker: () => {
@@ -600,7 +630,7 @@ export function AgentOverviewPage({
                 <div
                   key={msg.id}
                   className={cn(
-                    'flex max-w-4xl mx-auto gap-4 min-w-0',
+                    'flex mx-auto gap-4 min-w-0',
                     msg.role === 'user' && 'flex-row-reverse'
                   )}
                 >
@@ -627,6 +657,9 @@ export function AgentOverviewPage({
                       msg.role === 'user' && 'items-end'
                     )}
                   >
+                    {msg.role === 'assistant' && Boolean(msg.debugTraces?.length) && (
+                      <ChatPreviewToolMonitor traces={msg.debugTraces ?? []} compact />
+                    )}
                     <div
                       className={cn(
                         'px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm',
@@ -635,14 +668,16 @@ export function AgentOverviewPage({
                           : 'bg-background text-foreground rounded-tl-none border border-border shadow-sm'
                       )}
                     >
-                      <MessageContentView
-                        blocks={msg.blocks}
-                        role={msg.role}
-                        streaming={isStreamingAssistant}
-                        onSuggestedQuestionClick={(question) => {
-                          void handleSendMessage(question);
-                        }}
-                      />
+                      {msg.role === 'assistant' && isStreamingAssistant && msg.blocks.length === 0
+                        ? <PreviewWaitingStatus active traces={msg.debugTraces ?? []} />
+                        : <MessageContentView
+                            blocks={msg.blocks}
+                            role={msg.role}
+                            streaming={isStreamingAssistant}
+                            onSuggestedQuestionClick={(question) => {
+                              void handleSendMessage(question);
+                            }}
+                          />}
                     </div>
 
                     {/* 底部操作栏 */}
@@ -716,7 +751,7 @@ export function AgentOverviewPage({
         {/* 底部输入区（有消息时） */}
         {hasMessages && (
           <div className={cn('border-t border-border shrink-0 bg-background relative z-[110]', embedded ? 'px-3 py-3' : 'px-6 py-4')}>
-            <div className="max-w-4xl w-full mx-auto">
+            <div className="w-full mx-auto">
               <ChatInputArea {...chatInputProps} />
             </div>
           </div>

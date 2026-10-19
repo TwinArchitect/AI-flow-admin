@@ -93,7 +93,7 @@ export function setDocumentAvailability(documentIds: string[], searchEnabled: bo
 }
 
 export function deleteDocument(documentId: string) {
-  return http.delete<null>(`${DOCUMENT_API_BASE}/delete/${encodeURIComponent(documentId)}`)
+  return http.post<null>(`${DOCUMENT_API_BASE}/delete/${encodeURIComponent(documentId)}`)
     .then((response) => response.data);
 }
 

@@ -1,7 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import {
   Select,
   SelectContent,
@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
+import { VariableTextarea as Textarea } from './shared/VariableValueField';
 import {
   CLASSIFY_DEFAULT_AGENT_KEY,
   CLASSIFY_DEFAULT_AGENT_LABEL,
@@ -83,12 +83,12 @@ export function ClassifyConfigPanel({
         <div className="text-xs font-semibold text-foreground">输入参数</div>
         <Field label="背景知识">
           <div className="mb-2 flex justify-end">
-            <VariablePicker
+            <VariablePicker mode="multiple"
               variables={variables}
               onSelect={(ref) => onUpdate({ systemPrompt: `${value.systemPrompt}${ref}` })}
             />
           </div>
-          <Textarea
+          <Textarea variables={variables}
             value={value.systemPrompt}
             maxLength={100000}
             onChange={(event) => onUpdate({ systemPrompt: event.target.value })}
@@ -128,7 +128,7 @@ export function ClassifyConfigPanel({
           <div className="mb-2 flex justify-end">
             <VariablePicker variables={variables} onSelect={(ref) => onUpdate({ userChatInput: ref })} />
           </div>
-          <Textarea
+          <Textarea variables={variables}
             value={value.userChatInput}
             onChange={(event) => onUpdate({ userChatInput: event.target.value })}
             placeholder="通常选择开始节点的用户问题"
@@ -161,7 +161,7 @@ export function ClassifyConfigPanel({
         ) : customAgents.map((agent, index) => (
           <div key={agent.key} className="flex items-center gap-2 rounded-lg border border-border p-2.5">
             <Badge variant="secondary" className="shrink-0 text-[10px]">#{index + 1}</Badge>
-            <Input
+            <Input variables={variables}
               value={agent.value}
               onChange={(event) => updateAgents(customAgents.map((item) => (
                 item.key === agent.key ? { ...item, value: event.target.value } : item

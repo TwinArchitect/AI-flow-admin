@@ -1,3 +1,4 @@
+import { isArrayValueType, getValueTypeLabel } from './valueTypes';
 import type { StartVariable, WorkflowCanvasNode } from '../types';
 import { resolveWorkflowFileType } from '../api/workflowDebugApi';
 import { isSystemStartVariable, normalizeStartConfig } from '../contracts/startNodeContract';
@@ -86,9 +87,20 @@ export function validateDebugVariables(
     if (variable.valueType === 'number' && Number.isNaN(Number(raw))) {
       return `「${name}」需为有效数字`;
     }
-    if (variable.valueType === 'object' || variable.valueType === 'array') {
+    if (variable.valueType === 'object' || isArrayValueType(variable.valueType)) {
       try {
-        JSON.parse(raw);
+        const parsed: unknown = JSON.parse(raw);
+        if (isArrayValueType(variable.valueType)) {
+          if (!Array.isArray(parsed)) return `「${name}」需为数组`;
+          const type = variable.valueType;
+          if (!parsed.every((item: unknown) => type === 'arrayString' ? typeof item === 'string'
+            : type === 'arrayNumber' ? typeof item === 'number' && Number.isFinite(item)
+            : type === 'arrayBoolean' ? typeof item === 'boolean'
+            : type === 'arrayObject' ? item !== null && typeof item === 'object' && !Array.isArray(item)
+            : true)) return `「${name}」需为${getValueTypeLabel(type)}`;
+        } else if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return `「${name}」需为 JSON 对象`;
+        }
       } catch {
         return `「${name}」需为合法 JSON`;
       }
@@ -116,8 +128,10 @@ export function buildWorkflowRunVariables(
         content: null,
       }));
     }
-    else if (variable.valueType === 'object' || variable.valueType === 'array') {
+    else if (variable.valueType === 'object' || isArrayValueType(variable.valueType)) {
       result[apiKey] = JSON.parse(raw) as unknown;
+    } else if (variable.valueType === 'any') {
+      try { result[apiKey] = JSON.parse(raw) as unknown; } catch { result[apiKey] = raw; }
     } else result[apiKey] = raw;
   });
   return result;

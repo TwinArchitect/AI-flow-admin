@@ -35,6 +35,6 @@ export function saveDataset(payload: Partial<KnowledgeDataset>) {
 }
 
 export function deleteDataset(datasetId: string) {
-  return http.delete<null>(`${DATASET_API_BASE}/delete/${encodeURIComponent(datasetId)}`)
+  return http.post<null>(`${DATASET_API_BASE}/delete/${encodeURIComponent(datasetId)}`)
     .then((response) => response.data);
 }

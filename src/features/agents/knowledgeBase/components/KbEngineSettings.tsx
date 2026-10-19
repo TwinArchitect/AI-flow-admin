@@ -83,7 +83,7 @@ export function KbEngineSettings({ onBack }: { onBack: () => void }) {
         </Button>
       </header>
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto max-w-4xl space-y-4">
+        <div className="mx-auto space-y-4">
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
             Embedding 是文档索引和检索的必要配置；复杂文档解析还可能依赖 Parser、OCR 或 VLM。这里只展示模型中心中已启用且类别匹配的模型。
           </div>

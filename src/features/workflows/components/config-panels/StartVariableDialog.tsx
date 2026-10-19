@@ -1,3 +1,4 @@
+import { WORKFLOW_DATA_TYPES, isArrayValueType, getValueTypeLabel } from '../../utils/valueTypes';
 import { useEffect, useState } from 'react';
 import { FileText, Loader2, Paperclip, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,14 +24,9 @@ import {
 } from '../../utils/workflowDebugContext';
 import { Field } from './shared/Field';
 
-const TYPE_OPTIONS: Array<{ value: WorkflowValueType; label: string }> = [
-  { value: 'string', label: '文本' },
-  { value: 'number', label: '数字' },
-  { value: 'boolean', label: 'Boolean' },
-  { value: 'object', label: 'JSON 对象' },
-  { value: 'array', label: '数组' },
-  { value: 'file', label: '文件数组' },
-];
+const TYPE_OPTIONS = WORKFLOW_DATA_TYPES.map((type) => ({
+  value: type === 'arrayAny' ? 'array' : type, label: getValueTypeLabel(type),
+}));
 
 function createVariable(): StartVariable {
   return {
@@ -151,7 +147,7 @@ export function StartVariableDialog({
                   }} />
                 </label>
               )
-            ) : draft.valueType === 'string' || draft.valueType === 'object' || draft.valueType === 'array' ? (
+            ) : draft.valueType === 'string' || draft.valueType === 'object' || isArrayValueType(draft.valueType) ? (
               <Textarea
                 value={draft.defaultValue ?? ''}
                 onChange={(event) => patch({ defaultValue: event.target.value })}

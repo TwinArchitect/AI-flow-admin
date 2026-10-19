@@ -1,7 +1,9 @@
+import { WORKFLOW_DATA_TYPES } from '../../utils/valueTypes';
+import { getValueTypeLabel, getReferenceValueType } from '../../utils/valueTypes';
 import { Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   LOOP_START_OUTPUTS,
@@ -11,10 +13,6 @@ import type { LoopCustomOutput, LoopNodeConfig, WorkflowValueType, WorkflowVaria
 import { Field } from './shared/Field';
 import { VariablePicker } from './shared/VariablePicker';
 
-const OUTPUT_TYPES: WorkflowValueType[] = [
-  'string', 'number', 'boolean', 'object', 'any',
-  'arrayString', 'arrayNumber', 'arrayBoolean', 'arrayObject', 'arrayAny',
-];
 
 function emptyOutput(): LoopCustomOutput {
   return {
@@ -52,11 +50,11 @@ export function LoopConfigPanel({
           </p>
         </div>
         <Field label="运行方式">
-          <Input value="数组循环" readOnly className="bg-muted" />
+          <Input variables={variables} value="数组循环" readOnly className="bg-muted" />
         </Field>
         <Field label="输入数组（必填）">
           <div className="flex gap-2">
-            <Input value={value.loopRunInputArray} readOnly placeholder="选择上游数组变量" className="min-w-0 font-mono text-xs" />
+            <Input variables={variables} value={value.loopRunInputArray} readOnly placeholder="选择上游数组变量" className="min-w-0 font-mono text-xs" />
             <VariablePicker variables={arrayVariables} onSelect={(loopRunInputArray) => onUpdate({ loopRunInputArray })} />
           </div>
         </Field>
@@ -77,7 +75,7 @@ export function LoopConfigPanel({
         ) : value.customOutputs.map((item) => (
           <div key={item.id} className="space-y-2 rounded-md border border-border p-3">
             <div className="flex gap-2">
-              <Input
+              <Input variables={variables}
                 value={item.key}
                 onChange={(event) => updateOutput(item.id, { key: event.target.value, label: event.target.value })}
                 placeholder="输出变量名"
@@ -85,15 +83,15 @@ export function LoopConfigPanel({
               />
               <Select value={item.valueType} onValueChange={(valueType: WorkflowValueType) => updateOutput(item.id, { valueType })}>
                 <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                <SelectContent>{OUTPUT_TYPES.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
+                <SelectContent>{WORKFLOW_DATA_TYPES.map((type) => <SelectItem key={type} value={type}>{getValueTypeLabel(type)}</SelectItem>)}</SelectContent>
               </Select>
               <Button type="button" variant="ghost" size="icon-sm" onClick={() => onUpdate({ customOutputs: value.customOutputs.filter((row) => row.id !== item.id) })} aria-label="删除循环输出">
                 <Trash2 size={14} />
               </Button>
             </div>
             <div className="flex gap-2">
-              <Input value={item.value} readOnly placeholder="选择循环体内节点变量" className="min-w-0 font-mono text-xs" />
-              <VariablePicker variables={childVariables} onSelect={(ref) => updateOutput(item.id, { value: ref })} />
+              <Input variables={variables} value={item.value} readOnly placeholder="选择循环体内节点变量" className="min-w-0 font-mono text-xs" />
+              <VariablePicker variables={childVariables} onSelect={(ref) => updateOutput(item.id, { value: ref, valueType: getReferenceValueType(childVariables.find((variable) => variable.ref === ref)?.valueType ?? item.valueType) })} />
             </div>
           </div>
         ))}
@@ -102,7 +100,7 @@ export function LoopConfigPanel({
       <section className="space-y-2 border-t border-border pt-5">
         <div className="text-xs font-semibold text-foreground">循环开始节点输出</div>
         <div className="flex flex-wrap gap-2">
-          {LOOP_START_OUTPUTS.map((output) => <Badge key={output.key} variant="outline" className="font-mono text-[10px]">{output.key}: {output.valueType}</Badge>)}
+          {LOOP_START_OUTPUTS.map((output) => <Badge key={output.key} variant="outline" className="font-mono text-[10px]">{output.key}: {getValueTypeLabel(output.valueType)}</Badge>)}
         </div>
       </section>
     </div>

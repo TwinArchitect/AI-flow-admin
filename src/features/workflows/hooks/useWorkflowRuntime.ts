@@ -5,10 +5,7 @@ import {
   saveWorkflowConfig,
   type SaveWorkflowConfigRequest,
 } from '../api/workflowApi';
-import {
-  runWorkflowStream,
-  type RunWorkflowStreamRequest,
-} from '../api/workflowRunApi';
+import { runConversationTurn, type ConversationTurnOptions } from '@/features/conversation-runtime/runConversationTurn';
 import { uploadWorkflowDebugFile } from '../api/workflowDebugApi';
 
 export const workflowRuntimeKeys = {
@@ -47,7 +44,7 @@ export function useSaveWorkflowConfig() {
 export function useRunWorkflowStream() {
   return useMutation({
     mutationKey: workflowRuntimeKeys.run(),
-    mutationFn: (request: RunWorkflowStreamRequest) => runWorkflowStream(request),
+    mutationFn: (request: ConversationTurnOptions) => runConversationTurn(request),
     meta: { silentError: true },
   });
 }

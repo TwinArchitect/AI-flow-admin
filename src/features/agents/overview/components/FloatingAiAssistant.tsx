@@ -37,11 +37,21 @@ function constrain(position: Position): Position {
   };
 }
 
-export function FloatingAiAssistant() {
+export interface FloatingAiAssistantProps {
+  embed?: boolean;
+  embedOpenPage?: boolean;
+  lockedAgentId?: string | null;
+  cameraCaptureEnabled?: boolean;
+  cameraCapturePreview?: boolean;
+}
+
+export function FloatingAiAssistant({ embed = false, embedOpenPage = false, lockedAgentId, cameraCaptureEnabled = false, cameraCapturePreview = false }: FloatingAiAssistantProps = {}) {
   const location = useLocation();
-  const hidden = HIDDEN_PATHS.has(location.pathname);
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const hidden = !embed && HIDDEN_PATHS.has(location.pathname);
+  const pageMode = embed && embedOpenPage;
+  const autoOpen = embed && window.self !== window.top;
+  const [open, setOpen] = useState(pageMode || autoOpen);
+  const [mounted, setMounted] = useState(pageMode || autoOpen);
   const [expanded, setExpanded] = useState(() => localStorage.getItem(EXPANDED_KEY) === '1');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
@@ -62,14 +72,23 @@ export function FloatingAiAssistant() {
   useEffect(() => { if (!open) setSidebarOpen(false); }, [open]);
 
   const panel = useMemo(() => {
+    if (pageMode) return { width: viewport.width, height: viewport.height, left: 0, top: 0 };
     const maxWidth = viewport.width - MARGIN * 2;
     const maxHeight = viewport.height - MARGIN * 2;
     const width = expanded ? Math.min(800, maxWidth) : Math.min(440, maxWidth);
     const height = expanded ? Math.min(820, maxHeight) : Math.min(620, maxHeight);
     return { width, height, left: expanded ? (viewport.width - width) / 2 : viewport.width - width - MARGIN, top: (viewport.height - height) / 2 };
-  }, [expanded, viewport]);
+  }, [expanded, viewport, pageMode]);
 
   const openPanel = useCallback(() => { setMounted(true); setOpen(true); }, []);
+  const closePanel = () => {
+    setOpen(false);
+    if (embed && window.self !== window.top) {
+      window.parent.postMessage({ type: 'agent-open:assistant-close' }, '*');
+      try { window.frameElement?.remove(); } catch { /* 跨域 iframe 由宿主监听消息移除。 */ }
+      setMounted(false);
+    }
+  };
   const toggleExpanded = () => setExpanded((value) => {
     const nextExpanded = !value;
     localStorage.setItem(EXPANDED_KEY, nextExpanded ? '1' : '0');
@@ -101,7 +120,7 @@ export function FloatingAiAssistant() {
   if (hidden) return null;
   return (
     <>
-      <AnimatePresence>{open ? <motion.button type="button" aria-label="关闭智能助理" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`fixed inset-0 z-[200] ${expanded ? 'bg-black/35 backdrop-blur-[2px]' : 'bg-black/10'}`} onClick={() => setOpen(false)} /> : null}</AnimatePresence>
+      <AnimatePresence>{open && !embed ? <motion.button type="button" aria-label="关闭智能助理" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`fixed inset-0 z-[200] ${expanded ? 'bg-black/35 backdrop-blur-[2px]' : 'bg-black/10'}`} onClick={closePanel} /> : null}</AnimatePresence>
       {mounted ? (
         <motion.section
           role="dialog"
@@ -109,28 +128,30 @@ export function FloatingAiAssistant() {
           initial={false}
           animate={{ opacity: open ? 1 : 0, scale: open ? 1 : 0.95, pointerEvents: open ? 'auto' : 'none', ...panel }}
           transition={{ type: 'spring', stiffness: 360, damping: 32 }}
-          className="fixed z-[210] flex overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
+          className={`fixed z-[210] flex overflow-hidden border border-border bg-background shadow-2xl ${pageMode ? 'rounded-none' : 'rounded-2xl'}`}
+          style={embed ? { pointerEvents: open ? 'auto' : 'none' } : undefined}
         >
           <div className="flex min-w-0 flex-1 flex-col">
             <header className="relative flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/90 px-3 backdrop-blur">
               <button type="button" onClick={() => setSidebarOpen((value) => !value)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title="历史会话"><Menu size={19} /></button>
               <h2 className="pointer-events-none absolute inset-x-0 text-center text-sm font-semibold">智能助理</h2>
               <div className="z-10 flex items-center">
-                <button type="button" onClick={toggleExpanded} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title={expanded ? '还原窗口' : '放大窗口'}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button>
-                <button type="button" onClick={() => setOpen(false)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title="关闭"><X size={19} /></button>
+                {!pageMode && <button type="button" onClick={toggleExpanded} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title={expanded ? '还原窗口' : '放大窗口'}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button>}
+                <button type="button" onClick={closePanel} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title="关闭"><X size={19} /></button>
               </div>
             </header>
-            <div className="min-h-0 flex-1"><AgentOverviewPage embedded hideToolbar sidebarOpen={sidebarOpen} onSidebarOpenChange={setSidebarOpen} /></div>
+            <div className="min-h-0 flex-1"><AgentOverviewPage embedded hideToolbar lockedAgentId={lockedAgentId} cameraCaptureEnabled={embed && cameraCaptureEnabled} cameraCapturePreview={embed && cameraCapturePreview} sidebarOpen={sidebarOpen} onSidebarOpenChange={setSidebarOpen} /></div>
           </div>
         </motion.section>
       ) : null}
-      <AnimatePresence>{!open ? (
+      <AnimatePresence>{!open && !autoOpen && !pageMode ? (
         <motion.button
           type="button"
           aria-label="打开智能助理"
           title="智能助理（可拖拽）"
           initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1, x: position.x, y: position.y }} exit={{ scale: 0.8, opacity: 0 }}
           className="fixed left-0 top-0 z-[190] flex size-12 touch-none items-center justify-center rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-[0_8px_28px_rgba(99,102,241,0.35)]"
+          style={embed ? { pointerEvents: 'auto' } : undefined}
           onClick={openPanel}
           onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}
         ><Sparkles size={21} /></motion.button>

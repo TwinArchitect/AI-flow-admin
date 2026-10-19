@@ -24,7 +24,7 @@ export function updateWorkflow(id: number, payload: UpdateWorkflowPayload) {
 
 // 删除工作流
 export function deleteWorkflow(id: number) {
-  return http.delete(`/workflows/${id}`).then(r => r.data);
+  return http.post(`/workflows/${id}`).then(r => r.data);
 }
 
 // 启动工作流

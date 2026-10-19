@@ -57,6 +57,7 @@ import {
   downloadDocument,
   getDataset,
   getDatasetStats,
+  getKbModelConfig,
   getDocument,
   getDocumentProgress,
   listEnabledModels,
@@ -71,7 +72,7 @@ import {
   uploadDocumentsBatch,
 } from './api';
 import { knowledgeBaseKeys } from './hooks/queryKeys';
-import type { DatasetListItem, DocumentProgress, KnowledgeDataset, RetrievalChunk } from './types';
+import type { DatasetListItem, DocumentProgress, KbModelOption, KnowledgeDataset, RetrievalChunk } from './types';
 
 const CHUNK_STRATEGY_OPTIONS: Array<{ value: NonNullable<KnowledgeDataset['chunkStrategy']>; label: string }> = [
   { value: 'naive', label: '通用分块（默认）' },
@@ -87,6 +88,10 @@ const CHUNK_STRATEGY_OPTIONS: Array<{ value: NonNullable<KnowledgeDataset['chunk
   { value: 'email', label: '邮件' },
   { value: 'tag', label: 'content+tags 每行' },
 ];
+
+function embeddingModelOptions(models: KbModelOption[], current?: string) {
+  return [...new Set([current, ...models.map((item) => item.model)].filter((model): model is string => Boolean(model)))];
+}
 
 function RetrievalHighlight({ html, fallback }: { html?: string | null; fallback: string }) {
   if (!html?.trim()) return <>{fallback}</>;
@@ -122,8 +127,10 @@ export function KnowledgeBasePage() {
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingDataset, setEditingDataset] = useState<KnowledgeDataset | null>(null);
   const [createName, setCreateName] = useState('');
   const [createDescription, setCreateDescription] = useState('');
+  const [createEmbeddingModel, setCreateEmbeddingModel] = useState('');
   const [createParserType, setCreateParserType] = useState<KnowledgeDataset['parserType']>('native');
   const [createChunkStrategy, setCreateChunkStrategy] = useState<KnowledgeDataset['chunkStrategy']>('naive');
   const [createChunkSize, setCreateChunkSize] = useState(512);
@@ -135,21 +142,40 @@ export function KnowledgeBasePage() {
     queryKey: knowledgeBaseKeys.datasetList(datasetParams),
     queryFn: () => queryDatasets(datasetParams),
   });
+  const embeddingModelsQuery = useQuery({
+    queryKey: knowledgeBaseKeys.modelOptions('embedding'),
+    queryFn: () => listEnabledModels('embedding'),
+  });
+  const modelConfigQuery = useQuery({
+    queryKey: knowledgeBaseKeys.modelConfig(),
+    queryFn: getKbModelConfig,
+  });
+  const embeddingModels = embeddingModelsQuery.data ?? [];
+  const defaultEmbeddingModel = embeddingModels.find((model) => model.id === modelConfigQuery.data?.embeddingModelId)?.model
+    ?? embeddingModels[0]?.model ?? '';
+
+  useEffect(() => {
+    if (createOpen && !editingDataset && !createEmbeddingModel && defaultEmbeddingModel) {
+      setCreateEmbeddingModel(defaultEmbeddingModel);
+    }
+  }, [createOpen, editingDataset, createEmbeddingModel, defaultEmbeddingModel]);
 
   const saveMutation = useMutation({
     mutationFn: saveDataset,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasets() });
       setCreateOpen(false);
+      setEditingDataset(null);
       setCreateName('');
       setCreateDescription('');
+      setCreateEmbeddingModel('');
       setCreateParserType('native');
       setCreateChunkStrategy('naive');
       setCreateChunkSize(512);
       setCreateChunkOverlap(64);
-      toast.success('知识库创建成功');
+      toast.success(editingDataset ? '知识库修改成功' : '知识库创建成功');
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : '知识库创建失败'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : '知识库保存失败'),
   });
 
   const deleteMutation = useMutation({
@@ -198,10 +224,32 @@ export function KnowledgeBasePage() {
               setSelKb(kb);
               setView('detail');
             }}
-            onCreate={() => setCreateOpen(true)}
-            onEdit={(kb) => {
-              setSelKb(kb);
-              setView('detail');
+            onCreate={() => {
+              setEditingDataset(null);
+              setCreateName('');
+              setCreateDescription('');
+              setCreateEmbeddingModel(defaultEmbeddingModel);
+              setCreateParserType('native');
+              setCreateChunkStrategy('naive');
+              setCreateChunkSize(512);
+              setCreateChunkOverlap(64);
+              setCreateOpen(true);
+            }}
+            onEdit={async (kb) => {
+              try {
+                const detail = await getDataset(kb.id);
+                setEditingDataset(detail);
+                setCreateName(detail.name);
+                setCreateDescription(detail.description ?? '');
+                setCreateEmbeddingModel(detail.embeddingModel ?? defaultEmbeddingModel);
+                setCreateParserType(detail.parserType ?? 'native');
+                setCreateChunkStrategy(detail.chunkStrategy ?? 'naive');
+                setCreateChunkSize(detail.chunkSize ?? 512);
+                setCreateChunkOverlap(detail.chunkOverlap ?? 64);
+                setCreateOpen(true);
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : '加载知识库配置失败');
+              }
             }}
             onDelete={setDeleteTarget}
           />
@@ -246,7 +294,7 @@ export function KnowledgeBasePage() {
       <Dialog open={createOpen} onOpenChange={(o) => !o && setCreateOpen(false)}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>配置知识库资源</DialogTitle>
+            <DialogTitle>{editingDataset ? '编辑知识库' : '配置知识库资源'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -259,6 +307,19 @@ export function KnowledgeBasePage() {
                 placeholder="例如: 某区域技术规范文档库"
                 className="h-10"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-muted-foreground">Embedding 模型</Label>
+              <Select value={createEmbeddingModel} onValueChange={setCreateEmbeddingModel}>
+                <SelectTrigger><SelectValue placeholder="选择已启用模型" /></SelectTrigger>
+                <SelectContent>
+                  {embeddingModelOptions(embeddingModels, editingDataset?.embeddingModel).map((model) => (
+                    <SelectItem key={model} value={model}>{model}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {embeddingModelsQuery.isError && <p className="text-xs text-destructive">加载模型列表失败</p>}
+              {!embeddingModelsQuery.isLoading && !embeddingModelsQuery.isError && embeddingModels.length === 0 && <p className="text-xs text-muted-foreground">模型中心暂无已启用的 Embedding 模型</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -314,18 +375,20 @@ export function KnowledgeBasePage() {
             <Button
               size="sm"
               className="flex-1"
-              disabled={!createName.trim() || saveMutation.isPending}
+              disabled={!createName.trim() || !createEmbeddingModel || saveMutation.isPending}
               onClick={() => saveMutation.mutate({
+                id: editingDataset?.id,
                 name: createName.trim(),
                 description: createDescription.trim() || undefined,
-                status: 'ACTIVE',
+                status: editingDataset?.status ?? 'ACTIVE',
+                embeddingModel: createEmbeddingModel,
                 parserType: createParserType,
                 chunkStrategy: createChunkStrategy,
                 chunkSize: createChunkSize,
                 chunkOverlap: createChunkOverlap,
               })}
             >
-              {saveMutation.isPending ? '创建中...' : '立即创建'}
+              {saveMutation.isPending ? '保存中...' : editingDataset ? '保存修改' : '立即创建'}
             </Button>
           </div>
         </DialogContent>
@@ -1466,6 +1529,10 @@ function SearchTab({ kbId }: { kbId: string }) {
 /* ─── 配置 ─── */
 function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: KnowledgeDataset) => void }) {
   const [form, setForm] = useState<Partial<KnowledgeDataset>>({ ...kb });
+  const embeddingModelsQuery = useQuery({
+    queryKey: knowledgeBaseKeys.modelOptions('embedding'),
+    queryFn: () => listEnabledModels('embedding'),
+  });
   useEffect(() => {
     setForm({ ...kb });
   }, [kb.id, kb.name, kb.description, kb.embeddingModel, kb.parserType, kb.chunkStrategy, kb.chunkSize, kb.chunkOverlap, kb.status]);
@@ -1534,12 +1601,18 @@ function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: Kn
               <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">
                 嵌入向量模型
               </Label>
-              <Input
-                value={form.embeddingModel ?? ''}
-                onChange={(event) => setForm((current) => ({ ...current, embeddingModel: event.target.value }))}
-                placeholder="例如：BAAI/bge-small-zh-v1.5"
-                className="h-10 text-xs"
-              />
+              <Select
+                value={form.embeddingModel || ''}
+                onValueChange={(value) => setForm((current) => ({ ...current, embeddingModel: value }))}
+              >
+                <SelectTrigger className="w-full h-10 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {embeddingModelOptions(embeddingModelsQuery.data ?? [], kb.embeddingModel).map((model) => (
+                    <SelectItem key={model} value={model}>{model}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {embeddingModelsQuery.isError && <p className="mt-2 text-xs text-destructive">加载模型列表失败</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -1589,7 +1662,7 @@ function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: Kn
         <Button
           size="sm"
           className="text-xs rounded-xl shadow-sm"
-          disabled={!form.name?.trim() || saveMutation.isPending}
+          disabled={!form.name?.trim() || !form.embeddingModel || saveMutation.isPending}
           onClick={() => saveMutation.mutate({ ...form, id: kb.id, name: form.name!.trim() })}
         >
           {saveMutation.isPending ? '保存中...' : '保存配置'}

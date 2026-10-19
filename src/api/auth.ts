@@ -3,7 +3,12 @@ import type { LoginPayload, LoginResult, CurrentUser } from '@/types';
 
 // 登录
 export function login(payload: LoginPayload) {
-  return http.post<LoginResult>('/gpt/auth/user/login', payload).then(r => r.data);
+  return http.post<LoginResult>('/gpt/auth/user/login', payload).then(({ data }) => {
+    if (!data || typeof data.token !== 'string' || !data.token.trim()) {
+      throw new Error('登录失败，未获取到有效登录凭证，请检查账号和密码');
+    }
+    return data;
+  });
 }
 
 // 退出登录
@@ -16,7 +21,7 @@ export function getCurrentUser(loginResult: LoginResult, fallbackUsername = ''):
   return {
     id: loginResult.userId ?? loginResult.username ?? fallbackUsername,
     username: loginResult.username ?? fallbackUsername,
-    nickname: loginResult.nickName ?? loginResult.username ?? fallbackUsername,
+    nickname: loginResult.nickName ?? '',
     email: loginResult.email ?? '',
     role: 'admin',
     permissions: loginResult.roles?.map((role) => role.code).filter(Boolean) as string[] ?? [],

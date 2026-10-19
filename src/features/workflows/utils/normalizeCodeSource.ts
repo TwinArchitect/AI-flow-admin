@@ -78,7 +78,7 @@ export function normalizeCodeLineEndings(source: string | null | undefined) {
   return source == null ? '' : String(source).replace(/\r\n?/g, '\n');
 }
 
-export function normalizeCodeSource(source: string | null | undefined) {
+export function normalizeCodeSource(source: string | null | undefined, language: 'js' | 'py' = 'js') {
   let value = normalizeCodeLineEndings(source);
   const realBreaks = countNewlines(value);
   const literalBreaks = (value.match(/\\n/g) ?? []).length;
@@ -89,5 +89,5 @@ export function normalizeCodeSource(source: string | null | undefined) {
     .replace(/^\uFEFF/, '')
     .replace(/^\n+/, '')
     .replace(/\n+$/, '');
-  return repairSingleLineSlashComments(value);
+  return language === 'py' ? value : repairSingleLineSlashComments(value);
 }

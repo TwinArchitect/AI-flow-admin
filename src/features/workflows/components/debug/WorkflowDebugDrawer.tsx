@@ -1,3 +1,4 @@
+import { isArrayValueType } from '../../utils/valueTypes';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileText,
@@ -24,15 +25,10 @@ import { cn } from '@/lib/utils';
 import type { MessageBlock } from '@/types';
 import { ConversationMessageContent } from '@/features/message-render/ConversationMessageContent';
 import {
-  applyConversationDelta,
   parseConversationText,
-  removeRedundantStructuredConversationText,
-  resolveConversationReply,
 } from '@/features/message-render/conversationBlocks';
 import {
-  appendUniqueMessageBlocks,
   removeTransientConversationBlocks,
-  resolveConversationResultRichBlocks,
 } from '@/features/message-render/richContent';
 import { resolveWorkflowFileType, type WorkflowDebugFile } from '../../api/workflowDebugApi';
 import { useRunWorkflowStream, useUploadWorkflowDebugFile } from '../../hooks/useWorkflowRuntime';
@@ -53,6 +49,11 @@ import {
   validateWorkflowUploadFile,
 } from '../../utils/workflowDebugContext';
 import { sanitizePastedText } from '../../utils/sanitizePastedText';
+import {
+  ChatPreviewToolMonitor,
+  PreviewWaitingStatus,
+  type PreviewDebugTrace,
+} from '@/features/conversation-runtime/ExecutionTraceMonitor';
 
 interface DebugMessage {
   id: string;
@@ -60,6 +61,8 @@ interface DebugMessage {
   content: string;
   blocks?: MessageBlock[];
   files?: WorkflowDebugFile[];
+  debugTraces?: PreviewDebugTrace[];
+  status?: string;
 }
 
 interface WorkflowDebugDrawerProps {
@@ -127,7 +130,7 @@ function DebugVariableField({
             <SelectItem value="false">false</SelectItem>
           </SelectContent>
         </Select>
-      ) : variable.valueType === 'object' || variable.valueType === 'array' || variable.valueType === 'string' ? (
+      ) : variable.valueType === 'any' || variable.valueType === 'object' || isArrayValueType(variable.valueType) || variable.valueType === 'string' ? (
         <Textarea
           id={`debug-variable-${variable.id}`}
           value={value}
@@ -141,7 +144,7 @@ function DebugVariableField({
             onChange(sanitizePastedText(`${value.slice(0, start)}${text}${value.slice(end)}`));
           }}
           className="min-h-24 font-mono text-xs"
-          placeholder={variable.valueType === 'array'
+          placeholder={isArrayValueType(variable.valueType)
             ? '["a", "b"]'
             : variable.valueType === 'object'
               ? '{"key": "value"}'
@@ -185,6 +188,7 @@ export function WorkflowDebugDrawer({
   );
   const [variableError, setVariableError] = useState<string>();
   const [messages, setMessages] = useState<DebugMessage[]>([]);
+  const [inputLocked, setInputLocked] = useState(false);
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<WorkflowDebugFile[]>([]);
   const [uploadingVariableKey, setUploadingVariableKey] = useState<string>();
@@ -202,6 +206,7 @@ export function WorkflowDebugDrawer({
     setVariableValues(buildDebugVariableDefaults(context.customStartVariables));
     setVariableError(undefined);
     setMessages([]);
+    setInputLocked(false);
     setInput('');
     setFiles([]);
     setPhase(context.needsVariableForm ? 'variables' : 'chat');
@@ -219,7 +224,7 @@ export function WorkflowDebugDrawer({
     resetSession();
   }, [resetVersion]);
 
-  useEffect(() => onRunningChange(isRunning), [isRunning, onRunningChange]);
+  useEffect(() => onRunningChange(inputLocked), [inputLocked, onRunningChange]);
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -252,9 +257,10 @@ export function WorkflowDebugDrawer({
   }
 
   function stopRun() {
-    if (!isRunning) return;
+    if (!isRunning && !inputLocked) return;
     abortRef.current?.abort();
     abortRef.current = null;
+    setInputLocked(false);
     onExecutionFinish('cancelled', '用户已中断运行');
     setMessages((current) => current.map((message, index) =>
       index === current.length - 1 && message.role === 'assistant'
@@ -307,7 +313,7 @@ export function WorkflowDebugDrawer({
   async function sendMessage(contentOverride?: string) {
     const content = (contentOverride ?? input).trim();
     const sentFiles = [...files];
-    if ((!content && sentFiles.length === 0) || isRunning) return;
+    if ((!content && sentFiles.length === 0) || inputLocked) return;
 
     const userMessage: DebugMessage = {
       id: `user-${Date.now()}`,
@@ -322,7 +328,7 @@ export function WorkflowDebugDrawer({
         blocks: removeTransientConversationBlocks(message.blocks ?? []),
       })),
       userMessage,
-      { id: assistantId, role: 'assistant', content: '' },
+      { id: assistantId, role: 'assistant', content: '', debugTraces: [], status: '正在连接' },
     ]);
     setInput('');
     setFiles([]);
@@ -331,9 +337,11 @@ export function WorkflowDebugDrawer({
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    setInputLocked(true);
+    let mainFinished = false;
 
     try {
-      const result = await runMutation.mutateAsync({
+      const { blocks: finalBlocks } = await runMutation.mutateAsync({
         request: {
           appId: agentId,
           chatGroupId: chatGroupIdRef.current,
@@ -350,47 +358,35 @@ export function WorkflowDebugDrawer({
         onNodeEvent: (eventName, payload) => {
           onNodeExecutionEvent(eventName, payload);
         },
-        onContentDelta: (delta) => {
-          setMessages((current) => current.map((message) =>
-            message.id === assistantId
-              ? { ...message, blocks: applyConversationDelta(message.blocks ?? [], delta) }
-              : message,
-          ));
+        onTraces: (traces) => setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, debugTraces: traces } : message)),
+        onBlocks: (blocks, delta) => setMessages((current) => current.map((message) => message.id === assistantId ? { ...message, blocks, status: delta ? '正在生成' : message.status } : message)),
+        onWorkflowFinished: (payload) => {
+          mainFinished = payload.data.status === 'succeeded';
+          if (abortRef.current === controller) setInputLocked(false);
+          onExecutionFinish(mainFinished ? 'success' : 'error', payload.data.error ?? undefined);
         },
       });
       setMessages((current) => current.map((message) => {
         if (message.id !== assistantId) return message;
-        const resultBlocks = resolveConversationResultRichBlocks(result);
-        const mergedBlocks = appendUniqueMessageBlocks(message.blocks ?? [], resultBlocks);
-        const blocks = removeRedundantStructuredConversationText([
-          ...parseConversationText(message.content, message.role),
-          ...mergedBlocks,
-        ]);
-        const contentWasRemoved = message.content.trim()
-          && !blocks.some((block) => (
-            (block.type === 'markdown' && block.source === message.content)
-            || (block.type === 'text' && block.text === message.content)
-          ));
         return {
           ...message,
-          content: contentWasRemoved
-            ? ''
-            : !message.content.trim() && !removeTransientConversationBlocks(mergedBlocks).length
-              ? resolveConversationReply(result)
-              : message.content,
-          blocks,
+          content: '',
+          blocks: finalBlocks,
         };
       }));
-      onExecutionFinish('success');
+      if (!mainFinished) onExecutionFinish('success');
     } catch (error) {
       if (controller.signal.aborted) return;
       const message = error instanceof Error ? error.message : '调试请求失败';
-      onExecutionFinish('error', message);
+      if (!mainFinished) onExecutionFinish('error', message);
       setMessages((current) => current.map((item) =>
         item.id === assistantId ? { ...item, content: `执行失败：${message}` } : item,
       ));
     } finally {
-      abortRef.current = null;
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setInputLocked(false);
+      }
     }
   }
 
@@ -516,17 +512,24 @@ export function WorkflowDebugDrawer({
                   {message.files?.map((file) => (
                     <div key={file.id} className="flex items-center gap-1.5"><FileText size={13} /><span className="truncate">{file.name}</span></div>
                   ))}
-                  <ConversationMessageContent
-                    role={message.role}
-                    blocks={[
-                      ...parseConversationText(message.content, message.role),
-                      ...(message.blocks ?? []),
-                    ]}
-                    streaming={isRunning && message.role === 'assistant'}
-                    onSuggestedQuestionClick={(question) => {
-                      void sendMessage(question);
-                    }}
-                  />
+                  {message.role === 'assistant' && Boolean(message.debugTraces?.length) && (
+                    <ChatPreviewToolMonitor traces={message.debugTraces ?? []} compact />
+                  )}
+                  {message.role === 'assistant' && inputLocked && !message.content && !(message.blocks?.length) ? (
+                    <PreviewWaitingStatus active traces={message.debugTraces ?? []} />
+                  ) : (
+                    <ConversationMessageContent
+                      role={message.role}
+                      blocks={[
+                        ...parseConversationText(message.content, message.role),
+                        ...(message.blocks ?? []),
+                      ]}
+                      streaming={inputLocked && message.role === 'assistant'}
+                      onSuggestedQuestionClick={(question) => {
+                        void sendMessage(question);
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             ))}
@@ -553,7 +556,7 @@ export function WorkflowDebugDrawer({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                disabled={uploadMutation.isPending || isRunning}
+                disabled={uploadMutation.isPending || inputLocked}
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="上传附件"
               >
@@ -568,12 +571,12 @@ export function WorkflowDebugDrawer({
                     void sendMessage();
                   }
                 }}
-                disabled={isRunning}
+                disabled={inputLocked}
                 rows={1}
                 placeholder="输入调试问题，Enter 发送"
                 className="max-h-28 min-h-9 flex-1 resize-none rounded-none !border-0 !bg-transparent px-1 py-2 !shadow-none focus-visible:ring-0"
               />
-              {isRunning ? (
+              {inputLocked ? (
                 <Button variant="destructive" size="icon-sm" onClick={stopRun} aria-label="终止生成">
                   <Square size={13} fill="currentColor" />
                 </Button>

@@ -74,6 +74,17 @@ export function NodeSidebar({ isOpen, onClose }: NodeSidebarProps) {
             <div className="space-y-1">
               {category.items.map((node) => {
                 const Icon = getNodeModule(node.type).icon;
+                const outputHint = node.type === 'reply'
+                  ? '主动聊天输出'
+                  : node.type === 'llm'
+                    ? '聊天输出 · 可配置'
+                    : node.type === 'baseChart'
+                      ? '主动展示图表'
+                      : node.type === 'knowledge'
+                        ? '可展示引用 · 正文需指定回复'
+                        : node.type === 'end'
+                          ? '最终数据返回 · 非主动聊天输出'
+                          : '无主动聊天输出 · 可接指定回复 / 结束';
 
                 return (
                   <div
@@ -88,6 +99,7 @@ export function NodeSidebar({ isOpen, onClose }: NodeSidebarProps) {
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-xs font-medium text-foreground">{node.name}</div>
                       <div className="truncate text-[10px] text-muted-foreground">{node.description}</div>
+                      <div className="mt-1 whitespace-normal text-[10px] leading-relaxed text-primary">{outputHint}</div>
                     </div>
                   </div>
                 );

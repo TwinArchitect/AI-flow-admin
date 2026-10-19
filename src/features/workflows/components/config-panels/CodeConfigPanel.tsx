@@ -1,8 +1,10 @@
+import { WORKFLOW_DATA_TYPES } from '../../utils/valueTypes';
+import { getValueTypeLabel, getReferenceValueType } from '../../utils/valueTypes';
 import { useState } from 'react';
 import { BookOpen, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -12,10 +14,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
+import { VariableTextarea as Textarea } from './shared/VariableValueField';
 import {
   CODE_FIXED_OUTPUTS,
-  CODE_VALUE_TYPES,
+  DEFAULT_CODE,
+  DEFAULT_PYTHON_CODE,
   normalizeCodeConfig,
 } from '../../contracts/codeNodeContract';
 import type {
@@ -68,6 +71,7 @@ export function CodeConfigPanel({
 }) {
   const value = normalizeCodeConfig(config);
   const [examplesOpen, setExamplesOpen] = useState(false);
+  const [languageDrafts, setLanguageDrafts] = useState<Partial<Record<CodeNodeConfig['codeType'], string>>>({});
 
   function updateInput(index: number, patch: Partial<CodeInputVariable>) {
     onUpdate({
@@ -88,7 +92,7 @@ export function CodeConfigPanel({
   return (
     <div className="space-y-5">
       <p className="rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-        在 Rhino JavaScript 沙盒中执行脚本。输入变量按顺序对应 arg0、arg1…；输出字段按相对 JSONPath 从 return 结果提取。
+        {value.codeType === 'py' ? '在 Python 沙盒中执行 main 函数，输入变量按顺序传入函数参数。' : '在 Rhino JavaScript 沙盒中执行脚本，输入变量按顺序对应 arg0、arg1…。'}输出字段按相对 JSONPath 从返回结果提取。
       </p>
 
       <section className="space-y-3">
@@ -115,7 +119,7 @@ export function CodeConfigPanel({
         {value.inputVariables.map((item, index) => (
           <div key={item.id} className="space-y-2 border-b border-border pb-3 last:border-b-0">
             <div className="grid grid-cols-[1fr_104px_28px] gap-2">
-              <Input
+              <Input variables={variables}
                 value={item.key}
                 onChange={(event) => updateInput(index, {
                   key: event.target.value,
@@ -132,8 +136,8 @@ export function CodeConfigPanel({
               >
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CODE_VALUE_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  {WORKFLOW_DATA_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>{getValueTypeLabel(type)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -150,7 +154,7 @@ export function CodeConfigPanel({
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Input
+              <Input variables={variables}
                 value={item.value}
                 onChange={(event) => updateInput(index, { value: event.target.value })}
                 placeholder="固定值或引用上游变量"
@@ -158,7 +162,7 @@ export function CodeConfigPanel({
               />
               <VariablePicker
                 variables={variables}
-                onSelect={(ref) => updateInput(index, { value: ref })}
+                onSelect={(ref) => updateInput(index, { value: ref, valueType: getReferenceValueType(variables.find((variable) => variable.ref === ref)?.valueType ?? item.valueType) })}
               />
             </div>
             <div className="flex items-center justify-between">
@@ -176,7 +180,13 @@ export function CodeConfigPanel({
       <section className="space-y-3 border-t border-border pt-4">
         <div className="text-xs font-semibold text-foreground">代码内容</div>
         <div className="flex items-center justify-between gap-2">
-          <Badge variant="secondary" className="font-mono text-[10px]">JavaScript</Badge>
+          <Select value={value.codeType} onValueChange={(language: CodeNodeConfig['codeType']) => {
+            setLanguageDrafts((drafts) => ({ ...drafts, [value.codeType]: value.code }));
+            onUpdate({ codeType: language, code: languageDrafts[language] ?? (language === 'py' ? DEFAULT_PYTHON_CODE : DEFAULT_CODE) });
+          }}>
+            <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="js">JavaScript</SelectItem><SelectItem value="py">Python</SelectItem></SelectContent>
+          </Select>
           <Button type="button" variant="outline" size="sm" onClick={() => setExamplesOpen(true)}>
             <BookOpen size={13} />代码示例
           </Button>
@@ -185,7 +195,7 @@ export function CodeConfigPanel({
           scene="code_optimize"
           content={value.code}
           agentId={agentId}
-          codeLanguage="js"
+          codeLanguage={value.codeType}
           inputParams={value.inputVariables.map((item, index) => (
             `${item.key.trim() || `arg${index}`}=${item.label.trim() || item.valueType}`
           )).join(', ') || undefined}
@@ -194,10 +204,10 @@ export function CodeConfigPanel({
               ? `${item.key.trim() || 'result'}=${item.label.trim()}`
               : `${item.key.trim() || 'result'}:${item.valueType}`
           )).join(', ') || undefined}
-          onApply={(code) => onUpdate({ code: normalizeCodeSource(code) })}
+          onApply={(code) => onUpdate({ code: normalizeCodeSource(code, value.codeType) })}
         >
           <div className="relative">
-            <Textarea
+            <Textarea variables={[]}
               value={value.code}
               onChange={(event) => onUpdate({ code: event.target.value })}
               spellCheck={false}
@@ -234,13 +244,13 @@ export function CodeConfigPanel({
         )}
         {value.outputVariables.map((item, index) => (
           <div key={item.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_104px_28px] gap-2">
-            <Input
+            <Input variables={variables}
               value={item.key}
               onChange={(event) => updateOutput(index, { key: event.target.value })}
               placeholder="字段名"
               className="h-8 font-mono text-xs"
             />
-            <Input
+            <Input variables={variables}
               value={item.label}
               onChange={(event) => updateOutput(index, { label: event.target.value.replace(/^\$\.?/, '') })}
               placeholder="data.id 或 [0].scene"
@@ -254,8 +264,8 @@ export function CodeConfigPanel({
             >
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {CODE_VALUE_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                {WORKFLOW_DATA_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>{getValueTypeLabel(type)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -303,9 +313,10 @@ export function CodeConfigPanel({
       </section>
 
       <CodeExamplesDialog
+        language={value.codeType}
         open={examplesOpen}
         onOpenChange={setExamplesOpen}
-        onSelect={(code) => onUpdate({ code: normalizeCodeSource(code) })}
+        onSelect={(code) => onUpdate({ code: normalizeCodeSource(code, value.codeType) })}
       />
     </div>
   );

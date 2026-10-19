@@ -1,7 +1,9 @@
+import { WORKFLOW_DATA_TYPES } from '../../utils/valueTypes';
+import { getValueTypeLabel, getReferenceValueType } from '../../utils/valueTypes';
 import { Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -12,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import { VariableTextarea as Textarea } from './shared/VariableValueField';
 import {
   HTTP_TIMEOUT_MAX,
   HTTP_TIMEOUT_MIN,
@@ -22,7 +24,6 @@ import type {
   HttpNodeConfig,
   HttpInputVariable,
   HttpOutputExtract,
-  WorkflowOutputSchema,
   WorkflowVariableOption,
 } from '../../types';
 import { buildErrorCatchHandle } from '../../utils/edgeHandles';
@@ -31,10 +32,6 @@ import { KeyValueRows } from './shared/KeyValueRows';
 import { VariablePicker } from './shared/VariablePicker';
 
 const HTTP_METHODS: HttpNodeConfig['method'][] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
-const OUTPUT_TYPES: WorkflowOutputSchema['valueType'][] = [
-  'string', 'number', 'boolean', 'object', 'arrayString', 'arrayNumber',
-  'arrayBoolean', 'arrayObject', 'arrayAny', 'any',
-];
 
 function createOutput(): HttpOutputExtract {
   return {
@@ -117,7 +114,7 @@ export function HttpConfigPanel({
         {value.inputVariables.map((input, index) => (
           <div key={input.id} className="space-y-2 border-b border-border pb-3 last:border-b-0">
             <div className="grid grid-cols-[1fr_100px_28px] gap-2">
-              <Input
+              <Input variables={variables}
                 value={input.key}
                 onChange={(event) => updateInputVariable(index, {
                   key: event.target.value,
@@ -134,8 +131,8 @@ export function HttpConfigPanel({
               >
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {OUTPUT_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  {WORKFLOW_DATA_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>{getValueTypeLabel(type)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -152,7 +149,7 @@ export function HttpConfigPanel({
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Input
+              <Input variables={variables}
                 value={input.value}
                 onChange={(event) => updateInputVariable(index, { value: event.target.value })}
                 placeholder="{{start.userChatInput}}"
@@ -160,7 +157,7 @@ export function HttpConfigPanel({
               />
               <VariablePicker
                 variables={variables}
-                onSelect={(ref) => updateInputVariable(index, { value: ref })}
+                onSelect={(ref) => updateInputVariable(index, { value: ref, valueType: getReferenceValueType(variables.find((variable) => variable.ref === ref)?.valueType ?? input.valueType) })}
               />
             </div>
             <div className="flex items-center justify-between">
@@ -179,7 +176,7 @@ export function HttpConfigPanel({
         label={
           <div className="flex items-center justify-between gap-2">
             <span>请求地址</span>
-            <VariablePicker
+            <VariablePicker mode="multiple"
               variables={variables}
               onSelect={(ref) => onUpdate({ url: `${value.url}${ref}` })}
             />
@@ -198,7 +195,7 @@ export function HttpConfigPanel({
               ))}
             </SelectContent>
           </Select>
-          <Input
+          <Input variables={variables}
             value={value.url}
             onChange={(event) => onUpdate({ url: event.target.value })}
             placeholder="https://api.example.com/data"
@@ -208,7 +205,7 @@ export function HttpConfigPanel({
       </Field>
 
       <Field label={`超时时长（${HTTP_TIMEOUT_MIN}-${HTTP_TIMEOUT_MAX} 秒）`}>
-        <Input
+        <Input variables={variables}
           type="number"
           min={HTTP_TIMEOUT_MIN}
           max={HTTP_TIMEOUT_MAX}
@@ -258,12 +255,12 @@ export function HttpConfigPanel({
           {value.contentType === 'json' && (
             <div className="space-y-2">
               <div className="flex justify-end">
-                <VariablePicker
+                <VariablePicker mode="multiple"
                   variables={variables}
                   onSelect={(ref) => onUpdate({ jsonBody: `${value.jsonBody}${ref}` })}
                 />
               </div>
-              <Textarea
+              <Textarea variables={variables}
                 value={value.jsonBody}
                 onChange={(event) => onUpdate({ jsonBody: event.target.value })}
                 placeholder={'{\n  "key": "{{start.userChatInput}}"\n}'}
@@ -324,13 +321,13 @@ export function HttpConfigPanel({
         </div>
         {value.outputExtracts.map((output, index) => (
           <div key={output.id} className="grid grid-cols-[1fr_1fr_92px_28px] gap-2">
-            <Input
+            <Input variables={variables}
               value={output.key}
               onChange={(event) => updateOutput(index, { key: event.target.value })}
               placeholder="字段名"
               className="h-8 text-xs"
             />
-            <Input
+            <Input variables={variables}
               value={output.jsonPath}
               onChange={(event) => updateOutput(index, {
                 jsonPath: event.target.value.replace(/^\$\.?/, ''),
@@ -346,8 +343,8 @@ export function HttpConfigPanel({
             >
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {OUTPUT_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                {WORKFLOW_DATA_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>{getValueTypeLabel(type)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

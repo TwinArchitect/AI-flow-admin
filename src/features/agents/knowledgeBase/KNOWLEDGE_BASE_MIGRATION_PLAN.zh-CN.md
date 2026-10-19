@@ -119,7 +119,7 @@ src/features/agents/knowledgeBase/
 - `POST /gpt/kb/dataset/save`
 - `GET /gpt/kb/dataset/get/{id}`
 - `GET /gpt/kb/dataset/stats/{id}`
-- `DELETE /gpt/kb/dataset/delete/{id}`
+- `POST /gpt/kb/dataset/delete/{id}`
 
 ### 6.2 文件与解析
 
@@ -131,7 +131,7 @@ src/features/agents/knowledgeBase/
 - `GET /gpt/kb/document/progress/{id}`
 - `POST /gpt/kb/document/availability`
 - `GET /gpt/kb/document/download/{id}`
-- `DELETE /gpt/kb/document/delete/{id}`
+- `POST /gpt/kb/document/delete/{id}`
 
 ### 6.3 分块与检索
 

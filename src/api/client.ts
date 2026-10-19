@@ -12,11 +12,6 @@ function redirectToLogin() {
   }
 }
 
-function isAuthenticationExpired(code: unknown, message: unknown) {
-  return code === 401
-    || (typeof message === 'string' && /认证已失效|登录已失效|请重新登录/.test(message));
-}
-
 // axios 实例
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
@@ -50,7 +45,7 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 http.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const { code, message, data } = response.data;
-    if (isAuthenticationExpired(code, message)) {
+    if (code === 401) {
       redirectToLogin();
       return Promise.reject(new Error(message ?? '认证已失效，请重新登录'));
     }
@@ -64,7 +59,7 @@ http.interceptors.response.use(
   },
   (error) => {
     // HTTP 错误
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    if (error.response?.status === 401 || error.response?.data?.code === 401) {
       // token 失效，清除本地存储并跳转登录页
       redirectToLogin();
     }

@@ -1,4 +1,4 @@
-import { Textarea } from '@/components/ui/textarea';
+import { VariableTextarea as Textarea } from './shared/VariableValueField';
 import {
   normalizeReplyConfig,
   REPLY_CONTENT_MAX_LENGTH,
@@ -28,12 +28,12 @@ export function ReplyConfigPanel({
       </div>
       <Field label="回复文本">
         <div className="mb-2 flex justify-end">
-          <VariablePicker
+          <VariablePicker mode="multiple"
             variables={variables}
             onSelect={(ref) => onUpdate({ content: `${value.content}${ref}` })}
           />
         </div>
-        <Textarea
+        <Textarea variables={variables}
           value={value.content}
           maxLength={REPLY_CONTENT_MAX_LENGTH}
           onChange={(event) => onUpdate({ content: event.target.value })}

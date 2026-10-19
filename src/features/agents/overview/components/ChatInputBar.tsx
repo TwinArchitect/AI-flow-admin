@@ -13,13 +13,19 @@
  *   motion/react → framer-motion
  */
 
-import { Mic, SendHorizontal, Sparkles, Square } from 'lucide-react';
+import { useRef } from 'react';
+import { Camera, X, Mic, SendHorizontal, Sparkles, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 /* ─── ChatInputBar ─── */
 interface ChatInputBarProps {
+  cameraCaptureEnabled?: boolean;
+  onCapture?: (file: File) => void;
+  pendingFileName?: string;
+  onRemoveFile?: () => void;
+  hasAttachment?: boolean;
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
@@ -32,11 +38,15 @@ interface ChatInputBarProps {
 }
 
 function ChatInputBar({
+  cameraCaptureEnabled, onCapture, pendingFileName, onRemoveFile, hasAttachment,
   value, onChange, onSend, onStop, disabled, isSending,
   placeholder, onOpenAgentPicker, activeAgentLabel,
 }: ChatInputBarProps) {
+  const cameraRef = useRef<HTMLInputElement>(null);
   return (
     <div className="relative">
+      {pendingFileName && <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><Camera size={14} /><span className="truncate">{pendingFileName}</span><Button variant="ghost" size="icon-xs" disabled={disabled} onClick={onRemoveFile} aria-label="移除照片"><X size={12} /></Button></div>}
+      {cameraCaptureEnabled && <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) onCapture?.(file); event.target.value = ''; }} />}
       {/* 品牌色描边容器 */}
       <div className="rounded-full border border-primary/70 bg-background shadow-sm">
         <div className="w-full bg-background rounded-full h-14 flex items-center px-4 gap-3">
@@ -67,6 +77,7 @@ function ChatInputBar({
           />
 
           <div className="flex items-center gap-2 pr-1">
+            {cameraCaptureEnabled && <Button variant="ghost" size="icon-sm" disabled={disabled} onClick={() => cameraRef.current?.click()} aria-label="拍照"><Camera size={18} /></Button>}
             <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
               <Mic size={18} />
             </Button>
@@ -86,7 +97,7 @@ function ChatInputBar({
                 variant="ghost"
                 size="icon-sm"
                 onClick={onSend}
-                disabled={disabled || !value.trim()}
+                disabled={disabled || (!value.trim() && !hasAttachment)}
                 className={cn(
                   'rounded-lg',
                   value.trim() && !disabled

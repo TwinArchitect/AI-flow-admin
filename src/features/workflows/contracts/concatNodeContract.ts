@@ -11,7 +11,7 @@ import { createCanvasNode, DEFAULT_MODULE_VERSION, parseStringInput } from './sh
 
 const RESERVED_INPUT_KEYS = new Set(['system_addInputParam', 'template', 'system_textareaInput']);
 export const TEMPLATE_VALUE_TYPES: WorkflowValueType[] = [
-  'string', 'number', 'boolean', 'object', 'any',
+  'string', 'number', 'boolean', 'object', 'file', 'any',
   'arrayString', 'arrayNumber', 'arrayBoolean', 'arrayObject', 'arrayAny',
 ];
 

@@ -6,8 +6,8 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Layers, Sparkles } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Layers, MessageCircle, Sparkles } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,11 +20,12 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import type { AgentOpenSysAgent } from '@/types/agent';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   name: z.string().min(1, '请输入智能体名称').max(50),
   remark: z.string().min(1, '请输入智能体描述').max(200),
-  type: z.literal('workflow'),
+  type: z.enum(['workflow', 'chat']),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -54,7 +55,7 @@ export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAg
       form.reset({
         name: agent?.agentName ?? '',
         remark: agent?.remark ?? '',
-        type: 'workflow',
+        type: agent?.flowType === 0 ? 'chat' : 'workflow',
       });
     }
   }, [isOpen, agent, form]);
@@ -69,7 +70,7 @@ export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAg
       <DialogContent className="w-[calc(100vw-2rem)] max-w-[560px] p-0 overflow-hidden gap-0" showCloseButton>
         <div className="h-[3px] bg-gradient-to-r from-primary via-purple-500 to-destructive shrink-0" />
 
-        <div className="px-7 pt-7 pb-4 flex items-start justify-between gap-4 shrink-0 relative">
+        <DialogHeader className="px-7 pt-7 pb-4 items-start gap-4 relative">
           <div>
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
               <Sparkles size={20} className="text-primary animate-pulse" />
@@ -78,10 +79,10 @@ export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAg
             <p className="text-xs text-muted-foreground mt-1">
               {isEditMode
                 ? '更新名称与描述，不影响流程编排'
-                : '填写基础信息后进入工作流编排'}
+                : '填写基础信息后进入对应的智能体编排页面'}
             </p>
           </div>
-        </div>
+        </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col">
@@ -89,17 +90,20 @@ export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAg
               <div className="space-y-5">
                 <section>
                   <h3 className="text-[13px] font-bold text-foreground mb-3">智能体类型</h3>
-                  <div className="flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 p-4">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15">
-                      <Layers size={19} className="text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">工作流型</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        面向业务流程的自动化编排与执行，类型创建后不可修改
-                      </p>
-                    </div>
-                  </div>
+                  <FormField control={form.control} name="type" render={({ field }) => (
+                    <FormItem><FormControl><div className="grid gap-3 sm:grid-cols-2">
+                      {([
+                        { value: 'chat', title: '对话式', description: '通过提示词、模型、知识库和工具构建智能助手', Icon: MessageCircle },
+                        { value: 'workflow', title: '工作流型', description: '通过可视化节点编排复杂业务流程', Icon: Layers },
+                      ] as const).map(({ value, title, description, Icon }) => (
+                        <button key={value} type="button" disabled={isEditMode} onClick={() => field.onChange(value)}
+                          className={cn('flex items-start gap-3 rounded-xl border p-4 text-left transition-colors', field.value === value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40', isEditMode && 'cursor-not-allowed opacity-70')}>
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15"><Icon size={19} className="text-primary" /></span>
+                          <span><span className="block text-sm font-semibold text-foreground">{title}</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">{description}</span></span>
+                        </button>
+                      ))}
+                    </div></FormControl></FormItem>
+                  )} />
                 </section>
 
                 <section>

@@ -29,6 +29,10 @@ export interface OverviewUiMessage {
   customType?: string;
   likes?: number;
   timestamp: string;
+  debugTraces?: import('@/features/conversation-runtime/ExecutionTraceMonitor').PreviewDebugTrace[];
+  workflowRunId?: string;
+  taskId?: string;
+  phase?: 'connecting' | 'generating' | 'main-complete' | 'complete' | 'failed' | 'stopped';
 }
 
 /** 内容增量（SSE） */

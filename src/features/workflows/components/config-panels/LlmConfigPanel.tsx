@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { FolderOpen, Settings2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './shared/VariableValueField';
 import {
   Select,
   SelectContent,
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
+import { VariableTextarea as Textarea } from './shared/VariableValueField';
 import { normalizeLlmConfig } from '../../contracts/llmNodeContract';
 import { useWorkflowModels } from '../../hooks/useWorkflowModels';
 import type { LlmNodeConfig, WorkflowVariableOption } from '../../types';
@@ -110,7 +110,7 @@ export function LlmConfigPanel({
         <SectionTitle>输入参数</SectionTitle>
         <Field label="系统提示词">
           <div className="mb-2 flex justify-end">
-            <VariablePicker
+            <VariablePicker mode="multiple"
               variables={variables}
               onSelect={(ref) => insertPromptVariable('systemPrompt', ref)}
             />
@@ -121,7 +121,7 @@ export function LlmConfigPanel({
             agentId={agentId}
             onApply={(systemPrompt) => onUpdate({ systemPrompt })}
           >
-            <Textarea
+            <Textarea variables={variables}
               ref={systemPromptRef}
               value={value.systemPrompt}
               maxLength={100000}
@@ -159,7 +159,7 @@ export function LlmConfigPanel({
         )}
         <Field label="用户问题">
           <div className="mb-2 flex justify-end">
-            <VariablePicker variables={variables} onSelect={(ref) => insertPromptVariable('userChatInput', ref)} />
+            <VariablePicker mode="multiple" variables={variables} onSelect={(ref) => insertPromptVariable('userChatInput', ref)} />
           </div>
           <PromptOptimizeControl
             scene="user_prompt_optimize"
@@ -167,7 +167,7 @@ export function LlmConfigPanel({
             agentId={agentId}
             onApply={(userChatInput) => onUpdate({ userChatInput })}
           >
-            <Textarea
+            <Textarea variables={variables}
               ref={userPromptRef}
               value={value.userChatInput}
               onChange={(event) => onUpdate({ userChatInput: event.target.value })}
@@ -203,7 +203,7 @@ export function LlmConfigPanel({
           <Field label="文件列表">
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
-                <Input
+                <Input variables={variables}
                   value={value.fileUrlRefs[0] ?? ''}
                   onChange={(event) => onUpdate({ fileUrlRefs: event.target.value ? [event.target.value] : [] })}
                   placeholder="选择文件类型的上游变量"

@@ -37,7 +37,7 @@ export async function updateModel(payload: ModelSavePayload & { id: string }) {
 }
 
 export async function deleteModel(id: string) {
-  const response = await http.delete(`/gpt/base/model/delete/${id}`);
+  const response = await http.post(`/gpt/base/model/delete/${id}`);
   return response.data;
 }
 

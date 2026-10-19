@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { VariableInput as Input } from './VariableValueField';
 import type { HttpParamRow, WorkflowVariableOption } from '../../../types';
 import { VariablePicker } from './VariablePicker';
 
@@ -35,13 +35,13 @@ export function KeyValueRows({
         ) : (
           rows.map((row, index) => (
             <div key={row.id} className="grid grid-cols-[1fr_1fr_28px] gap-2">
-              <Input
+              <Input variables={variables}
                 value={row.key}
                 onChange={(event) => updateRow(index, { key: event.target.value })}
                 placeholder={keyPlaceholder}
                 className="h-8 text-xs"
               />
-              <Input
+              <Input variables={variables}
                 value={row.value}
                 onChange={(event) => updateRow(index, { value: event.target.value })}
                 placeholder={valuePlaceholder}
