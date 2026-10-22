@@ -985,6 +985,8 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
           cell: ({ row }) => (
             <Switch
               checked={row.original.enabled}
+              aria-label={`${row.original.name}：${row.original.enabled ? '关闭检索' : '开启检索'}`}
+              title={row.original.enabled ? '检索已开启：该文件参与知识库检索，点击关闭。' : '检索已关闭：该文件不参与知识库检索，点击开启。'}
               disabled={availabilityMutation.isPending}
               onCheckedChange={(enabled) => availabilityMutation.mutate({ id: row.original.id, enabled })}
               className="data-[state=checked]:bg-success"
@@ -1349,9 +1351,19 @@ function SearchTab({ kbId }: { kbId: string }) {
       <div className="flex-1 grid grid-cols-5 gap-6 overflow-hidden">
         <div className="col-span-2 space-y-5 bg-muted/30 p-5 rounded-2xl border border-border overflow-y-auto flex flex-col">
           <h3 className="text-xs font-bold uppercase tracking-widest text-foreground flex items-center gap-1.5 shrink-0">
-            <SlidersHorizontal size={14} className="text-primary" /> 测试超参数参数
+            <SlidersHorizontal size={14} className="text-primary" /> 检索测试参数
           </h3>
           <div className="space-y-4 flex-1">
+            <div className="space-y-2">
+              <Label htmlFor="knowledge-retrieval-query" className="text-xs font-bold text-muted-foreground">检索问题</Label>
+              <Textarea
+                id="knowledge-retrieval-query"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="请输入检索问题，也可点击下方样例填入后修改"
+                className="min-h-24 text-xs"
+              />
+            </div>
             <div>
               <div className="flex justify-between text-xs">
                 <span className="font-bold text-muted-foreground">相似度最低阈值</span>
@@ -1378,9 +1390,11 @@ function SearchTab({ kbId }: { kbId: string }) {
                 <Input type="number" min={1} max={100} value={resultSize} onChange={(event) => setResultSize(Math.max(1, Number(event.target.value) || 1))} className="mt-1 h-9" />
               </div>
             </div>
-            <div className="flex items-center justify-between border-t border-border py-1">
-              <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">混合检索</Label>
-              <Switch checked={kg} onCheckedChange={setKg} />
+            <div className="border-t border-border py-1 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="knowledge-hybrid-search" className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">混合检索</Label>
+                <Switch id="knowledge-hybrid-search" checked={kg} onCheckedChange={setKg} />
+              </div>
             </div>
             {kg && <div>
               <Label className="mb-1.5 block text-2xs font-bold text-muted-foreground uppercase tracking-widest">融合方式</Label>
@@ -1406,7 +1420,7 @@ function SearchTab({ kbId }: { kbId: string }) {
               />
             </div>}
             <div className="space-y-2 border-t border-border pt-3">
-              <div className="flex items-center justify-between"><Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Rerank 深度排序</Label><Switch checked={rerankEnabled} onCheckedChange={setRerankEnabled} /></div>
+              <div className="flex items-center justify-between"><Label htmlFor="knowledge-rerank" className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Rerank 深度排序</Label><Switch id="knowledge-rerank" checked={rerankEnabled} onCheckedChange={setRerankEnabled} /></div>
               {rerankEnabled && <Select value={rerank} onValueChange={setRerank} disabled={rerankModelsQuery.isLoading || rerankModels.length === 0}>
                 <SelectTrigger className="w-full h-9 text-xs">
                   <SelectValue />

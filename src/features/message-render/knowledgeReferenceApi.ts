@@ -1,19 +1,8 @@
-import { useAuthStore } from '@/stores/auth';
+import { authFetch } from '@/lib/authSession';
 import type { KnowledgeReferenceSource } from './knowledgeReference';
 
-function authHeaders() {
-  const { token, tenantId } = useAuthStore.getState();
-  const headers = new Headers();
-  if (token) {
-    headers.set('token', token);
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  if (tenantId) headers.set('tenant_id', tenantId);
-  return headers;
-}
-
 async function fetchBlob(url: string, message: string) {
-  const response = await fetch(url, { headers: authHeaders() });
+  const response = await authFetch(url);
   if (!response.ok) throw new Error(`${message} HTTP ${response.status}`);
   return response.blob();
 }

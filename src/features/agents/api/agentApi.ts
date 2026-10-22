@@ -1,4 +1,4 @@
-import { useAuthStore } from '@/stores/auth';
+import { authFetch } from '@/lib/authSession';
 import { http } from '@/api/client';
 import type {
   AgentOpenPublish,
@@ -114,11 +114,7 @@ export async function optimizeWorkflowPrompt(params: {
 
 /** 与参照项目一致，导出服务端已保存的 YAML DSL。 */
 export async function exportAgentConfig(id: string, fallbackName = 'agent') {
-  const { token, tenantId } = useAuthStore.getState();
-  const headers = new Headers();
-  if (token) { headers.set('token', token); headers.set('Authorization', `Bearer ${token}`); }
-  if (tenantId) headers.set('tenant_id', tenantId);
-  const response = await fetch(`${AGENT_API_BASE}/exportConfig/${encodeURIComponent(id)}`, { headers });
+  const response = await authFetch(`${AGENT_API_BASE}/exportConfig/${encodeURIComponent(id)}`);
   if (!response.ok) throw new Error((await response.text()).trim() || `导出失败（HTTP ${response.status}）`);
   const disposition = response.headers.get('Content-Disposition');
   const utf8 = disposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];

@@ -1,5 +1,4 @@
-import { useAuthStore } from '@/stores/auth';
-import { useLayoutStore } from '@/stores/layout';
+import { authFetch } from '@/lib/authSession';
 import type { ContentDelta } from '@/types';
 import { parseSseToConversationDeltas } from '@/features/message-render/sseContentAdapter';
 import type {
@@ -53,19 +52,12 @@ export async function runWorkflowStream({
   onRuntimeEvent,
   signal,
 }: RunWorkflowStreamRequest): Promise<WorkflowRunResult> {
-  const { token, tenantId, clear } = useAuthStore.getState();
   const headers = new Headers({
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
   });
 
-  if (token) {
-    headers.set('token', token);
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  if (tenantId) headers.set('tenant_id', tenantId);
-
-  const response = await fetch('/gpt/base/workflows/run', {
+  const response = await authFetch('/gpt/base/workflows/run', {
     method: 'POST',
     headers,
     body: JSON.stringify(request),
@@ -73,11 +65,6 @@ export async function runWorkflowStream({
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      clear();
-      useLayoutStore.getState().resetLayout();
-      window.location.replace('/login');
-    }
     const message = await response.text().catch(() => '');
     throw new Error(message || `HTTP ${response.status}`);
   }

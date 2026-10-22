@@ -1,4 +1,5 @@
 import { http } from '@/api/client';
+import { authFetch } from '@/lib/authSession';
 import type {
   DocumentDetail,
   DocumentListItem,
@@ -97,27 +98,9 @@ export function deleteDocument(documentId: string) {
     .then((response) => response.data);
 }
 
-function getDocumentHeaders() {
-  const headers = new Headers();
-  const raw = localStorage.getItem('auth-storage');
-  if (!raw) return headers;
-  try {
-    const state = (JSON.parse(raw) as { state?: { token?: string; tenantId?: string } }).state;
-    if (state?.token) {
-      headers.set('token', state.token);
-      headers.set('Authorization', `Bearer ${state.token}`);
-    }
-    if (state?.tenantId) headers.set('tenant_id', state.tenantId);
-  } catch {
-    // 下载接口沿用未登录请求，由服务端返回明确错误。
-  }
-  return headers;
-}
-
 export async function fetchDocumentBlob(documentId: string) {
-  const response = await fetch(
+  const response = await authFetch(
     `${DOCUMENT_API_BASE}/download/${encodeURIComponent(documentId)}`,
-    { headers: getDocumentHeaders() },
   );
   const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
   if (response.ok && !contentType.includes('application/json')) return response.blob();

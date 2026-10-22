@@ -1,19 +1,4 @@
-function getKnowledgeMediaHeaders() {
-  const headers = new Headers();
-  const raw = localStorage.getItem('auth-storage');
-  if (!raw) return headers;
-  try {
-    const state = (JSON.parse(raw) as { state?: { token?: string; tenantId?: string } }).state;
-    if (state?.token) {
-      headers.set('token', state.token);
-      headers.set('Authorization', `Bearer ${state.token}`);
-    }
-    if (state?.tenantId) headers.set('tenant_id', state.tenantId);
-  } catch {
-    // 由服务端返回明确的鉴权错误。
-  }
-  return headers;
-}
+import { authFetch } from '@/lib/authSession';
 
 function resolveMediaUrl(previewUrl: string) {
   if (/^https?:\/\//i.test(previewUrl)) return previewUrl;
@@ -23,9 +8,7 @@ function resolveMediaUrl(previewUrl: string) {
 }
 
 export async function fetchKnowledgeMediaBlob(previewUrl: string) {
-  const response = await fetch(resolveMediaUrl(previewUrl.trim()), {
-    headers: getKnowledgeMediaHeaders(),
-  });
+  const response = await authFetch(resolveMediaUrl(previewUrl.trim()));
   if (!response.ok) throw new Error(`图片加载失败（HTTP ${response.status}）`);
   return response.blob();
 }

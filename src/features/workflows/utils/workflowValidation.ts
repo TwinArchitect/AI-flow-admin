@@ -158,10 +158,12 @@ export function validateWorkflowForBackend(
     const topLevelIds = new Set(nodes.filter((node) => !node.parentId).map((node) => node.id));
     const topLevelEdges = edges.filter((edge) => topLevelIds.has(edge.source) && topLevelIds.has(edge.target));
     const reachableFromStart = getReachableNodeIds(starts[0].id, topLevelEdges);
+    // 判断器的未连接分支可直接结束当前路径。
+    const pathEnds = [...ends, ...nodes.filter((node) => !node.parentId && node.data.nodeType === 'condition')];
     const canReachEnd = new Set(
-      ends.flatMap((end) => [...getReachableNodeIds(end.id, topLevelEdges, true)]),
+      pathEnds.flatMap((end) => [...getReachableNodeIds(end.id, topLevelEdges, true)]),
     );
-    if (!ends.some((end) => reachableFromStart.has(end.id))) {
+    if (!pathEnds.some((end) => reachableFromStart.has(end.id))) {
       errors.push('开始节点与结束节点之间不存在可执行路径');
     }
     nodes.filter((node) => !node.parentId).forEach((node) => {

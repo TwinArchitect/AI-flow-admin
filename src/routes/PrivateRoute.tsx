@@ -3,5 +3,6 @@ import { useAuthStore } from '@/stores/auth';
 
 export function PrivateRoute() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  const token = useAuthStore(s => s.token);
+  return isAuthenticated && token ? <Outlet /> : <Navigate to="/login" replace />;
 }

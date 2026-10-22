@@ -65,11 +65,6 @@ export const conditionNodeModule: WorkflowNodeModule = {
     ));
     const expectedHandles = [...branchHandles, buildConditionElseHandle(node.id)];
     const errors: string[] = [];
-    branchHandles.forEach((handle, index) => {
-      if (!outgoing.some((edge) => edge.sourceHandle === handle)) {
-        errors.push(`节点 ${node.data.label} 必须连接 ${getConditionBranchLabel(index)} 分支`);
-      }
-    });
     if (outgoing.some((edge) => !expectedHandles.includes(edge.sourceHandle ?? ''))) {
       errors.push(`节点 ${node.data.label} 存在无法识别的输出分支`);
     }
@@ -80,7 +75,7 @@ export const conditionNodeModule: WorkflowNodeModule = {
     allowOutgoing: true,
     deletable: true,
     requireIncoming: true,
-    requireOutgoing: true,
+    requireOutgoing: false,
     maxIncoming: 1,
     maxOutgoing: 2,
   },
@@ -89,7 +84,7 @@ export const conditionNodeModule: WorkflowNodeModule = {
     allowOutgoing: true,
     deletable: true,
     requireIncoming: true,
-    requireOutgoing: true,
+    requireOutgoing: false,
     maxIncoming: 1,
     maxOutgoing: normalizeConditionConfig(node.data.config).branches.length + 1,
   }),

@@ -5,6 +5,7 @@ import { Toaster, toast } from 'sonner';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { router } from '@/routes';
+import { watchAuthSession } from '@/lib/authSession';
 import '@/styles/index.css';
 
 // React Query 客户端（含全局错误兜底）
@@ -29,6 +30,9 @@ const queryClient = new QueryClient({
     },
   }),
 });
+
+const stopAuthSessionWatch = watchAuthSession(() => queryClient.clear());
+if (import.meta.hot) import.meta.hot.dispose(stopAuthSessionWatch);
 
 // 初始化主题（从 localStorage 恢复）
 const theme = localStorage.getItem('theme-storage');

@@ -26,13 +26,19 @@ function valueOf(value: unknown) {
 }
 
 function rowsOf(detail: DocumentDetail) {
+  const statusLabels: Record<string, string> = {
+    NEW: '新建', UPLOADED: '已上传', PARSING: '解析中', PARSED: '结构解析完成',
+    CHUNKING: '分块中', EMBEDDING: '向量化中', INDEXING: '索引中',
+    READY: '已完成', FAILED: '解析失败', CANCELLED: '已取消',
+    PENDING: '排队中', RUNNING: '执行中', SUCCESS: '成功', COMPLETED: '已完成',
+  };
   const rows: Array<[string, unknown]> = [
     ['文档 ID', detail.id], ['文件名', detail.fileName], ['文件类型', detail.fileType],
     ['文件大小', formatFileSize(detail.fileSize)], ['MD5', detail.fileMd5], ['存储路径', detail.filePath],
-    ['知识库 ID', detail.datasetId], ['状态', detail.status], ['版本', detail.currentVersion],
+    ['知识库 ID', detail.datasetId], ['状态', statusLabels[detail.status] ?? detail.status], ['版本', detail.currentVersion],
     ['分块数', detail.chunkCount], ['检索开关', detail.searchEnabled === false ? '关闭' : '开启'],
     ['解析进度', detail.progressPercent != null ? `${detail.progressPercent}%${detail.progressMessage ? ` · ${detail.progressMessage}` : ''}` : detail.progressMessage],
-    ['任务状态', detail.taskStatus], ['重试次数', detail.retryCount],
+    ['任务状态', detail.taskStatus ? statusLabels[detail.taskStatus] ?? detail.taskStatus : undefined], ['重试次数', detail.retryCount],
     ['错误信息', detail.errorMessage || detail.taskError], ['创建人', detail.creator],
     ['创建时间', detail.createTime],
   ];
