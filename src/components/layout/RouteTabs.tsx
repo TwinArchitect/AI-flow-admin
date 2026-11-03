@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
-import { ArrowLeft, X } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth';
+import { canAccess, menuPaths } from '@/features/permissions/routes';
+import { useEffect, useRef } from 'react';
+import { ArrowLeft, X, Home, Users, Box, BookOpen, Workflow, MessageSquare, FileText } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -21,7 +23,8 @@ const routeTitles: Record<string, string> = {
   '/agents/myAgents': '我的智能体',
   '/agents/orchestration': '对话式智能体编排',
   '/agents/knowledge': '知识库',
-  '/agents/knowledge/settings': '知识库 · 引擎设置',
+  '/agents/knowledge/settings': '知识库 · 模型配置',
+  '/agents/knowledge/api-doc': '知识库开放 API 文档',
   '/agents/tags': '标签页',
   '/agents/AgentPlaza/chat': '智能体会话',
   '/agents/models': '模型管理',
@@ -33,6 +36,11 @@ const routeTitles: Record<string, string> = {
   '/users': '用户管理',
   '/settings': '系统设置',
   '/components': '组件示例',
+};
+
+const routeIcons: Record<string, React.ElementType> = {
+  '/': Home, '/agents/myAgents': Users, '/agents/models': Box,
+  '/agents/knowledge': BookOpen, '/agents/overview': MessageSquare, '/workflows': Workflow,
 };
 
 const componentTitles: Record<string, string> = {
@@ -67,6 +75,7 @@ interface RouteTabsProps {
 
 export function RouteTabs({ showBack }: RouteTabsProps) {
   const location = useLocation();
+  const tabsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const {
     routeTabs,
@@ -78,7 +87,9 @@ export function RouteTabs({ showBack }: RouteTabsProps) {
     setActiveTabPath,
   } = useLayoutStore();
   const currentPath = `${location.pathname}${location.search}${location.hash}`;
-  const visibleRouteTabs = routeTabs.filter((tab) => !isTablessRoute(tab.path));
+  const menus = useAuthStore(state => state.menus);
+  const allowedPaths = menuPaths(menus ?? []);
+  const visibleRouteTabs = routeTabs.filter((tab) => !isTablessRoute(tab.path) && canAccess(tab.path, allowedPaths));
 
   useEffect(() => {
     useLayoutStore.getState().routeTabs
@@ -90,6 +101,10 @@ export function RouteTabs({ showBack }: RouteTabsProps) {
     if (isTablessRoute(location.pathname)) return;
     openRouteTab({ path: currentPath, title: resolveRouteTitle(location.pathname) });
   }, [currentPath, location.pathname, openRouteTab]);
+
+  useEffect(() => {
+    tabsRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [currentPath, visibleRouteTabs.length]);
 
   const closeTab = (path: string) => {
     const index = visibleRouteTabs.findIndex((tab) => tab.path === path);
@@ -109,7 +124,7 @@ export function RouteTabs({ showBack }: RouteTabsProps) {
   };
 
   return (
-    <div className="flex h-10 shrink-0 items-center border-b border-border bg-card">
+    <div className="flex h-11 shrink-0 items-center border-b border-border bg-primary/[0.035]">
       {showBack && (
         <div className="flex shrink-0 items-center border-r border-border px-2">
           <Tooltip>
@@ -123,24 +138,28 @@ export function RouteTabs({ showBack }: RouteTabsProps) {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto px-2 pt-1.5">
+      <div ref={tabsRef} aria-label="已打开的页面" className="flex min-w-0 flex-1 h-full items-end gap-0 overflow-x-auto px-3 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {visibleRouteTabs.map((tab) => {
           const active = tab.path === currentPath;
+          const TabIcon = routeIcons[tab.path.split(/[?#]/, 1)[0]] ?? FileText;
           const tabIndex = visibleRouteTabs.findIndex((item) => item.path === tab.path);
           return (
             <ContextMenu key={tab.path}>
               <ContextMenuTrigger asChild>
                 <div
+              data-active={active}
               className={cn(
-                'group flex h-8 max-w-52 shrink-0 items-center rounded-t-md border border-b-0 px-2 text-xs transition-colors',
+                'group relative flex h-9 max-w-56 shrink-0 items-center gap-2 rounded-t-lg border px-3.5 text-xs transition-colors',
                 active
-                  ? 'border-border bg-background text-foreground'
-                  : 'border-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
+                  ? 'border-border border-b-card bg-card font-semibold text-primary-text before:absolute before:inset-x-0 before:-top-px before:h-0.5 before:rounded-t-lg before:bg-primary-text'
+                  : 'border-transparent border-r-border/60 text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
                 >
+              <TabIcon aria-hidden="true" className="size-4 shrink-0" />
               <button
                 type="button"
-                className="min-w-0 flex-1 truncate px-1 text-left"
+                aria-current={active ? 'page' : undefined}
+                className="min-w-0 flex-1 truncate py-1 text-left outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
                 title={tab.title}
                 onClick={() => changeTab(tab.path)}
               >
@@ -150,7 +169,7 @@ export function RouteTabs({ showBack }: RouteTabsProps) {
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      className="ml-1 size-5 opacity-60 hover:bg-muted hover:opacity-100"
+                      className={cn('ml-0.5 size-5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100', active ? 'opacity-70' : 'opacity-0 [@media(hover:none)]:opacity-70')}
                       onClick={() => closeTab(tab.path)}
                       aria-label={`关闭${tab.title}`}
                     >

@@ -1,0 +1,19 @@
+/* 覆盖式边界不依赖折叠表格的 box-shadow 绘制。 */
+[data-pinned-boundary]::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  pointer-events: none;
+}
+[data-pinned-boundary="left"]::after {
+  right: -12px;
+  border-left: 1px solid var(--border);
+  background: linear-gradient(to right, color-mix(in srgb, var(--foreground) 8%, transparent), transparent);
+}
+[data-pinned-boundary="right"]::after {
+  left: -12px;
+  border-right: 1px solid var(--border);
+  background: linear-gradient(to left, color-mix(in srgb, var(--foreground) 8%, transparent), transparent);
+}

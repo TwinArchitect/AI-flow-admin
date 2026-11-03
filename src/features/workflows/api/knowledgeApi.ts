@@ -30,5 +30,7 @@ export function queryWorkflowDatasets(keyword = '') {
 export function queryWorkflowRerankModels() {
   return http.get<WorkflowRerankModel[]>('/gpt/base/model/list', {
     params: { category: 'rerank', status: 0 },
-  }).then((response) => response.data ?? []);
+  }).then((response) => (response.data ?? []).filter((model) =>
+    (model.status === 0 || model.status === undefined) && Boolean(model.model?.trim() || model.id),
+  ));
 }

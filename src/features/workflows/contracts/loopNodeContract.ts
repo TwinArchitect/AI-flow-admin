@@ -4,25 +4,26 @@ import type {
   LoopStartNodeConfig,
   WorkflowCanvasNode,
   WorkflowModule,
-  WorkflowModuleInput,
-  WorkflowModuleOutput,
   WorkflowOutputSchema,
   WorkflowValueType,
 } from '../types';
 import { moduleRefToString, parseVariableRef, stringToModuleRef } from '../utils/variableRefs';
 import { createCanvasNode, DEFAULT_MODULE_VERSION } from './shared';
 
-export const LOOP_NODE_DESCRIPTION = '遍历数组并依次执行循环体内的节点';
-export const LOOP_WIDTH = 760;
-export const LOOP_HEIGHT = 420;
+export const LOOP_NODE_DESCRIPTION = '重复执行循环体内节点，并按执行顺序收集每轮结果';
+export const LOOP_WIDTH = 880;
+export const LOOP_HEIGHT = 520;
 export const LOOP_INPUT_HEIGHT = 172;
 
 export const LOOP_START_OUTPUTS: WorkflowOutputSchema[] = [
   { key: 'currentIndex', label: '当前索引', valueType: 'number' },
-  { key: 'currentItem', label: '当前项', valueType: 'any' },
+  { key: 'currentItem', label: '当前项', valueType: 'object' },
 ];
 
+export const LOOP_FIXED_OUTPUTS: WorkflowOutputSchema[] = [{ key: 'results', label: '循环结果', valueType: 'arrayString' }];
+
 const LOOP_RESERVED_INPUTS = new Set([
+  'loopOutputSource',
   'loopRunMode',
   'loopRunInputArray',
   'loopCustomOutputs',
@@ -40,7 +41,7 @@ export function createDefaultLoopConfig(): LoopNodeConfig {
   return {
     loopRunMode: 'array',
     loopRunInputArray: '',
-    customOutputs: [],
+    loopOutputSource: '',
     childrenNodeIds: [],
     nodeWidth: LOOP_WIDTH,
     nodeHeight: LOOP_HEIGHT,
@@ -49,23 +50,17 @@ export function createDefaultLoopConfig(): LoopNodeConfig {
   };
 }
 
-export function createDefaultLoopStartConfig(): LoopStartNodeConfig {
-  return { loopRunMode: 'array', loopStartInput: '' };
+export function createDefaultLoopStartConfig(mode: LoopStartNodeConfig['loopRunMode'] = 'array'): LoopStartNodeConfig {
+  return { loopRunMode: mode, loopStartInput: '' };
 }
 
 export function normalizeLoopConfig(config: unknown): LoopNodeConfig {
   const raw = (config ?? {}) as Partial<LoopNodeConfig>;
   const outputs = Array.isArray(raw.customOutputs) ? raw.customOutputs : [];
   return {
-    loopRunMode: 'array',
+    loopRunMode: raw.loopRunMode === 'conditional' ? 'conditional' : 'array',
     loopRunInputArray: String(raw.loopRunInputArray ?? ''),
-    customOutputs: outputs.map((item, index) => ({
-      id: String(item.id || rowId(index)),
-      key: String(item.key ?? ''),
-      label: String(item.label ?? item.key ?? ''),
-      valueType: (item.valueType || 'object') as WorkflowValueType,
-      value: String(item.value ?? ''),
-    })),
+    loopOutputSource: String(raw.loopOutputSource ?? outputs[0]?.value ?? ''),
     childrenNodeIds: Array.isArray(raw.childrenNodeIds) ? raw.childrenNodeIds.map(String) : [],
     nodeWidth: Number(raw.nodeWidth) || LOOP_WIDTH,
     nodeHeight: Number(raw.nodeHeight) || LOOP_HEIGHT,
@@ -77,7 +72,7 @@ export function normalizeLoopConfig(config: unknown): LoopNodeConfig {
 export function normalizeLoopStartConfig(config: unknown): LoopStartNodeConfig {
   const raw = (config ?? {}) as Partial<LoopStartNodeConfig>;
   return {
-    loopRunMode: 'array',
+    loopRunMode: raw.loopRunMode === 'conditional' ? 'conditional' : 'array',
     loopStartInput: String(raw.loopStartInput ?? ''),
     loopStartIndex: typeof raw.loopStartIndex === 'number' ? raw.loopStartIndex : undefined,
   };
@@ -90,7 +85,7 @@ function parseLoopArray(value: unknown) {
 
 function serializeLoopArray(value: string) {
   const ref = stringToModuleRef(value);
-  return Array.isArray(ref) ? [ref] : [[]];
+  return Array.isArray(ref) ? [ref] : value.trim() || [[]];
 }
 
 function parseCustomOutputs(module: WorkflowModule): LoopCustomOutput[] {
@@ -109,36 +104,8 @@ function parseCustomOutputs(module: WorkflowModule): LoopCustomOutput[] {
     });
 }
 
-function dynamicInputs(config: LoopNodeConfig): WorkflowModuleInput[] {
-  return config.customOutputs
-    .filter((item) => item.key.trim())
-    .map((item) => ({
-      key: item.key.trim(),
-      label: item.label.trim() || item.key.trim(),
-      valueType: item.valueType,
-      required: true,
-      renderTypeList: ['reference'],
-      value: stringToModuleRef(item.value),
-      canEdit: true,
-    }));
-}
-
-function dynamicOutputs(config: LoopNodeConfig): WorkflowModuleOutput[] {
-  return config.customOutputs
-    .filter((item) => item.key.trim())
-    .map((item) => ({
-      id: item.key.trim(),
-      key: item.key.trim(),
-      type: 'dynamic',
-      valueType: item.valueType,
-      label: item.label.trim() || item.key.trim(),
-    }));
-}
-
-export function loopOutputs(config: unknown): WorkflowOutputSchema[] {
-  return normalizeLoopConfig(config).customOutputs
-    .filter((item) => item.key.trim())
-    .map((item) => ({ key: item.key.trim(), label: item.label.trim() || item.key.trim(), valueType: item.valueType }));
+export function loopOutputs(_config?: unknown): WorkflowOutputSchema[] {
+  return LOOP_FIXED_OUTPUTS.map((output) => ({ ...output }));
 }
 
 export function serializeLoopNode(node: WorkflowCanvasNode): WorkflowModule {
@@ -154,18 +121,17 @@ export function serializeLoopNode(node: WorkflowCanvasNode): WorkflowModule {
     showStatus: true,
     catchError: false,
     inputs: [
-      { key: 'loopRunMode', label: 'workflow:loop_run_mode', valueType: 'string', required: true, renderTypeList: ['select'], value: 'array' },
+      { key: 'loopRunMode', label: 'workflow:loop_run_mode', valueType: 'string', required: true, renderTypeList: ['select'], value: config.loopRunMode },
       { key: 'loopRunInputArray', label: 'workflow:loop_run_input_array', valueType: 'arrayObject', required: true, renderTypeList: ['reference'], value: serializeLoopArray(config.loopRunInputArray) },
-      { key: 'loopCustomOutputs', label: 'workflow:loop_custom_outputs', valueType: 'dynamic', required: false, renderTypeList: ['addInputParam'] },
+      { key: 'loopOutputSource', label: '收集结果', valueType: 'any', required: true, renderTypeList: ['reference'], value: stringToModuleRef(config.loopOutputSource) },
       { key: 'childrenNodeIdList', label: '', valueType: 'arrayString', renderTypeList: ['hidden'], value: config.childrenNodeIds },
       { key: 'nodeWidth', label: '', valueType: 'number', renderTypeList: ['hidden'], value: config.nodeWidth },
       { key: 'nodeHeight', label: '', valueType: 'number', renderTypeList: ['hidden'], value: config.nodeHeight },
       { key: 'loopNodeInputHeight', label: '', valueType: 'number', renderTypeList: ['hidden'], value: config.loopNodeInputHeight },
-      ...dynamicInputs(config),
     ],
     outputs: [
       { id: 'system_error_text', key: 'system_error_text', type: 'error', valueType: 'string', label: 'workflow:error_text' },
-      ...dynamicOutputs(config),
+      { id: 'results', key: 'results', type: 'static', valueType: 'arrayString', label: '循环结果' },
     ],
   };
 }
@@ -173,8 +139,9 @@ export function serializeLoopNode(node: WorkflowCanvasNode): WorkflowModule {
 export function parseLoopNode(module: WorkflowModule) {
   const input = (key: string) => (module.inputs ?? []).find((item) => item.key === key)?.value;
   const node = createCanvasNode('loop', module, normalizeLoopConfig({
+    loopRunMode: input('loopRunMode'),
     loopRunInputArray: parseLoopArray(input('loopRunInputArray')),
-    customOutputs: parseCustomOutputs(module),
+    loopOutputSource: (module.inputs ?? []).some((item) => item.key === 'loopOutputSource') ? moduleRefToString(input('loopOutputSource')) : parseCustomOutputs(module)[0]?.value ?? '',
     childrenNodeIds: Array.isArray(input('childrenNodeIdList')) ? input('childrenNodeIdList') : [],
     nodeWidth: input('nodeWidth'),
     nodeHeight: input('nodeHeight'),
@@ -198,7 +165,7 @@ export function serializeLoopStartNode(node: WorkflowCanvasNode): WorkflowModule
     position: node.position,
     showStatus: false,
     inputs: [
-      { key: 'loopRunMode', valueType: 'string', renderTypeList: ['hidden'], value: 'array' },
+      { key: 'loopRunMode', valueType: 'string', renderTypeList: ['hidden'], value: config.loopRunMode },
       { key: 'loopStartInput', valueType: 'any', renderTypeList: ['hidden'], value: config.loopStartInput },
       { key: 'loopStartIndex', valueType: 'number', renderTypeList: ['hidden'], value: config.loopStartIndex },
     ],
@@ -209,6 +176,7 @@ export function serializeLoopStartNode(node: WorkflowCanvasNode): WorkflowModule
 export function parseLoopStartNode(module: WorkflowModule) {
   const input = (key: string) => (module.inputs ?? []).find((item) => item.key === key)?.value;
   return createCanvasNode('loopStart', module, normalizeLoopStartConfig({
+    loopRunMode: input('loopRunMode'),
     loopStartInput: input('loopStartInput'),
     loopStartIndex: input('loopStartIndex'),
   }));
@@ -236,20 +204,15 @@ export function parseLoopBreakNode(module: WorkflowModule) {
 export function getLoopReferences(node: WorkflowCanvasNode) {
   const config = normalizeLoopConfig(node.data.config);
   return [
-    { value: config.loopRunInputArray, context: `节点 ${node.data.label} 的循环数组`, acceptedValueTypes: ['array', 'arrayObject', 'arrayString', 'arrayNumber', 'arrayBoolean', 'arrayAny'] as WorkflowValueType[] },
-    ...config.customOutputs.map((item) => ({ value: item.value, context: `节点 ${node.data.label} 的输出 ${item.key || '未命名'}` })),
+    ...(config.loopRunMode === 'array' ? [{ value: config.loopRunInputArray, context: `节点 ${node.data.label} 的循环数组`, acceptedValueTypes: ['array', 'arrayObject', 'arrayString', 'arrayNumber', 'arrayBoolean', 'arrayAny'] as WorkflowValueType[] }] : []),
+    { value: config.loopOutputSource, context: `节点 ${node.data.label} 的收集结果`, loopCollection: true },
   ];
 }
 
 export function validateLoopNode(node: WorkflowCanvasNode) {
   const config = normalizeLoopConfig(node.data.config);
   const errors: string[] = [];
-  if (!parseVariableRef(config.loopRunInputArray)) errors.push(`节点 ${node.data.label} 必须选择有效的数组变量`);
-  const keys = config.customOutputs.map((item) => item.key.trim()).filter(Boolean);
-  if (new Set(keys).size !== keys.length) errors.push(`节点 ${node.data.label} 的输出变量名不能重复`);
-  config.customOutputs.forEach((item) => {
-    if (!item.key.trim()) errors.push(`节点 ${node.data.label} 存在未填写变量名的循环输出`);
-    if (!parseVariableRef(item.value)) errors.push(`节点 ${node.data.label} 的输出 ${item.key || '未命名'} 必须引用循环体节点变量`);
-  });
+  if (config.loopRunMode === 'array' && !parseVariableRef(config.loopRunInputArray)) errors.push(`节点 ${node.data.label} 必须选择有效的数组变量`);
+  if (!parseVariableRef(config.loopOutputSource)) errors.push(`节点 ${node.data.label} 必须选择每轮收集的输出变量`);
   return errors;
 }

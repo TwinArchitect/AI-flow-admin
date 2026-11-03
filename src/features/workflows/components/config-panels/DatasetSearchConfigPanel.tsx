@@ -1,3 +1,4 @@
+import { DatasetDocumentScopeForm, DatasetIdVariableField } from './DatasetDocumentScopeForm';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BookOpen, Search, Settings2, Trash2 } from 'lucide-react';
@@ -36,7 +37,7 @@ export function DatasetSearchConfigPanel({
   nodeId,
   config,
   variables,
-  onUpdate,
+  onUpdate: updateConfig,
   onRemoveSourceHandle,
 }: {
   nodeId: string;
@@ -56,6 +57,11 @@ export function DatasetSearchConfigPanel({
     enabled: datasetOpen,
   });
 
+  const onUpdate = (patch: Partial<DatasetSearchNodeConfig>) => {
+    const next = normalizeDatasetSearchConfig({ ...value, ...patch });
+    if (patch.datasets) next.documents = next.documents.filter(item => next.datasets.some(kb => kb.datasetId === item.datasetId));
+    updateConfig(next);
+  };
   const selectedIds = new Set(value.datasets.map((item) => item.datasetId));
   const updateSearchInput = (patch: Partial<DatasetSearchNodeConfig['searchInput']>) => {
     onUpdate({ searchInput: { ...value.searchInput, ...patch } });
@@ -65,12 +71,13 @@ export function DatasetSearchConfigPanel({
     <div className="space-y-6">
       <section className="space-y-3">
         <div className="text-xs font-semibold text-foreground">知识库</div>
-        <Field label="选择知识库">
+        <Field label="知识库来源"><Select value={value.datasetInputMode} onValueChange={(mode: 'select' | 'reference') => { setDatasetOpen(false); onUpdate({ datasetInputMode: mode }); }}><SelectTrigger aria-label="知识库来源"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="select">选择知识库</SelectItem><SelectItem value="reference">引用变量</SelectItem></SelectContent></Select></Field>
+        {value.datasetInputMode === 'reference' ? <DatasetIdVariableField label="知识库 ID 变量" value={value.datasetIds.value} variables={variables} onChange={value => onUpdate({ datasetIds: { valueMode: 'reference', value } })} /> : <Field label="选择知识库">
           <Popover open={datasetOpen} onOpenChange={setDatasetOpen}>
             <PopoverTrigger asChild>
               <Button type="button" variant="outline" className="w-full justify-between font-normal">
                 <span className="truncate">
-                  {value.datasets.length ? `已选择 ${value.datasets.length} 个知识库` : '搜索并选择知识库'}
+                  {value.datasets.length ? `已选择 ${value.datasets.length} 个知识库` : '稍后补选知识库'}
                 </span>
                 <BookOpen size={14} className="text-muted-foreground" />
               </Button>
@@ -127,6 +134,7 @@ export function DatasetSearchConfigPanel({
               </div>
             </PopoverContent>
           </Popover>
+          <p className="text-[10px] text-muted-foreground">可先留空，生成后补选知识库；运行前至少选择一个。</p>
           {value.datasets.length > 0 && (
             <div className="mt-2 space-y-1.5">
               {value.datasets.map((dataset) => (
@@ -147,8 +155,10 @@ export function DatasetSearchConfigPanel({
               ))}
             </div>
           )}
-        </Field>
+        </Field>}
       </section>
+
+      <DatasetDocumentScopeForm config={value} variables={variables} onChange={onUpdate} />
 
       <section className="space-y-3 border-t border-border pt-5">
         <div className="text-xs font-semibold text-foreground">检索内容</div>

@@ -233,10 +233,11 @@ definition + icon + config defaults + panel + execution details
 ```text
 我的智能体
   → CreateAgentDialog
-  → /workflows?new=1 + workflowDraft
+  → POST /gpt/base/agent/save（默认 Start + End，无连线，草稿）
+  → 校验后端返回 ID
+  → /workflows?id=agentId
   → WorkflowsPage
-  → resetToNewWorkflow
-  → 默认 Start + End
+  → 加载已落库配置，后续保存更新同一 ID
 ```
 
 已有智能体：

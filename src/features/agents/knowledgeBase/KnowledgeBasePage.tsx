@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/ui/pagination';
+import { ListPageLayout, ListPageHeader, ListPageContent, ListPageFooter } from '@/components/layout/ListPageLayout';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -49,6 +51,11 @@ import { AddFileModal } from './components/AddFileModal';
 import { ChunksModal } from './components/ChunksModal';
 import { DocPreviewModal } from './components/DocPreviewModal';
 import { DocumentMetadataModal } from './components/DocumentMetadataModal';
+import { DocumentEnrichmentDialog } from './components/DocumentEnrichmentDialog';
+import { KbTransferDialog } from './components/KbTransferDialog';
+import { KbServiceApi } from './components/KbServiceApi';
+import { ACTIVE_DOCUMENT_STATUSES, REPARSE_SKIPPED_MESSAGE, documentMetadataFieldCount, normalizeChunkStrategy } from './kbContracts';
+import { normalizeRetrievalChunk } from './retrievalContracts';
 import { ChunkMediaPreview } from './components/ChunkMediaPreview';
 import type { KBFile } from './data/kbMock';
 import {
@@ -61,18 +68,22 @@ import {
   getDocument,
   getDocumentProgress,
   listEnabledModels,
-  parseDocument,
+  submitDocumentParse,
   queryDatasets,
   queryDocumentChunks,
   queryDocuments,
+  queryDocumentEnrichmentPage,
+  listDocumentEnrichmentTags,
   searchKnowledgeBase,
+  saveRetrievalEvaluationCase,
+  runRetrievalEvaluations,
   saveDataset,
   setDocumentAvailability,
   stopDocumentParse,
   uploadDocumentsBatch,
 } from './api';
 import { knowledgeBaseKeys } from './hooks/queryKeys';
-import type { DatasetListItem, DocumentProgress, KbModelOption, KnowledgeDataset, RetrievalChunk } from './types';
+import type { DatasetListItem, DocumentProgress, KbModelOption, KnowledgeDataset, RetrievalChunk, RetrievalTrace, RetrievalEvaluationRun } from './types';
 
 const CHUNK_STRATEGY_OPTIONS: Array<{ value: NonNullable<KnowledgeDataset['chunkStrategy']>; label: string }> = [
   { value: 'naive', label: '通用分块（默认）' },
@@ -124,6 +135,7 @@ export function KnowledgeBasePage() {
   const [view, setView] = useState<'list' | 'detail'>('list');
   const [selKb, setSelKb] = useState<DatasetListItem | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -137,7 +149,7 @@ export function KnowledgeBasePage() {
   const [createChunkOverlap, setCreateChunkOverlap] = useState(64);
   const [deleteTarget, setDeleteTarget] = useState<DatasetListItem | null>(null);
 
-  const datasetParams = { page, size: 12, name: appliedSearch };
+  const datasetParams = { page, size: pageSize, name: appliedSearch };
   const datasetsQuery = useQuery({
     queryKey: knowledgeBaseKeys.datasetList(datasetParams),
     queryFn: () => queryDatasets(datasetParams),
@@ -152,18 +164,18 @@ export function KnowledgeBasePage() {
   });
   const embeddingModels = embeddingModelsQuery.data ?? [];
   const defaultEmbeddingModel = embeddingModels.find((model) => model.id === modelConfigQuery.data?.embeddingModelId)?.model
-    ?? embeddingModels[0]?.model ?? '';
-
-  useEffect(() => {
-    if (createOpen && !editingDataset && !createEmbeddingModel && defaultEmbeddingModel) {
-      setCreateEmbeddingModel(defaultEmbeddingModel);
-    }
-  }, [createOpen, editingDataset, createEmbeddingModel, defaultEmbeddingModel]);
+    ?? modelConfigQuery.data?.embeddingModel?.model ?? '';
 
   const saveMutation = useMutation({
     mutationFn: saveDataset,
-    onSuccess: async () => {
+    onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasets() });
+      if (!editingDataset && saved?.id) {
+        let persisted = saved;
+        try { persisted = await getDataset(saved.id); } catch { /* 保存结果仍可用于进入详情。 */ }
+        setSelKb(persisted);
+        setView('detail');
+      }
       setCreateOpen(false);
       setEditingDataset(null);
       setCreateName('');
@@ -197,9 +209,9 @@ export function KnowledgeBasePage() {
   }, [searchInput]);
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      <main className="flex-1 flex min-w-0 flex-col">
+    <>
         {view === 'detail' && selKb ? (
+          <div className="flex h-full min-h-0 overflow-hidden p-4">
           <DetailView
             kb={selKb}
             kbId={selKb.id}
@@ -209,17 +221,19 @@ export function KnowledgeBasePage() {
               void queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.datasets() });
             }}
           />
+          </div>
         ) : (
           <ListView
             kbs={datasetsQuery.data?.records ?? []}
             total={datasetsQuery.data?.total ?? 0}
             page={page}
-            pageSize={12}
+            pageSize={pageSize}
             search={searchInput}
             loading={datasetsQuery.isLoading}
             error={datasetsQuery.error}
             onSearch={setSearchInput}
             onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
             onOpen={(kb) => {
               setSelKb(kb);
               setView('detail');
@@ -228,7 +242,7 @@ export function KnowledgeBasePage() {
               setEditingDataset(null);
               setCreateName('');
               setCreateDescription('');
-              setCreateEmbeddingModel(defaultEmbeddingModel);
+              setCreateEmbeddingModel('');
               setCreateParserType('native');
               setCreateChunkStrategy('naive');
               setCreateChunkSize(512);
@@ -241,9 +255,9 @@ export function KnowledgeBasePage() {
                 setEditingDataset(detail);
                 setCreateName(detail.name);
                 setCreateDescription(detail.description ?? '');
-                setCreateEmbeddingModel(detail.embeddingModel ?? defaultEmbeddingModel);
-                setCreateParserType(detail.parserType ?? 'native');
-                setCreateChunkStrategy(detail.chunkStrategy ?? 'naive');
+                setCreateEmbeddingModel(detail.embeddingModel ?? '');
+                setCreateParserType(detail.parserType === 'ocr' || detail.parserType === 'mineru' ? detail.parserType : 'native');
+                setCreateChunkStrategy(normalizeChunkStrategy(detail.chunkStrategy));
                 setCreateChunkSize(detail.chunkSize ?? 512);
                 setCreateChunkOverlap(detail.chunkOverlap ?? 64);
                 setCreateOpen(true);
@@ -254,7 +268,6 @@ export function KnowledgeBasePage() {
             onDelete={setDeleteTarget}
           />
         )}
-      </main>
 
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-sm">
@@ -310,48 +323,25 @@ export function KnowledgeBasePage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-muted-foreground">Embedding 模型</Label>
-              <Select value={createEmbeddingModel} onValueChange={setCreateEmbeddingModel}>
+              <Select value={createEmbeddingModel || '__inherit__'} onValueChange={(value) => setCreateEmbeddingModel(value === '__inherit__' ? '' : value)}>
                 <SelectTrigger><SelectValue placeholder="选择已启用模型" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__inherit__">继承租户默认模型</SelectItem>
                   {embeddingModelOptions(embeddingModels, editingDataset?.embeddingModel).map((model) => (
                     <SelectItem key={model} value={model}>{model}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">留空继承模型配置{defaultEmbeddingModel ? `：${defaultEmbeddingModel}` : '中的默认 Embedding'}。</p>
               {embeddingModelsQuery.isError && <p className="text-xs text-destructive">加载模型列表失败</p>}
               {!embeddingModelsQuery.isLoading && !embeddingModelsQuery.isError && embeddingModels.length === 0 && <p className="text-xs text-muted-foreground">模型中心暂无已启用的 Embedding 模型</p>}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-muted-foreground">解析方式</Label>
-                <Select value={createParserType} onValueChange={(value) => setCreateParserType(value as KnowledgeDataset['parserType'])}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="native">本地解析</SelectItem>
-                    <SelectItem value="ocr">OCR 增强</SelectItem>
-                    <SelectItem value="remote">远程解析</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-muted-foreground">分块策略</Label>
-                <Select value={createChunkStrategy} onValueChange={(value) => setCreateChunkStrategy(value as KnowledgeDataset['chunkStrategy'])}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CHUNK_STRATEGY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-muted-foreground">分块长度</Label>
-                <Input type="number" min={1} value={createChunkSize} onChange={(event) => setCreateChunkSize(Number(event.target.value))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-muted-foreground">重叠长度</Label>
-                <Input type="number" min={0} value={createChunkOverlap} onChange={(event) => setCreateChunkOverlap(Number(event.target.value))} />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-muted-foreground">分块策略</Label>
+              <Select value={createChunkStrategy} onValueChange={(value) => setCreateChunkStrategy(value as KnowledgeDataset['chunkStrategy'])}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{CHUNK_STRATEGY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">简介说明</Label>
@@ -375,17 +365,19 @@ export function KnowledgeBasePage() {
             <Button
               size="sm"
               className="flex-1"
-              disabled={!createName.trim() || !createEmbeddingModel || saveMutation.isPending}
+              disabled={!createName.trim() || saveMutation.isPending}
               onClick={() => saveMutation.mutate({
+                ...editingDataset,
                 id: editingDataset?.id,
                 name: createName.trim(),
-                description: createDescription.trim() || undefined,
+                description: createDescription.trim() || null,
                 status: editingDataset?.status ?? 'ACTIVE',
-                embeddingModel: createEmbeddingModel,
+                ...(editingDataset ? { embeddingModel: createEmbeddingModel.trim() } : createEmbeddingModel.trim() ? { embeddingModel: createEmbeddingModel.trim() } : {}),
                 parserType: createParserType,
-                chunkStrategy: createChunkStrategy,
+                chunkStrategy: normalizeChunkStrategy(createChunkStrategy),
                 chunkSize: createChunkSize,
                 chunkOverlap: createChunkOverlap,
+                ...(!editingDataset ? { parserConfig: '{"signatureExtractionEnabled":false}', autoTagEnabled: false, documentKnowledgeTagEnabled: false, documentSummaryEnabled: false, documentSummaryMaxChars: 600 } : {}),
               })}
             >
               {saveMutation.isPending ? '保存中...' : editingDataset ? '保存修改' : '立即创建'}
@@ -393,7 +385,7 @@ export function KnowledgeBasePage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 
@@ -408,6 +400,7 @@ function ListView({
   error,
   onSearch,
   onPageChange,
+  onPageSizeChange,
   onOpen,
   onCreate,
   onEdit,
@@ -422,6 +415,7 @@ function ListView({
   error: Error | null;
   onSearch: (value: string) => void;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
   onOpen: (kb: DatasetListItem) => void;
   onCreate: () => void;
   onEdit: (kb: DatasetListItem) => void;
@@ -429,8 +423,9 @@ function ListView({
 }) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <>
-      <header className="flex items-center justify-between mb-8">
+    <ListPageLayout>
+      <ListPageHeader>
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <div className="w-1.5 h-6 bg-primary rounded-full" />
@@ -443,7 +438,8 @@ function ListView({
             平台的知识底座，负责企业知识资产的统一管理和共享。
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <KbServiceApi />
           <div className="relative">
             <Search
               size={14}
@@ -462,8 +458,9 @@ function ListView({
           </Button>
         </div>
       </header>
+      </ListPageHeader>
 
-      <div className="flex-1 overflow-y-auto pr-2 pb-10">
+      <ListPageContent>
         {loading && <div className="py-20 text-center text-sm text-muted-foreground">正在加载知识库...</div>}
         {error && (
           <div className="py-20 text-center text-sm text-destructive">
@@ -557,17 +554,11 @@ function ListView({
         {!loading && !error && total === 0 && (
           <div className="py-16 text-center text-sm text-muted-foreground">暂无知识库</div>
         )}
-        {!loading && !error && total > 0 && (
-          <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-            <span className="text-xs text-muted-foreground">共 {total} 个知识库，第 {page}/{pageCount} 页</span>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>上一页</Button>
-              <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)}>下一页</Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </>
+      </ListPageContent>
+      <ListPageFooter>
+        <Pagination page={page} pageCount={pageCount} pageSize={pageSize} total={total} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} disabled={loading || Boolean(error)} />
+      </ListPageFooter>
+    </ListPageLayout>
   );
 }
 
@@ -585,6 +576,7 @@ function DetailView({
 }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'files' | 'search' | 'config'>('files');
+  const [collapsed, setCollapsed] = useState(false);
   const detailQuery = useQuery({
     queryKey: knowledgeBaseKeys.datasetDetail(kbId),
     queryFn: () => getDataset(kbId),
@@ -604,14 +596,15 @@ function DetailView({
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="flex h-full gap-6"
+      className="flex h-full min-w-0 flex-1 gap-6"
     >
-      <aside className="w-64 shrink-0 bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col">
-        <div className="flex items-center gap-4 mb-10 pb-6 border-b border-border">
+      <aside className={cn('shrink-0 bg-card border border-border rounded-2xl shadow-sm flex flex-col transition-[width,padding]', collapsed ? 'w-20 p-3' : 'w-64 p-5')}>
+        <Button variant="ghost" size="icon-xs" className="mb-3 self-end" aria-label={collapsed ? '展开知识库导航' : '收起知识库导航'} onClick={() => setCollapsed(value => !value)}><ChevronRight size={16} className={collapsed ? '' : 'rotate-180'} /></Button>
+        <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
           <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground font-bold text-xl uppercase">
             {currentKb.name.charAt(0)}
           </div>
-          <div className="min-w-0">
+          <div className={cn('min-w-0', collapsed && 'hidden')}>
             <h4 className="font-bold truncate text-foreground">{currentKb.name}</h4>
             <p className="text-2xs text-muted-foreground mt-0.5">{currentKb.documentCount ?? 0} 个文件 · {currentKb.chunkCount ?? 0} 个分块</p>
             <p className="text-2xs text-muted-foreground mt-0.5">创建于 {currentKb.createTime}</p>
@@ -627,17 +620,18 @@ function DetailView({
           ).map(([id, label, Icon]) => (
             <Button
               key={id}
+              title={label}
               variant="ghost"
               size="sm"
               onClick={() => setTab(id as typeof tab)}
               className={cn(
-                'w-full justify-start gap-3 rounded-2xl text-xs font-bold',
+                'w-full gap-3 rounded-xl text-xs font-medium', collapsed ? 'justify-center px-0' : 'justify-start',
                 tab === id
                   ? 'bg-primary/10 text-primary hover:bg-primary/15'
                   : 'text-muted-foreground'
               )}
             >
-              <Icon size={18} /> {label}
+              <Icon size={18} className="shrink-0" /> {!collapsed && label}
             </Button>
           ))}
         </nav>
@@ -645,14 +639,15 @@ function DetailView({
           variant="ghost"
           size="sm"
           onClick={onBack}
+          title="返回列表"
           className="justify-start text-muted-foreground text-xs font-bold mt-auto gap-2"
         >
-          <ChevronRight size={16} className="rotate-180" /> 返回列表
+          <ChevronRight size={16} className="rotate-180 shrink-0" /> {!collapsed && '返回列表'}
         </Button>
       </aside>
-      <div className="flex-1 flex flex-col gap-6 overflow-hidden">
+      <div className="min-w-0 flex-1 flex flex-col gap-6 overflow-hidden">
         {tab === 'files' && (
-          <FileTab kbId={kbId} parserType={currentKb.parserType} />
+          <FileTab kbId={kbId} datasetName={currentKb.name} parserType={currentKb.parserType} />
         )}
         {tab === 'search' && <SearchTab kbId={kbId} />}
         {tab === 'config' && <ConfigTab kb={currentKb} onSaved={(dataset) => {
@@ -677,6 +672,7 @@ function getDocumentTypeBadge(fileName: string) {
 }
 
 function getParserLabel(parserType?: KnowledgeDataset['parserType']) {
+  if (parserType === 'mineru') return 'MinerU';
   if (parserType === 'ocr') return 'OCR';
   if (parserType === 'remote') return 'Remote';
   return 'General';
@@ -689,6 +685,7 @@ function getDocumentStageLabel(status?: string) {
     PARSING: '解析中',
     PARSED: '结构解析完成',
     CHUNKING: '分块中',
+    TAGGING: '标签生成中',
     EMBEDDING: '向量化中',
     INDEXING: '索引中',
     READY: '已完成',
@@ -698,7 +695,7 @@ function getDocumentStageLabel(status?: string) {
   return status ? labels[status] ?? status : '解析中';
 }
 
-function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDataset['parserType'] }) {
+function FileTab({ kbId, datasetName, parserType }: { kbId: string; datasetName: string; parserType?: KnowledgeDataset['parserType'] }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -707,18 +704,36 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
   const [chunksOpen, setChunksOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [metadataOpen, setMetadataOpen] = useState(false);
+  const [enrichmentTarget, setEnrichmentTarget] = useState<KBFile | null>(null);
+  const [knowledgeTag, setKnowledgeTag] = useState('');
+  const [forceTargets, setForceTargets] = useState<KBFile[]>([]);
+  const [transferMode, setTransferMode] = useState<'import' | 'export' | null>(null);
   const [deleteTargets, setDeleteTargets] = useState<KBFile[]>([]);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number; fileName: string } | null>(null);
   const [pendingParseIds, setPendingParseIds] = useState<Set<string>>(() => new Set());
   const [submittingParseIds, setSubmittingParseIds] = useState<Set<string>>(() => new Set());
   const notifiedFailedParseIds = React.useRef<Set<string>>(new Set());
   const chunkCountAttempts = React.useRef<Map<string, number>>(new Map());
-  const documentParams = { keyword: search.trim(), page, size: 20 };
+  const documentParams = { keyword: search.trim(), tag: knowledgeTag, page, size: 20 };
+  const documentTagsQuery = useQuery({
+    queryKey: [...knowledgeBaseKeys.documents(kbId), 'knowledge-tags'],
+    queryFn: () => listDocumentEnrichmentTags(kbId),
+    retry: false,
+  });
   const documentsQuery = useQuery({
     queryKey: knowledgeBaseKeys.documentList(kbId, documentParams),
-    queryFn: () => queryDocuments(kbId, documentParams),
+    queryFn: async () => {
+      if (!knowledgeTag) return { ...await queryDocuments(kbId, documentParams), degraded: false };
+      try { return { ...await queryDocumentEnrichmentPage(kbId, documentParams), degraded: false }; }
+      catch {
+        const fallback = await queryDocuments(kbId, documentParams);
+        const records = (fallback.records ?? []).filter((document) => (document.knowledgeTags ?? []).includes(knowledgeTag));
+        return { ...fallback, records, total: records.length, degraded: true };
+      }
+    },
   });
   const documents = documentsQuery.data?.records ?? [];
+  const knowledgeTags = [...new Set([...(documentTagsQuery.data ?? []), ...documents.flatMap((document) => document.knowledgeTags ?? []), ...(knowledgeTag ? [knowledgeTag] : [])])];
   const readyWithoutChunks = documents.filter((document) => document.status === 'READY' && !(document.chunkCount && document.chunkCount > 0));
   const chunkCountQueries = useQueries({
     queries: readyWithoutChunks.map((document) => ({
@@ -737,7 +752,7 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
   });
   const resolvedChunkCounts = new Map(chunkCountQueries.flatMap((query) => query.data ? [[query.data.documentId, query.data.count] as const] : []));
   const activeDocuments = documents.filter((document) =>
-    ['PARSING', 'PARSED', 'CHUNKING', 'EMBEDDING', 'INDEXING'].includes(document.status)
+    ACTIVE_DOCUMENT_STATUSES.includes(document.status)
     || (pendingParseIds.has(document.id) && !submittingParseIds.has(document.id)),
   );
   const progressQueries = useQueries({
@@ -746,7 +761,7 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
       queryFn: () => getDocumentProgress(document.id),
       refetchInterval: (query: { state: { data?: DocumentProgress } }) => {
         const progress = query.state.data;
-        if (progress?.errorMessage || progress?.taskError || (progress && ['READY', 'FAILED', 'CANCELLED'].includes(progress.status))) return false;
+        if (progress && ['READY', 'FAILED', 'CANCELLED'].includes(progress.status)) return false;
         return 3000;
       },
     })),
@@ -759,12 +774,7 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
     progressQueries.forEach((query) => {
       const progress = query.data;
       const errorMessage = progress?.errorMessage ?? progress?.taskError;
-      const activeWithError = Boolean(
-        progress
-        && errorMessage
-        && ['PARSING', 'PARSED', 'CHUNKING', 'EMBEDDING', 'INDEXING'].includes(progress.status),
-      );
-      const failed = Boolean(progress && (activeWithError || ['FAILED', 'CANCELLED'].includes(progress.status)));
+      const failed = Boolean(progress && ['FAILED', 'CANCELLED'].includes(progress.status));
       if (!progress || !failed || notifiedFailedParseIds.current.has(progress.documentId)) return;
       notifiedFailedParseIds.current.add(progress.documentId);
       toast.error(`文件解析失败：${errorMessage || progress.progressMessage || '后台任务执行失败'}`);
@@ -792,10 +802,7 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
       const progress = progressByDocumentId.get(document.id);
       const reportedStatus = progress?.status ?? document.status;
       const reportedError = progress?.errorMessage ?? progress?.taskError ?? document.errorMessage;
-      const status = ['PARSING', 'PARSED', 'CHUNKING', 'EMBEDDING', 'INDEXING'].includes(reportedStatus)
-        && Boolean(reportedError)
-        ? 'FAILED'
-        : reportedStatus;
+      const status = reportedStatus;
       const errorMessage = ['FAILED', 'CANCELLED'].includes(status)
         ? reportedError
         : null;
@@ -815,7 +822,7 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
     uploadDate: document.createTime ?? '-',
     enabled: document.searchEnabled ?? true,
     chunks: resolvedChunkCounts.get(document.id) ?? document.chunkCount ?? 0,
-    metadataFields: 0,
+    metadataFields: documentMetadataFieldCount(document.metadata ?? document.metaData ?? document.meta_data),
     parser: getParserLabel(parserType),
   }));
   const refreshDocuments = async () => {
@@ -853,9 +860,16 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
     meta: { silentError: true },
   });
   const parseMutation = useMutation({
-    mutationFn: ({ id, active, force }: { id: string; active: boolean; force: boolean }) => active ? stopDocumentParse(id) : parseDocument(id, force),
+    meta: { silentError: true },
+    mutationFn: async ({ id, active, force }: { id: string; active: boolean; force: boolean }) => {
+      if (active) { await stopDocumentParse(id); return { skipped: false, result: null }; }
+      const status = files.find((file) => file.id === id)?.rawStatus ?? '';
+      return submitDocumentParse(id, status, force);
+    },
     onMutate: ({ id, active }) => {
       if (!active) {
+        chunkCountAttempts.current.delete(id);
+        queryClient.removeQueries({ queryKey: [...knowledgeBaseKeys.documentDetail(id), 'resolved-chunk-count'] });
         notifiedFailedParseIds.current.delete(id);
         setPendingParseIds((current) => new Set(current).add(id));
         setSubmittingParseIds((current) => new Set(current).add(id));
@@ -865,20 +879,26 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
       if (variables.active) {
         setPendingParseIds((current) => { const next = new Set(current); next.delete(variables.id); return next; });
         toast.success('已请求停止解析');
-      } else if (!result?.skipped && !result?.taskIds?.length) {
+      } else if (result.skipped) {
         setPendingParseIds((current) => { const next = new Set(current); next.delete(variables.id); return next; });
-        toast.error('解析接口未返回任务 ID，后台任务可能没有成功创建');
+        toast.info(REPARSE_SKIPPED_MESSAGE);
       } else {
-        toast.success(variables.force ? '已重新触发解析' : '已启动解析');
+        toast.success(result.result?.message || (variables.force ? '已强制全量解析' : '已提交解析（已完成文件按配置增量处理）'));
       }
       if (!variables.active) {
         queryClient.removeQueries({ queryKey: knowledgeBaseKeys.documentProgress(variables.id) });
       }
       await refreshDocuments();
     },
-    onError: (error, variables) => {
+    onError: async (error, variables) => {
       setPendingParseIds((current) => { const next = new Set(current); next.delete(variables.id); return next; });
       toast.error(error instanceof Error ? error.message : '解析操作失败');
+      // 提交失败并不保证服务端没有变更数据，重新读取实际状态。
+      await Promise.all([
+        refreshDocuments(),
+        queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.documentDetail(variables.id) }),
+        queryClient.invalidateQueries({ queryKey: ['knowledge-base', 'chunks'] }),
+      ]);
     },
     onSettled: (_result, _error, variables) => {
       setSubmittingParseIds((current) => {
@@ -889,9 +909,11 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
     },
   });
 
-  const handleBatchParse = async (targets: KBFile[]) => {
+  const handleBatchParse = async (targets: KBFile[], forceAll = false) => {
     const targetIds = targets.map((file) => file.id);
     targetIds.forEach((id) => {
+      chunkCountAttempts.current.delete(id);
+      queryClient.removeQueries({ queryKey: [...knowledgeBaseKeys.documentDetail(id), 'resolved-chunk-count'] });
       notifiedFailedParseIds.current.delete(id);
       queryClient.removeQueries({ queryKey: knowledgeBaseKeys.documentProgress(id) });
     });
@@ -900,12 +922,9 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
 
     const settled = await Promise.allSettled(
       targets.map(async (file) => {
-        const force = ['FAILED', 'CANCELLED'].includes(file.rawStatus ?? '');
-        const result = await parseDocument(file.id, force);
-        if (!result?.skipped && !result?.taskIds?.length) {
-          throw new Error(`文件「${file.name}」未返回解析任务 ID`);
-        }
-        return { id: file.id, skipped: Boolean(result?.skipped) };
+        const force = forceAll || ['FAILED', 'CANCELLED'].includes(file.rawStatus ?? '');
+        const result = await submitDocumentParse(file.id, file.rawStatus ?? '', force);
+        return { id: file.id, skipped: result.skipped };
       }),
     );
 
@@ -923,11 +942,12 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
     });
     await refreshDocuments();
 
-    const succeededCount = settled.length - failedIds.length;
+    const succeededCount = settled.length - failedIds.length - skippedIds.length;
     if (failedIds.length === 0) {
-      toast.success(`已批量提交 ${succeededCount} 个文件解析`);
+      if (!succeededCount && skippedIds.length) toast.info(REPARSE_SKIPPED_MESSAGE);
+      else toast.success(`已提交 ${succeededCount} 个文件解析${skippedIds.length ? `，${skippedIds.length} 个配置未变已跳过` : ''}`);
     } else {
-      toast.warning(`批量解析提交完成：成功 ${succeededCount} 个，失败 ${failedIds.length} 个`);
+      toast.warning(`批量解析提交完成：提交 ${succeededCount} 个，跳过 ${skippedIds.length} 个，失败 ${failedIds.length} 个`);
     }
   };
 
@@ -957,6 +977,19 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
               </span>
             </div>
           );
+          },
+        },
+        {
+          id: 'knowledge',
+          header: '知识标签与摘要',
+          size: 220,
+          cell: ({ row }) => {
+            const document = documents.find((item) => item.id === row.original.id);
+            return <button type="button" className="group w-full rounded-lg p-2 text-left space-y-2 transition-colors hover:bg-muted/60" onClick={() => setEnrichmentTarget(row.original)}>
+              <div className="flex flex-wrap gap-1">{document?.knowledgeTags?.slice(0, 3).map((tag) => <Badge key={tag} variant="secondary" className="text-2xs">{tag}</Badge>)}{!document?.knowledgeTags?.length && <span className="text-xs text-muted-foreground">查看标签与摘要</span>}</div>
+              {document?.knowledgeSummary && <p className="line-clamp-2 text-xs leading-5 text-muted-foreground" title={document.knowledgeSummary}>{document.knowledgeSummary}</p>}
+              {document?.enrichmentStatus && <span className="text-2xs text-muted-foreground">{{ READY: '已生成', FAILED: '生成失败', GENERATING: '生成中', PENDING: '待生成', STALE: '待更新', SKIPPED: '无可富化内容' }[document.enrichmentStatus] ?? document.enrichmentStatus}</span>}
+            </button>;
           },
         },
         {
@@ -1014,7 +1047,7 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
         {
           id: 'progress',
           header: '解析',
-          size: 170,
+          size: 220,
           cell: ({ row }) => (
             <div className="flex min-w-0 flex-col gap-1">
               <div className="flex items-center gap-2">
@@ -1061,9 +1094,11 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
                   </Button>
                 </div>
               ) : row.original.status === 'success' ? (
-                <span className="text-2xs font-bold text-success flex items-center gap-1">
-                  <Check size={10} /> 完成
-                </span>
+                <div className="flex flex-col items-start gap-2">
+                  <span className="text-2xs font-bold text-success flex items-center gap-1"><Check size={10} />完成</span>
+                  <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5"><Button variant="ghost" size="xs" className="h-6 px-2 text-2xs font-normal" disabled={parseMutation.isPending || submittingParseIds.has(row.original.id)} title="配置未变化时不创建任务" onClick={() => parseMutation.mutate({ id: row.original.id, active: false, force: false })}>增量解析</Button>
+                  <span className="h-3 w-px bg-border" /><Button variant="ghost" size="xs" className="h-6 px-2 text-2xs font-normal text-muted-foreground" disabled={parseMutation.isPending || submittingParseIds.has(row.original.id)} onClick={() => setForceTargets([row.original])}>强制全量</Button></div>
+                </div>
               ) : (
                 <div className="flex items-center gap-1">
                   <span className="text-2xs font-bold text-destructive">
@@ -1148,7 +1183,7 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
           ),
         },
       ] as ColumnDef<KBFile>[],
-    [availabilityMutation, handleBatchParse, parseMutation, removeMutation, submittingParseIds]
+    [availabilityMutation, handleBatchParse, parseMutation, removeMutation, submittingParseIds, documents]
   );
 
   return (
@@ -1162,6 +1197,10 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
             {/*<span className="px-4 py-1.5 text-muted-foreground text-xs font-bold">知识库</span>*/}
           </div>
           <div className="flex gap-3 items-center">
+            <Select value={knowledgeTag || '__all__'} onValueChange={(value) => { setKnowledgeTag(value === '__all__' ? '' : value); setPage(1); }}>
+              <SelectTrigger aria-label="文档知识标签筛选" className="w-44 h-9 text-xs"><SelectValue placeholder="全部知识标签" /></SelectTrigger>
+              <SelectContent><SelectItem value="__all__">全部知识标签</SelectItem>{knowledgeTags.map((tag) => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}</SelectContent>
+            </Select>
             <div className="relative">
               <Search
                 size={14}
@@ -1175,16 +1214,22 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
                 className="pl-9 h-9 bg-muted border-border rounded-lg text-xs w-48"
               />
             </div>
+            <Button variant="outline" size="sm" onClick={() => setTransferMode('import')}>导入内容</Button>
+            <Button variant="outline" size="sm" onClick={() => setTransferMode('export')}>导出内容</Button>
             <Button size="sm" className="text-xs rounded-lg" onClick={() => setAddOpen(true)}>
               添加文件
             </Button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-8 py-2">
+          {documentsQuery.data?.degraded && <p role="status" className="py-2 text-xs text-muted-foreground">标签查询暂不可用，当前仅筛选本页已返回的文档标签。</p>}
+          {documentTagsQuery.isError && <p className="py-2 text-xs text-muted-foreground">全部标签选项加载失败，仍可使用当前页标签筛选。</p>}
           <DataTable
             columns={columns}
             data={files}
-            className="max-w-full overflow-hidden [&_[data-slot=table-container]]:overflow-x-hidden"
+            getRowId={(file) => file.id}
+            pinnedColumns={{ left: ['select', 'name'], right: ['actions'] }}
+            className="max-w-full overflow-hidden [&_table]:table-fixed [&_table]:min-w-[1500px]"
             selectable
             showPagination={false}
             showViewOptions={false}
@@ -1192,7 +1237,8 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
               const selected = table.getFilteredSelectedRowModel().rows;
               if (selected.length === 0) return null;
               const parseTargets = selected.filter((row) => ['NEW', 'UPLOADED', 'FAILED', 'CANCELLED'].includes(row.original.rawStatus ?? ''));
-              const stopTargets = selected.filter((row) => ['PARSING', 'PARSED', 'CHUNKING', 'EMBEDDING', 'INDEXING'].includes(row.original.rawStatus ?? ''));
+              const reparseTargets = selected.filter((row) => row.original.rawStatus === 'READY');
+              const stopTargets = selected.filter((row) => ACTIVE_DOCUMENT_STATUSES.includes(row.original.rawStatus ?? ''));
               return (
                 <div className="flex w-full items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-6 py-3 text-xs font-bold text-primary">
                   <div className="flex items-center gap-2">
@@ -1200,6 +1246,8 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
                     <span>已勾选 {selected.length} 个文件</span>
                   </div>
                   <div className="flex gap-2">
+                    <Button variant="outline" size="xs" disabled={!reparseTargets.length || parseMutation.isPending || submittingParseIds.size > 0} onClick={() => void handleBatchParse(reparseTargets.map((row) => row.original)).then(() => table.resetRowSelection()).catch((error) => toast.error(error instanceof Error ? error.message : '批量增量解析失败'))}>批量增量解析</Button>
+                    <Button variant="outline" size="xs" disabled={!reparseTargets.length || parseMutation.isPending || submittingParseIds.size > 0} onClick={() => setForceTargets(reparseTargets.map((row) => row.original))}>批量强制全量</Button>
                     <Button size="xs" disabled={parseTargets.length === 0 || parseMutation.isPending || submittingParseIds.size > 0} onClick={() => void handleBatchParse(parseTargets.map((row) => row.original)).then(() => table.resetRowSelection()).catch((error) => toast.error(error instanceof Error ? error.message : '批量解析失败'))}>
                       批量解析{parseTargets.length > 0 ? ` (${parseTargets.length})` : ''}
                     </Button>
@@ -1240,9 +1288,20 @@ function FileTab({ kbId, parserType }: { kbId: string; parserType?: KnowledgeDat
         progress={uploadProgress}
         onConfirm={(selectedFiles) => uploadMutation.mutate(selectedFiles)}
       />
+      {transferMode && <KbTransferDialog key={`${kbId}-${transferMode}`} datasetId={kbId} datasetName={datasetName} mode={transferMode} onClose={() => setTransferMode(null)} onImported={(result) => {
+        setPage(1);
+        if (result.taskIds?.length) setPendingParseIds((current) => new Set([...current, ...(result.documentIds ?? [])]));
+        void refreshDocuments();
+        void queryClient.invalidateQueries({ queryKey: ['knowledge-base', 'chunks'] });
+        toast.success(`已导入 ${result.documentIds?.length ?? 0} 个文档、${result.chunkCount ?? 0} 个分块${result.taskIds?.length ? '，向量生成任务已提交；可在文件列表查看进度，失败后重试解析' : ''}`);
+      }} />}
       <ChunksModal open={chunksOpen} file={actFile} datasetId={kbId} onClose={() => setChunksOpen(false)} />
       <DocPreviewModal open={previewOpen} file={actFile} datasetId={kbId} onClose={() => setPreviewOpen(false)} />
       <DocumentMetadataModal open={metadataOpen} file={actFile} onClose={() => setMetadataOpen(false)} />
+      {enrichmentTarget && <DocumentEnrichmentDialog key={enrichmentTarget.id} documentId={enrichmentTarget.id} fileName={enrichmentTarget.name} onClose={() => setEnrichmentTarget(null)} onChanged={() => { void refreshDocuments(); }} />}
+      <Dialog open={forceTargets.length > 0} onOpenChange={(open) => { if (!open && submittingParseIds.size === 0) setForceTargets([]); }}>
+        <DialogContent><DialogHeader><DialogTitle>强制全量解析</DialogTitle></DialogHeader><p className="text-sm leading-6 text-muted-foreground">将对 {forceTargets.length} 个文件忽略配置签名，重新执行解析、分块和向量化。可能覆盖手工维护的分块；仅需要更新配置时优先使用增量解析。</p><div className="flex justify-end gap-2"><Button variant="outline" disabled={submittingParseIds.size > 0} onClick={() => setForceTargets([])}>取消</Button><Button disabled={submittingParseIds.size > 0} onClick={() => void handleBatchParse(forceTargets, true).then(() => setForceTargets([])).catch((error) => toast.error(error instanceof Error ? error.message : '强制解析失败'))}>确认强制解析</Button></div></DialogContent>
+      </Dialog>
       <Dialog open={deleteTargets.length > 0} onOpenChange={(open) => !open && setDeleteTargets([])}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1286,6 +1345,12 @@ function SearchTab({ kbId }: { kbId: string }) {
   const [results, setResults] = useState<RetrievalChunk[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [total, setTotal] = useState(0);
+  const [trace, setTrace] = useState<RetrievalTrace | null>(null);
+  const [evaluation, setEvaluation] = useState<RetrievalEvaluationRun | null>(null);
+  const [evaluationError, setEvaluationError] = useState('');
+  const [evaluationRunning, setEvaluationRunning] = useState(false);
+  const [savingExpected, setSavingExpected] = useState<string | null>(null);
+  const [searched, setSearched] = useState({ question: '', size: 10 });
   const rerankModelsQuery = useQuery({
     queryKey: knowledgeBaseKeys.modelOptions('rerank'),
     queryFn: () => listEnabledModels('rerank'),
@@ -1315,14 +1380,18 @@ function SearchTab({ kbId }: { kbId: string }) {
         keyword: kg,
         hybrid_enabled: kg,
         highlight: true,
-        rerank_enabled: rerankEnabled && Boolean(rerank),
+        rerank_enabled: rerankEnabled,
+        trace: true,
         rerank_id: rerankEnabled && rerank ? rerank : undefined,
       });
-      setResults(response.chunks ?? []);
+      setResults((response.chunks ?? []).map(normalizeRetrievalChunk));
+      setTrace(response.trace ?? null);
+      setSearched({ question: query.trim(), size: resultSize });
       setTotal(response.total ?? response.chunks?.length ?? 0);
       setRan(true);
       toast.success(`检索完成，命中 ${response.total ?? response.chunks?.length ?? 0} 条结果`);
     } catch (error) {
+      setTrace(null);
       setResults([]);
       setTotal(0);
       setRan(true);
@@ -1331,6 +1400,22 @@ function SearchTab({ kbId }: { kbId: string }) {
       setElapsed(Math.round(performance.now() - startedAt));
       setSearching(false);
     }
+  };
+
+  const saveExpected = async (item: RetrievalChunk) => {
+    if (!searched.question) return;
+    setSavingExpected(item.id); setEvaluationError('');
+    try {
+      await saveRetrievalEvaluationCase({ datasetId: kbId, name: searched.question, question: searched.question, expectedDocumentIds: item.document_id ? [item.document_id] : undefined, expectedChunkIds: item.id ? [item.id] : undefined, topK: searched.size });
+      toast.success('已保存为评测用例，可运行评测集查看 Hit@K 与 MRR');
+    } catch (error) { setEvaluationError(`评测用例保存失败：${error instanceof Error ? error.message : '请求失败'}`); }
+    finally { setSavingExpected(null); }
+  };
+  const runEvaluation = async () => {
+    setEvaluationRunning(true); setEvaluationError(''); setEvaluation(null);
+    try { setEvaluation(await runRetrievalEvaluations(kbId)); }
+    catch (error) { setEvaluationError(`运行评测失败：${error instanceof Error ? error.message : '请求失败'}`); }
+    finally { setEvaluationRunning(false); }
   };
 
   const presets = [
@@ -1349,11 +1434,11 @@ function SearchTab({ kbId }: { kbId: string }) {
         <p className="text-xs text-muted-foreground mt-1">用于对知识库内容进行检索与验证。</p>
       </header>
       <div className="flex-1 grid grid-cols-5 gap-6 overflow-hidden">
-        <div className="col-span-2 space-y-5 bg-muted/30 p-5 rounded-2xl border border-border overflow-y-auto flex flex-col">
+        <div className="col-span-2 min-h-0 gap-5 bg-muted/30 p-5 rounded-2xl border border-border overflow-hidden flex flex-col">
           <h3 className="text-xs font-bold uppercase tracking-widest text-foreground flex items-center gap-1.5 shrink-0">
             <SlidersHorizontal size={14} className="text-primary" /> 检索测试参数
           </h3>
-          <div className="space-y-4 flex-1">
+          <div className="min-h-0 space-y-4 flex-1 overflow-y-auto pr-2">
             <div className="space-y-2">
               <Label htmlFor="knowledge-retrieval-query" className="text-xs font-bold text-muted-foreground">检索问题</Label>
               <Textarea
@@ -1471,6 +1556,7 @@ function SearchTab({ kbId }: { kbId: string }) {
             <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
               召回索引块列表
             </h3>
+            <Button size="sm" variant="outline" disabled={evaluationRunning} onClick={() => void runEvaluation()}>{evaluationRunning ? '评测中…' : '运行评测集'}</Button>
             {ran && !searching && (
               <span className="text-2xs font-mono px-2 py-0.5 bg-primary/10 text-primary rounded">
                 {elapsed} ms · {total} 条
@@ -1478,6 +1564,9 @@ function SearchTab({ kbId }: { kbId: string }) {
             )}
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {evaluationError && <p role="alert" className="rounded-xl border border-destructive/30 p-3 text-sm text-destructive">{evaluationError}</p>}
+            {evaluation && <div role="status" className="rounded-xl border border-border bg-card p-4 text-sm">评测完成：{evaluation.case_count} 条 · Hit@K {(evaluation.hit_at_k * 100).toFixed(1)}% · MRR {evaluation.mrr.toFixed(3)}</div>}
+            {ran && trace && !searching && <section aria-label="检索诊断" className="rounded-xl border border-border bg-card p-4 space-y-3"><h4 className="text-sm font-semibold">检索诊断</h4><div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground"><span>耗时：{trace.duration_ms} ms</span><span>向量候选：{trace.dense_hits}/{trace.dense_candidate_k}</span><span>关键词候选：{trace.keyword_hits}/{trace.keyword_candidate_k}</span><span>融合候选：{trace.fusion_hits}/{trace.fusion_candidate_k}</span><span>阈值后：{trace.after_threshold_hits}</span><span>返回：{trace.returned_hits}</span><span>重排候选上限：{trace.rerank_candidate_k}</span><span>Rerank：{trace.rerank_applied ? '已应用' : trace.rerank_reason === 'disabled' ? '未启用' : '未生效'}{trace.rerank_reason && trace.rerank_reason !== 'disabled' ? `（${trace.rerank_reason}）` : ''}</span></div>{trace.warnings?.map((warning, index) => <p key={index} className="text-xs text-muted-foreground">{warning}</p>)}</section>}
             {searching ? (
               <div className="h-full flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
                 <Clock size={32} className="animate-spin text-primary" />
@@ -1520,15 +1609,17 @@ function SearchTab({ kbId }: { kbId: string }) {
                       <span>类型: <strong className="text-foreground">{item.chunk_type ?? 'text'}</strong></span>
                       <span>向量分: <strong className="font-mono text-foreground">{typeof item.vector_similarity === 'number' ? item.vector_similarity.toFixed(4) : '—'}</strong></span>
                       <span>关键词分: <strong className="font-mono text-foreground">{typeof item.term_similarity === 'number' ? item.term_similarity.toFixed(4) : '—'}</strong></span>
+                      <span>融合分: <strong className="font-mono text-foreground">{typeof item.fusion_similarity === 'number' ? item.fusion_similarity.toFixed(4) : '—'}</strong></span>
+                      <span>重排分: <strong className="font-mono text-foreground">{typeof item.rerank_similarity === 'number' ? item.rerank_similarity.toFixed(4) : '—'}</strong></span>
                     </div>
-                    <Button
+                    <div className="flex gap-3"><Button variant="ghost" size="sm" disabled={savingExpected !== null || searching} className="h-auto p-0 text-2xs" onClick={() => void saveExpected(item)}>{savingExpected === item.id ? '保存中…' : '设为评测期望'}</Button><Button
                       variant="ghost"
                       size="sm"
                       className="text-primary hover:text-primary/80 font-bold h-auto p-0 text-2xs"
                       onClick={() => void navigator.clipboard.writeText(item.content).then(() => toast.success('分块内容已复制'))}
                     >
                       复制分块
-                    </Button>
+                    </Button></div>
                   </div>
                 </div>
               ))
@@ -1542,20 +1633,40 @@ function SearchTab({ kbId }: { kbId: string }) {
 
 /* ─── 配置 ─── */
 function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: KnowledgeDataset) => void }) {
-  const [form, setForm] = useState<Partial<KnowledgeDataset>>({ ...kb });
+  const [form, setForm] = useState<Partial<KnowledgeDataset>>({ ...kb, chunkStrategy: normalizeChunkStrategy(kb.chunkStrategy) });
+  const [similarity, setSimilarity] = useState(0.25);
   const embeddingModelsQuery = useQuery({
     queryKey: knowledgeBaseKeys.modelOptions('embedding'),
     queryFn: () => listEnabledModels('embedding'),
   });
   useEffect(() => {
-    setForm({ ...kb });
-  }, [kb.id, kb.name, kb.description, kb.embeddingModel, kb.parserType, kb.chunkStrategy, kb.chunkSize, kb.chunkOverlap, kb.status]);
+    setForm({ ...kb, chunkStrategy: normalizeChunkStrategy(kb.chunkStrategy) });
+  }, [kb]);
   const saveMutation = useMutation({
-    mutationFn: saveDataset,
+    mutationFn: (payload: Partial<KnowledgeDataset>) => {
+      const parsed: unknown = payload.parserConfig?.trim() ? JSON.parse(payload.parserConfig) : {};
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('解析配置格式不正确，请修正后再保存');
+      return saveDataset({
+        id: kb.id,
+        name: payload.name?.trim(),
+        description: payload.description?.trim() || null,
+        embeddingModel: payload.embeddingModel?.trim() || '',
+        parserType: payload.parserType === 'ocr' || payload.parserType === 'mineru' ? payload.parserType : 'native',
+        parserConfig: JSON.stringify({ ...parsed, signatureExtractionEnabled: (parsed as Record<string, unknown>).signatureExtractionEnabled === true }),
+        chunkStrategy: normalizeChunkStrategy(payload.chunkStrategy),
+        chunkSize: payload.chunkSize ?? 512,
+        chunkOverlap: payload.chunkOverlap ?? 64,
+        autoTagEnabled: payload.autoTagEnabled === true || String(payload.autoTagEnabled) === '1' || String(payload.autoTagEnabled) === 'true',
+        documentKnowledgeTagEnabled: payload.documentKnowledgeTagEnabled === true || String(payload.documentKnowledgeTagEnabled) === '1' || String(payload.documentKnowledgeTagEnabled) === 'true',
+        documentSummaryEnabled: payload.documentSummaryEnabled === true || String(payload.documentSummaryEnabled) === '1' || String(payload.documentSummaryEnabled) === 'true',
+        documentSummaryMaxChars: payload.documentSummaryMaxChars ?? 600,
+        status: payload.status,
+      });
+    },
     onSuccess: (dataset) => {
-      setForm({ ...dataset });
+      setForm({ ...dataset, chunkStrategy: normalizeChunkStrategy(dataset.chunkStrategy) });
       onSaved(dataset);
-      toast.success('知识库配置已保存');
+      toast.success('配置已保存；已完成的文档不会自动重跑，请在文件列表重新解析');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : '知识库配置保存失败'),
   });
@@ -1608,7 +1719,7 @@ function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: Kn
         </div>
         <div className="bg-muted/30 border border-border p-6 rounded-2xl space-y-6">
           <h3 className="text-sm font-bold uppercase tracking-widest text-foreground flex items-center gap-2">
-            <span className="w-1.5 h-4 bg-purple-500 rounded-full" /> 算法与关联模型
+            <span className="w-1.5 h-4 bg-primary rounded-full" /> 算法与关联模型配置
           </h3>
           <div className="space-y-5">
             <div>
@@ -1616,11 +1727,12 @@ function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: Kn
                 嵌入向量模型
               </Label>
               <Select
-                value={form.embeddingModel || ''}
-                onValueChange={(value) => setForm((current) => ({ ...current, embeddingModel: value }))}
+                value={form.embeddingModel || '__inherit__'}
+                onValueChange={(value) => setForm((current) => ({ ...current, embeddingModel: value === '__inherit__' ? '' : value }))}
               >
                 <SelectTrigger className="w-full h-10 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__inherit__">继承模型配置中的默认 Embedding</SelectItem>
                   {embeddingModelOptions(embeddingModelsQuery.data ?? [], kb.embeddingModel).map((model) => (
                     <SelectItem key={model} value={model}>{model}</SelectItem>
                   ))}
@@ -1628,25 +1740,48 @@ function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: Kn
               </Select>
               {embeddingModelsQuery.isError && <p className="mt-2 text-xs text-destructive">加载模型列表失败</p>}
             </div>
+            <div className="rounded-xl border border-border bg-background p-5 space-y-5">
+              <div className="flex items-center justify-between gap-4"><Label>相似度过滤阈值</Label><Badge variant="secondary" className="font-mono tabular-nums">{similarity.toFixed(2)}</Badge></div>
+              <Slider className="my-2" aria-label="相似度过滤阈值" min={0} max={1} step={0.05} value={[similarity]} onValueChange={([value]) => setSimilarity(value)} />
+              <div className="flex justify-between text-2xs text-muted-foreground"><span>0 · 更宽松</span><span>1 · 更严格</span></div>
+              <p className="text-xs leading-5 text-muted-foreground">此项仅在当前页面调整，暂不保存。</p>
+            </div>
+          </div>
+        </div>
+        <section aria-label="数据解析与分块策略" className="md:col-span-2 bg-muted/30 border border-border p-6 rounded-2xl space-y-6">
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <span className="w-1.5 h-4 rounded-full bg-[var(--color-success)]" /> 数据解析与分块策略
+          </h3>
+          <div className="space-y-6">
+              <div className="flex items-center justify-between gap-6 rounded-xl border border-border bg-background p-5">
+                <div className="space-y-2"><Label htmlFor="kb-signature">手写签字提取</Label><p className="max-w-3xl text-xs leading-6 text-muted-foreground">使用多模态模型识别已提取图片中的签字，保留原图及可辨认文字；需绑定 VLM，已有文档需重新解析。</p></div>
+                <Switch id="kb-signature" checked={(() => { try { return JSON.parse(form.parserConfig || '{}')?.signatureExtractionEnabled === true; } catch { return false; } })()} onCheckedChange={(enabled) => {
+                  try {
+                    const parsed: unknown = form.parserConfig?.trim() ? JSON.parse(form.parserConfig) : {};
+                    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('解析配置格式不正确');
+                    setForm((current) => ({ ...current, parserConfig: JSON.stringify({ ...parsed, signatureExtractionEnabled: enabled }) }));
+                  } catch { toast.error('解析配置格式不正确，请修正后再保存'); }
+                }} />
+              </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">解析方式</Label>
                 <Select
-                  value={form.parserType ?? 'native'}
+                  value={form.parserType === 'ocr' || form.parserType === 'mineru' ? form.parserType : 'native'}
                   onValueChange={(value) => setForm((current) => ({ ...current, parserType: value as KnowledgeDataset['parserType'] }))}
                 >
                   <SelectTrigger className="w-full h-10 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="native">本地解析</SelectItem>
                     <SelectItem value="ocr">OCR 增强</SelectItem>
-                    <SelectItem value="remote">远程解析</SelectItem>
+                    <SelectItem value="mineru">MinerU 高保真解析</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">分块策略</Label>
                 <Select
-                  value={form.chunkStrategy ?? 'naive'}
+                  value={normalizeChunkStrategy(form.chunkStrategy)}
                   onValueChange={(value) => setForm((current) => ({ ...current, chunkStrategy: value as KnowledgeDataset['chunkStrategy'] }))}
                 >
                   <SelectTrigger className="w-full h-10 text-xs"><SelectValue /></SelectTrigger>
@@ -1656,27 +1791,42 @@ function ConfigTab({ kb, onSaved }: { kb: DatasetListItem; onSaved: (dataset: Kn
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">分块长度</Label>
-                <Input type="number" min={1} value={form.chunkSize ?? 512} onChange={(event) => setForm((current) => ({ ...current, chunkSize: Number(event.target.value) }))} />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-xl border border-border bg-background p-5 space-y-5">
+                <div className="flex items-center justify-between gap-4"><Label htmlFor="kb-chunk-size">分块长度</Label><Input id="kb-chunk-size" className="h-8 w-24 text-right font-mono tabular-nums" type="number" min={1} value={form.chunkSize ?? 512} onChange={(event) => setForm((current) => ({ ...current, chunkSize: Number(event.target.value) }))} /></div>
+                <Slider className="my-2" aria-label="分块长度" min={128} max={2048} step={64} value={[form.chunkSize ?? 512]} onValueChange={([value]) => setForm((current) => ({ ...current, chunkSize: value }))} />
+                <div className="flex justify-between text-2xs text-muted-foreground"><span>128</span><span>2048</span></div>
+                <p className="text-xs leading-5 text-muted-foreground">控制每个文本分块的大小，按文档结构调整。</p>
               </div>
-              <div>
-                <Label className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">重叠长度</Label>
-                <Input type="number" min={0} value={form.chunkOverlap ?? 50} onChange={(event) => setForm((current) => ({ ...current, chunkOverlap: Number(event.target.value) }))} />
+              <div className="rounded-xl border border-border bg-background p-5 space-y-5">
+                <div className="flex items-center justify-between gap-4"><Label htmlFor="kb-chunk-overlap">重叠长度</Label><Input id="kb-chunk-overlap" className="h-8 w-24 text-right font-mono tabular-nums" type="number" min={0} value={form.chunkOverlap ?? 64} onChange={(event) => setForm((current) => ({ ...current, chunkOverlap: Number(event.target.value) }))} /></div>
+                <Slider className="my-2" aria-label="重叠长度" min={0} max={512} step={8} value={[form.chunkOverlap ?? 64]} onValueChange={([value]) => setForm((current) => ({ ...current, chunkOverlap: value }))} />
+                <div className="flex justify-between text-2xs text-muted-foreground"><span>0</span><span>512</span></div>
+                <p className="text-xs leading-5 text-muted-foreground">保留相邻分块之间的上下文，减少内容割裂。</p>
               </div>
             </div>
+            <div className="rounded-xl border border-border bg-background p-5 space-y-5">
+              <div className="space-y-1"><h4 className="text-sm font-semibold">标签与内容富化</h4><p className="text-xs leading-5 text-muted-foreground">为解析后的分块和文档补充标签、摘要。</p></div>
+              {([
+                ['autoTagEnabled', '解析后自动生成分块标签'],
+                ['documentKnowledgeTagEnabled', '解析后生成文档知识标签'],
+                ['documentSummaryEnabled', '解析后生成文档内容摘要'],
+              ] as const).map(([key, title]) => <div key={key} className="flex items-center justify-between gap-6 border-b border-border/60 pb-4"><Label htmlFor={`kb-${key}`} className="text-sm font-normal">{title}</Label><Switch id={`kb-${key}`} checked={form[key] === true || String(form[key]) === '1' || String(form[key]) === 'true'} onCheckedChange={(enabled) => setForm((current) => ({ ...current, [key]: enabled }))} /></div>)}
+              <p className="text-xs text-muted-foreground">以上自动生成功能共用「模型配置」中的自动标签 LLM，仅对后续解析或重新解析生效；生成失败不影响分块检索。</p>
+              <Label>摘要长度</Label>
+              <Select value={String(form.documentSummaryMaxChars ?? 600)} disabled={!(form.documentSummaryEnabled === true || String(form.documentSummaryEnabled) === '1' || String(form.documentSummaryEnabled) === 'true')} onValueChange={(value) => setForm((current) => ({ ...current, documentSummaryMaxChars: Number(value) }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{[200, 600, 1200].map((value) => <SelectItem key={value} value={String(value)}>约 {value} 字</SelectItem>)}</SelectContent></Select>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
       <div className="flex items-center justify-end gap-3 pt-6 mt-8 border-t border-border">
-        <Button variant="outline" size="sm" className="text-xs rounded-xl" onClick={() => setForm({ ...kb })}>
+        <Button variant="outline" size="sm" className="text-xs rounded-xl" onClick={() => { setForm({ ...kb, chunkStrategy: normalizeChunkStrategy(kb.chunkStrategy) }); setSimilarity(0.25); }}>
           重置更改
         </Button>
         <Button
           size="sm"
           className="text-xs rounded-xl shadow-sm"
-          disabled={!form.name?.trim() || !form.embeddingModel || saveMutation.isPending}
+          disabled={!form.name?.trim() || saveMutation.isPending}
           onClick={() => saveMutation.mutate({ ...form, id: kb.id, name: form.name!.trim() })}
         >
           {saveMutation.isPending ? '保存中...' : '保存配置'}

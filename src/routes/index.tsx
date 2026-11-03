@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AgentOverviewPage } from '@/features/agents/overview';
 import { MyAgentsPage } from '@/features/agents/myAgents';
 import { KbEngineSettingsPage, KnowledgeBasePage } from '@/features/agents/knowledgeBase';
+import { KbOpenApiDocPage } from '@/features/agents/knowledgeBase/KbOpenApiDocPage';
 import { HttpToolsPage, McpToolsPage } from '@/features/agents/tools';
 import { TagManagementPage } from '@/features/agents/tag-management';
 import { AgentPlazaPage, AgentChatPage } from '@/features/agents/agent-plaza';
@@ -117,6 +118,7 @@ const MultiSelectDemo = lazy(() =>
 const TimePickerDemo = lazy(() =>
   import('@/features/components/demos/TimePickerDemo').then((m) => ({ default: m.TimePickerDemo }))
 );
+const PaginationDemo = lazy(() => import('@/features/components/demos/PaginationDemo').then(m => ({ default: m.PaginationDemo })));
 const ReactQueryDemo = lazy(() =>
   import('@/features/components/demos/ReactQueryDemo').then((m) => ({ default: m.ReactQueryDemo }))
 );
@@ -152,13 +154,14 @@ export const router = createBrowserRouter([
             path: 'agents/overview',
             element: <AgentOverviewPage />,
           },
-          { path: 'agents/myAgents', element: <MyAgentsPage /> },
+          { path: 'agents/myAgents', element: <MyAgentsPage />, handle: { contentPadding: false } },
           { path: 'agents/orchestration', element: <ChatAgentOrchestrationPage />, handle: { contentLayout: 'fullscreen' } },
-          { path: 'agents/knowledge', element: <KnowledgeBasePage /> },
+          { path: 'agents/knowledge', element: <KnowledgeBasePage />, handle: { contentPadding: false } },
           { path: 'agents/knowledge/settings', element: <KbEngineSettingsPage /> },
+          { path: 'agents/knowledge/api-doc', element: <KbOpenApiDocPage /> },
           { path: 'agents/tags', element: <TagManagementPage /> },
           { path: 'agents/AgentPlaza/chat', element: <AgentChatPage /> },
-          { path: 'agents/models', element: <ModelManagementPage /> },
+          { path: 'agents/models', element: <ModelManagementPage />, handle: { contentPadding: false } },
           { path: 'agents/memory', element: <MemoryMaintenancePage /> },
           { path: 'agents/httpTools', element: <HttpToolsPage /> },
           { path: 'agents/mcpTools', element: <McpToolsPage /> },
@@ -175,6 +178,7 @@ export const router = createBrowserRouter([
             element: <ComponentsLayout />,
             children: [
               { index: true, element: <Navigate to="button" replace /> },
+              { path: 'pagination', element: <Suspense fallback={<DemoFallback />}><PaginationDemo /></Suspense> },
               {
                 path: 'button',
                 element: (

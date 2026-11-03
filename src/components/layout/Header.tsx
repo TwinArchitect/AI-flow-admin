@@ -7,7 +7,10 @@ import {
   Moon,
   ChevronRight,
   LogOut,
+  Home,
 } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useAuthStore } from '@/stores/auth';
 import { Button } from '@/components/ui/button';
 // import { Input } from '@/components/ui/input';
 import { useThemeStore } from '@/stores/theme';
@@ -46,19 +49,20 @@ export function Header() {
   };
 
   const location = useLocation();
+  const nickname = useAuthStore(state => state.user?.nickname ?? '');
   const title = resolveRouteTitle(location.pathname);
 
   return (
-    <header className="flex items-center justify-between h-14 px-5 bg-background border-b border-border shrink-0">
+    <header className="flex items-center justify-between h-14 px-6 bg-card border-b border-border/50 shrink-0">
       {/* 左侧：面包屑导航 */}
-      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-        <span>平台</span>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Home size={15} className="mr-1 text-muted-foreground" /><span>工作空间</span>
         <ChevronRight size={10} />
         <span className="text-foreground font-medium">{title}</span>
       </div>
 
       {/* 右侧操作 */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1">
         {/* 全局搜索 */}
         {/*<div className="relative w-56">*/}
         {/*  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10 pointer-events-none" />*/}
@@ -82,6 +86,7 @@ export function Header() {
           {isDark ? <Sun size={16} /> : <Moon size={16} />}
         </Button>
 
+        {nickname && <Avatar size="sm" className="mx-2" title={nickname}><AvatarFallback className="bg-primary/10 text-primary-text">{nickname.slice(0, 1)}</AvatarFallback></Avatar>}
         {/* 退出 */}
         <Button
           variant="ghost"

@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { PermissionMenu } from '@/types/auth';
 import type { CurrentUser } from '@/types';
 import { getTokenExpiresAt } from '@/lib/tokenExpiry';
 
 interface AuthState {
+  menus: PermissionMenu[] | null;
+  setMenus: (menus: PermissionMenu[]) => void;
   token: string | null;
   expiresAt: number | null;
   refreshToken: string | null;
@@ -22,6 +25,8 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
+      menus: null,
+      setMenus: (menus) => set({ menus }),
       token: null,
       expiresAt: null,
       refreshToken: null,
@@ -33,7 +38,7 @@ export const useAuthStore = create<AuthState>()(
         const jwtExpiry = getTokenExpiresAt(token);
         const ttlExpiry = typeof expiresIn === 'number' && Number.isFinite(expiresIn) && expiresIn > 0
           ? Date.now() + expiresIn * 1000 : null;
-        set({ token, refreshToken, tenantId, user: null,
+        set({ token, refreshToken, tenantId, user: null, menus: null,
           expiresAt: jwtExpiry != null && ttlExpiry != null ? Math.min(jwtExpiry, ttlExpiry) : jwtExpiry ?? ttlExpiry,
           isAuthenticated: Boolean(token.trim()),
         });
@@ -42,7 +47,7 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user }),
 
       clear: () =>
-        set({ token: null, expiresAt: null, refreshToken: null, tenantId: null, user: null, isAuthenticated: false }),
+        set({ menus: null, token: null, expiresAt: null, refreshToken: null, tenantId: null, user: null, isAuthenticated: false }),
     }),
     {
       name: 'auth-storage',
@@ -53,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         tenantId: state.tenantId,
         user: state.user,
+        menus: state.menus,
         isAuthenticated: state.isAuthenticated,
       }),
     },

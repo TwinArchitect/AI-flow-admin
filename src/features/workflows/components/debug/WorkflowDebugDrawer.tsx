@@ -97,6 +97,8 @@ function DebugVariableField({
 }) {
   const label = variable.description?.trim() || variable.label?.trim() || variable.key;
   const uploadedFile = variable.valueType === 'file' ? parseDebugFileValue(value) : null;
+  const maxLength = variable.valueType === 'string' && Number.isInteger(variable.maxLength) && (variable.maxLength ?? 0) > 0
+    ? variable.maxLength : undefined;
   return (
     <div className="space-y-2">
       <Label htmlFor={`debug-variable-${variable.id}`}>
@@ -134,6 +136,7 @@ function DebugVariableField({
         <Textarea
           id={`debug-variable-${variable.id}`}
           value={value}
+          maxLength={maxLength}
           onChange={(event) => onChange(sanitizePastedText(event.target.value))}
           onPaste={(event) => {
             event.preventDefault();
@@ -141,7 +144,8 @@ function DebugVariableField({
             const element = event.currentTarget;
             const start = element.selectionStart ?? value.length;
             const end = element.selectionEnd ?? value.length;
-            onChange(sanitizePastedText(`${value.slice(0, start)}${text}${value.slice(end)}`));
+            const next = sanitizePastedText(`${value.slice(0, start)}${text}${value.slice(end)}`);
+            onChange(maxLength === undefined ? next : next.slice(0, maxLength));
           }}
           className="min-h-24 font-mono text-xs"
           placeholder={isArrayValueType(variable.valueType)

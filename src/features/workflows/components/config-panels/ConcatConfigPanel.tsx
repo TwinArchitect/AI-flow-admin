@@ -1,25 +1,19 @@
-import { WORKFLOW_DATA_TYPES } from '../../utils/valueTypes';
 import { getValueTypeLabel, getReferenceValueType } from '../../utils/valueTypes';
 import { useState } from 'react';
-import { BookOpen, Plus, Trash2 } from 'lucide-react';
+import { BookOpen, Plus, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { VariableInput as Input } from './shared/VariableValueField';
+import { Input } from '@/components/ui/input';
+import { VariableInput } from './shared/VariableValueField';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { VariableTextarea as Textarea } from './shared/VariableValueField';
-import { normalizeConcatConfig } from '../../contracts/concatNodeContract';
+import { Textarea } from '@/components/ui/textarea';
+import { normalizeConcatConfig, TEMPLATE_VALUE_TYPES } from '../../contracts/concatNodeContract';
+import { TEMPLATE_EXAMPLES } from '../../utils/templateExamples';
 import type { ConcatNodeConfig, TemplateInputVariable, WorkflowValueType, WorkflowVariableOption } from '../../types';
 import { Field } from './shared/Field';
 import { VariablePicker } from './shared/VariablePicker';
-
-const EXAMPLES = [
-  { title: '多变量问候', template: 'Hi {{ customer }},\n\n{{ body }}\n\n---\nBest regards' },
-  { title: '条件分支', template: '{% if order.is_vip %}\n尊敬的 VIP 会员 {{ order.customer }}\n{% else %}\n亲爱的 {{ order.customer }}\n{% endif %}' },
-  { title: '列表循环', template: '{% for item in results %}\n### 结果 {{ loop.index }}\n{{ item.content }}\n{% endfor %}' },
-  { title: '过滤器与默认值', template: "姓名：{{ name | upper }}\n标签：{{ tags | join(', ') | default('无') }}" },
-];
 
 function newInput(): TemplateInputVariable {
   return {
@@ -65,17 +59,18 @@ export function ConcatConfigPanel({
         ) : value.inputVariables.map((item) => (
           <div key={item.id} className="space-y-2 rounded-md border border-border bg-background p-3">
             <div className="grid grid-cols-[1fr_120px_auto] gap-2">
-              <Input variables={variables} value={item.key} placeholder="变量名，如 customer" onChange={(event) => patchInput(item.id, { key: event.target.value, label: event.target.value })} />
+              <Input value={item.key} placeholder="变量名，如 customer" onChange={(event) => patchInput(item.id, { key: event.target.value, label: event.target.value })} />
               <Select value={item.valueType} onValueChange={(valueType) => patchInput(item.id, { valueType: valueType as WorkflowValueType })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{WORKFLOW_DATA_TYPES.map((type) => <SelectItem key={type} value={type}>{getValueTypeLabel(type)}</SelectItem>)}</SelectContent>
+                <SelectContent>{TEMPLATE_VALUE_TYPES.map((type) => <SelectItem key={type} value={type}>{getValueTypeLabel(type)}</SelectItem>)}</SelectContent>
               </Select>
               <Button variant="ghost" size="icon-sm" onClick={() => updateInputs(value.inputVariables.filter((row) => row.id !== item.id))} aria-label="删除输入变量">
                 <Trash2 size={13} />
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Input variables={variables} value={item.value} readOnly placeholder="请选择上游变量" className="min-w-0 flex-1 font-mono text-xs" />
+              <VariableInput variables={variables} value={item.value} readOnly placeholder="请选择上游变量" className="min-w-0 flex-1 font-mono text-xs" />
+              {item.value && <Button variant="ghost" size="icon-sm" aria-label={`清除${item.key || '输入变量'}引用`} onClick={() => patchInput(item.id, { value: '' })}><X size={13} /></Button>}
               <VariablePicker variables={variables} onSelect={(ref) => patchInput(item.id, { value: ref, valueType: getReferenceValueType(variables.find((variable) => variable.ref === ref)?.valueType ?? item.valueType) })} />
             </div>
             <label className="flex items-center justify-between text-[10px] text-muted-foreground">
@@ -95,7 +90,7 @@ export function ConcatConfigPanel({
           <Button variant="outline" size="sm" onClick={() => setExamplesOpen(true)}><BookOpen size={13} />模板示例</Button>
         </div>
         <Field label="模板内容">
-          <Textarea variables={variables}
+          <Textarea spellCheck={false}
             value={value.template}
             onChange={(event) => onUpdate({ template: event.target.value })}
             placeholder="{% if customer %}Hi {{ customer }}{% endif %}"
@@ -117,12 +112,14 @@ export function ConcatConfigPanel({
             <DialogDescription>选择后会替换当前模板内容。</DialogDescription>
           </DialogHeader>
           <div className="grid max-h-[60vh] gap-3 overflow-y-auto sm:grid-cols-2">
-            {EXAMPLES.map((example) => (
+            {TEMPLATE_EXAMPLES.map((example) => (
               <button key={example.title} type="button" className="rounded-md border border-border p-3 text-left hover:border-primary" onClick={() => {
                 onUpdate({ template: example.template });
                 setExamplesOpen(false);
               }}>
                 <div className="text-xs font-semibold text-foreground">{example.title}</div>
+                <p className="mt-1 text-xs text-muted-foreground">{example.description}</p>
+                <p className="mt-1 text-xs text-muted-foreground">输入变量：{example.inputKeys.join('、')}</p>
                 <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-[10px] text-muted-foreground">{example.template}</pre>
               </button>
             ))}

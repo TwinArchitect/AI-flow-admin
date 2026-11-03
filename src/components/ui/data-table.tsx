@@ -22,8 +22,9 @@ import { Button } from './button';
 import { Checkbox } from './checkbox';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from './dropdown-menu';
 import { Input } from './input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
+import { Pagination } from './pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table';
+import './data-table.css';
 
 // ── 排序图标 ────────────────────────────────────────────────────────
 function SortingIcon({ isSorted }: { isSorted: false | 'asc' | 'desc' }) {
@@ -50,52 +51,16 @@ function reorderColumnOrder(current: string[], draggedId: string, targetId: stri
 // ── 分页栏 ──────────────────────────────────────────────────────────
 function DataTablePagination<TData>({ table }: { table: TanTable<TData> }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        {table.getFilteredSelectedRowModel().rows.length > 0 && (
-          <span className="mr-2">
-            已选 {table.getFilteredSelectedRowModel().rows.length} /
-            {table.getFilteredRowModel().rows.length} 条
-          </span>
-        )}
-        <span>每页</span>
-        <Select
-          value={String(table.getState().pagination.pageSize)}
-          onValueChange={v => table.setPageSize(Number(v))}
-        >
-          <SelectTrigger className="w-[64px] h-7 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[5, 10, 20, 50].map(s => (
-              <SelectItem key={s} value={String(s)}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span>条，共 {table.getFilteredRowModel().rows.length} 条</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button variant="outline" size="sm" className="h-7 px-2 text-xs"
-          disabled={!table.getCanPreviousPage()} onClick={() => table.setPageIndex(0)}>
-          首页
-        </Button>
-        <Button variant="outline" size="sm" className="h-7 px-2 text-xs"
-          disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()}>
-          上一页
-        </Button>
-        <span className="px-2 text-muted-foreground tabular-nums">
-          {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
-        </span>
-        <Button variant="outline" size="sm" className="h-7 px-2 text-xs"
-          disabled={!table.getCanNextPage()} onClick={() => table.nextPage()}>
-          下一页
-        </Button>
-        <Button variant="outline" size="sm" className="h-7 px-2 text-xs"
-          disabled={!table.getCanNextPage()} onClick={() => table.setPageIndex(table.getPageCount() - 1)}>
-          末页
-        </Button>
-      </div>
-    </div>
+    <Pagination
+      className="border-t px-4 py-3"
+      page={table.getState().pagination.pageIndex + 1}
+      pageCount={table.getPageCount()}
+      pageSize={table.getState().pagination.pageSize}
+      total={table.getFilteredRowModel().rows.length}
+      onPageChange={page => table.setPageIndex(page - 1)}
+      onPageSizeChange={size => table.setPageSize(size)}
+      selection={table.getFilteredSelectedRowModel().rows.length > 0 ? <span className="mr-2">已选 {table.getFilteredSelectedRowModel().rows.length} / {table.getFilteredRowModel().rows.length} 条</span> : null}
+    />
   );
 }
 
@@ -129,6 +94,9 @@ function DataTableViewOptions<TData>({ table }: { table: TanTable<TData> }) {
 export interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  /** 使用业务 ID 标识行，避免删除或排序后选择状态串行。 */
+  getRowId?: (row: TData, index: number) => string;
+  pinnedColumns?: { left?: string[]; right?: string[] };
   /** 搜索框 placeholder */
   searchPlaceholder?: string;
   /** 按哪个字段做全局搜索（列 id） */
@@ -182,6 +150,8 @@ export function createSelectColumn<TData>(): ColumnDef<TData> {
 export function DataTable<TData, TValue>({
   columns,
   data,
+  getRowId,
+  pinnedColumns,
   searchPlaceholder = '搜索...',
   searchColumn,
   toolbar,
@@ -249,6 +219,7 @@ export function DataTable<TData, TValue>({
 
   const table = useReactTable({
     data,
+    getRowId,
     columns: allColumns,
     state: { sorting, columnFilters, columnVisibility, rowSelection, columnSizing, columnOrder },
     onSortingChange: setSorting,
@@ -265,6 +236,15 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize } },
   });
+
+  const pinnedStyle = (id: string): React.CSSProperties | undefined => {
+    const side = pinnedColumns?.left?.includes(id) ? 'left' : pinnedColumns?.right?.includes(id) ? 'right' : undefined;
+    if (!side) return undefined;
+    const ids = pinnedColumns?.[side] ?? [];
+    const adjacent = side === 'left' ? ids.slice(0, ids.indexOf(id)) : ids.slice(ids.indexOf(id) + 1);
+    return { position: 'sticky', [side]: adjacent.reduce((width, key) => width + (table.getColumn(key)?.getSize() ?? 0), 0), zIndex: 2, background: 'var(--card)' };
+  };
+  const pinnedBoundary = (id: string) => pinnedColumns?.left?.at(-1) === id ? 'left' : pinnedColumns?.right?.[0] === id ? 'right' : undefined;
 
   return (
     <div className={cn('rounded-lg border', className)}>
@@ -301,6 +281,8 @@ export function DataTable<TData, TValue>({
                 return (
                 <TableHead
                   key={header.id}
+                  style={pinnedStyle(columnId)}
+                  data-pinned-boundary={pinnedBoundary(columnId)}
                   ref={el => {
                     applyWidth(el, header.getSize());
                   }}
@@ -387,6 +369,8 @@ export function DataTable<TData, TValue>({
                 {row.getVisibleCells().map(cell => (
                   <TableCell
                     key={cell.id}
+                    style={pinnedStyle(cell.column.id)}
+                    data-pinned-boundary={pinnedBoundary(cell.column.id)}
                     ref={el => {
                       applyWidth(el, cell.column.getSize());
                     }}

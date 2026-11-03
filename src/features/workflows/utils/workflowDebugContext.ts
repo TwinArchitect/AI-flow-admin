@@ -79,6 +79,10 @@ export function validateDebugVariables(
 ): string | null {
   for (const variable of variables) {
     const name = variable.description?.trim() || variable.label?.trim() || variable.key;
+    if (variable.valueType === 'string' && Number.isInteger(variable.maxLength) && (variable.maxLength ?? 0) > 0
+      && (values[variable.key] ?? '').length > variable.maxLength!) {
+      return `「${name}」不能超过 ${variable.maxLength} 个字符`;
+    }
     const raw = sanitizeDebugStringValue(values[variable.key] ?? '');
     if (variable.required && (variable.valueType === 'file' ? !parseDebugFileValue(raw) : !raw)) {
       return `请填写「${name}」`;

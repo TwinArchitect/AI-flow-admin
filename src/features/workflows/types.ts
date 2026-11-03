@@ -19,6 +19,7 @@ export type WorkflowNodeType =
   | 'loopStart'
   | 'loopBreak'
   | 'plugin'
+  | 'workflowCall'
   | 'mcp';
 
 export interface WorkflowNodeData extends Record<string, unknown> {
@@ -242,7 +243,15 @@ export interface DatasetSearchInput {
   value: string;
 }
 
+export interface DatasetSearchDocument { documentId: string; datasetId: string; name?: string }
+
 export interface DatasetSearchNodeConfig {
+  datasetInputMode: 'select' | 'reference';
+  datasetIds: DatasetSearchInput;
+  retrievalScope: 'all' | 'files';
+  documentInputMode: 'select' | 'reference';
+  documents: DatasetSearchDocument[];
+  documentIds: DatasetSearchInput;
   datasets: DatasetSearchSelectedItem[];
   similarity: number;
   limit: number;
@@ -320,9 +329,11 @@ export interface LoopCustomOutput {
 }
 
 export interface LoopNodeConfig {
-  loopRunMode: 'array';
+  loopRunMode: 'array' | 'conditional';
   loopRunInputArray: string;
-  customOutputs: LoopCustomOutput[];
+  loopOutputSource: string;
+  /** Historical drafts only; normalized into loopOutputSource. */
+  customOutputs?: LoopCustomOutput[];
   childrenNodeIds: string[];
   nodeWidth: number;
   nodeHeight: number;
@@ -331,7 +342,7 @@ export interface LoopNodeConfig {
 }
 
 export interface LoopStartNodeConfig {
-  loopRunMode: 'array';
+  loopRunMode: 'array' | 'conditional';
   loopStartInput: string;
   loopStartIndex?: number;
 }
@@ -401,6 +412,7 @@ export type WorkflowNodeConfig =
   | Record<string, unknown>;
 
 export type BackendFlowNodeType =
+  | 'workflowCall'
   | 'workflowStart'
   | 'chatNode'
   | 'workflowEnd'
@@ -455,6 +467,8 @@ export interface WorkflowModuleOutput {
 }
 
 export interface WorkflowModule {
+  agentId?: string;
+  publishedOnly?: boolean;
   flowNodeType: BackendFlowNodeType;
   avatar?: string;
   name: string;

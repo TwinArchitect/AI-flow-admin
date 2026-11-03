@@ -4,7 +4,7 @@
  *   bg-white dark:bg-slate-900 → bg-card
  *   border-slate-200 → border-border
  *   text-slate-* → text-foreground / text-muted-foreground
- *   text-indigo-* / bg-indigo-* → text-primary / bg-primary/10
+ *   text-indigo-* / bg-indigo-* → text-primary-text / bg-primary/10
  *   bg-brand-* → bg-primary
  *   text-sky-* → 保留 sky 色（功能色标识）
  *   text-emerald-500 / bg-emerald-500 → text-success / bg-success
@@ -48,11 +48,11 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
       <div className="flex items-start justify-between gap-3 mb-3 shrink-0">
         <div className="flex items-start gap-3 min-w-0 flex-1">
           {/* Avatar */}
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-primary-text font-bold text-sm">
             {agent.agentName.charAt(0)}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold text-primary leading-snug line-clamp-2 group-hover:text-primary/80">
+            <h3 className="text-sm font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary-text">
               {agent.agentName}
             </h3>
             <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
@@ -147,7 +147,7 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
         </div>
 
         <div className="flex items-center justify-between text-2xs">
-          <span className="text-primary font-medium">最近编辑</span>
+          <span className="text-primary-text font-medium">最近编辑</span>
           <span className="text-muted-foreground tabular-nums">{editTime}</span>
         </div>
       </div>

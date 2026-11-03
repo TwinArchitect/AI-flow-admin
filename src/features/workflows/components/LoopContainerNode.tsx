@@ -32,7 +32,7 @@ export function LoopContainerNode({ id, data, selected }: NodeProps<WorkflowCanv
         <div className="flex size-7 items-center justify-center rounded-md bg-violet-500 text-white"><Repeat2 size={14} /></div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-foreground">{data.label}</div>
-          <div className="text-[10px] text-muted-foreground">数组循环</div>
+          <div className="text-[10px] text-muted-foreground">{config.loopRunMode === 'conditional' ? '条件循环' : '数组循环'}</div>
         </div>
         <span className="rounded p-1 text-muted-foreground" aria-hidden="true">
           <Settings size={13} />

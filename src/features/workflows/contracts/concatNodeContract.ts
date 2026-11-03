@@ -13,6 +13,7 @@ const RESERVED_INPUT_KEYS = new Set(['system_addInputParam', 'template', 'system
 export const TEMPLATE_VALUE_TYPES: WorkflowValueType[] = [
   'string', 'number', 'boolean', 'object', 'file', 'any',
   'arrayString', 'arrayNumber', 'arrayBoolean', 'arrayObject', 'arrayAny',
+  'chatHistory', 'datasetQuote',
 ];
 
 export const DEFAULT_CONCAT_CONFIG: ConcatNodeConfig = {
@@ -38,7 +39,8 @@ function normalizeInputVariables(value: unknown): TemplateInputVariable[] {
   return value.map((raw, index) => {
     const item = (raw ?? {}) as Partial<TemplateInputVariable>;
     const preferred = String(item.id ?? '').trim();
-    const id = preferred && !seen.has(preferred) ? preferred : `template-input-${index}`;
+    let id = preferred && !seen.has(preferred) ? preferred : `template-input-${index}`;
+    while (seen.has(id)) id += '-copy';
     seen.add(id);
     const valueType = TEMPLATE_VALUE_TYPES.includes(item.valueType as WorkflowValueType)
       ? item.valueType as WorkflowValueType
@@ -122,6 +124,11 @@ export function serializeConcatNode(node: WorkflowCanvasNode): WorkflowModule {
         label: item.label.trim() || item.key.trim(),
         valueType: item.valueType,
         required: item.required,
+        customInputConfig: {
+          selectValueTypeList: TEMPLATE_VALUE_TYPES,
+          showDefaultValue: false,
+          showDescription: false,
+        },
         renderTypeList: ['reference'],
         value: stringToModuleRef(item.value),
         canEdit: true,
@@ -154,9 +161,15 @@ export function parseConcatModule(module: WorkflowModule) {
         ? input.valueType as WorkflowValueType
         : 'string',
     }));
-  const config = template
-    ? normalizeConcatConfig({ template, inputVariables })
-    : migrateLegacyTemplate(legacyTemplate);
+  const hasTemplateInput = inputs.some((input) => input.key === 'template');
+  const config = template || inputVariables.length > 0 || hasTemplateInput
+    ? normalizeConcatConfig({
+      template: template || legacyTemplate || (hasTemplateInput ? '' : DEFAULT_CONCAT_CONFIG.template),
+      inputVariables,
+    })
+    : legacyTemplate ? migrateLegacyTemplate(legacyTemplate) : normalizeConcatConfig({
+      template: DEFAULT_CONCAT_CONFIG.template, inputVariables,
+    });
   const node = createCanvasNode('concat', module, config);
   node.data.description = CONCAT_NODE_DESCRIPTION;
   return node;

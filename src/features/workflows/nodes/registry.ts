@@ -5,6 +5,7 @@ import type {
   WorkflowNodeType,
 } from '../types';
 import { baseChartNodeModule } from './baseChartNodeModule';
+import { workflowCallNodeModule } from './workflowCallNodeModule';
 import { concatNodeModule } from './concatNodeModule';
 import { classifyNodeModule } from './classifyNodeModule';
 import { codeNodeModule } from './codeNodeModule';
@@ -24,6 +25,7 @@ import type { WorkflowNodeModule } from './types';
 
 export const WORKFLOW_NODE_MODULES: WorkflowNodeModule[] = [
   startNodeModule,
+  workflowCallNodeModule,
   endNodeModule,
   concatNodeModule,
   conditionNodeModule,

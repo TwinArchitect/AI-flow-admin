@@ -146,5 +146,11 @@ export function validateStartNode(node: WorkflowCanvasNode) {
     errors.push('开始节点自定义变量名不能为空');
   }
   if (new Set(keys).size !== keys.length) errors.push('开始节点输入变量名不能重复');
+  for (const variable of customVariables) {
+    if (variable.valueType === 'string' && variable.maxLength != null
+      && (!Number.isInteger(variable.maxLength) || variable.maxLength < 1)) {
+      errors.push(`开始节点「${variable.label || variable.key}」最大长度需为正整数或留空`);
+    }
+  }
   return errors;
 }

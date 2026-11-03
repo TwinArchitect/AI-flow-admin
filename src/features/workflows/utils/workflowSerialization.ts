@@ -34,6 +34,10 @@ export function serializeWorkflowToBackend(
           ? { x: parent.position.x + node.position.x, y: parent.position.y + node.position.y }
           : node.position;
         const next = { ...module, position, ...(node.parentId ? { parentNodeId: node.parentId } : {}) };
+        if (node.data.nodeType === 'loopStart' && parent?.data.nodeType === 'loop') {
+          const mode = (parent.data.config as { loopRunMode?: string }).loopRunMode === 'conditional' ? 'conditional' : 'array';
+          next.inputs = next.inputs.map((input) => input.key === 'loopRunMode' ? { ...input, value: mode } : input);
+        }
         if (node.data.nodeType === 'loop') {
           const children = nodes.filter((item) => item.parentId === node.id).map((item) => item.id);
           next.inputs = next.inputs.map((input) => input.key === 'childrenNodeIdList' ? { ...input, value: children } : input);

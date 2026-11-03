@@ -3,6 +3,8 @@ export { Alert, AlertDescription, AlertTitle } from './alert';
 export { Avatar, AvatarFallback, AvatarImage } from './avatar';
 export { Badge, badgeVariants } from './badge';
 export { Button, buttonVariants } from './button';
+export { Pagination } from './pagination';
+export type { PaginationProps } from './pagination';
 export { Calendar } from './calendar';
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card';
 export { Checkbox } from './checkbox';

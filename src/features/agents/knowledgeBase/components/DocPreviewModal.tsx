@@ -15,12 +15,16 @@ import * as XLSX from 'xlsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { downloadDocument, fetchDocumentBlob } from '../api';
+import { ChunksModal } from './ChunksModal';
+import { DocumentElementsPane } from './DocumentElementsPane';
+import { KB_IMAGE_EXTENSIONS } from '../kbContracts';
 
 export interface DocPreviewFile {
   id: string;
   name: string;
   parser: string;
   initialPage?: number;
+  enabled?: boolean;
 }
 
 interface DocPreviewModalProps {
@@ -31,18 +35,6 @@ interface DocPreviewModalProps {
 }
 
 type PreviewMode = 'pdf' | 'docx' | 'excel' | 'markdown' | 'text' | 'image' | 'unsupported';
-const imageExtensions = new Set([
-  'jpg',
-  'jpeg',
-  'png',
-  'gif',
-  'webp',
-  'bmp',
-  'svg',
-  'tif',
-  'tiff',
-  'avif',
-]);
 
 function extension(file: DocPreviewFile) {
   const fromName = file.name.split('.').pop()?.toLowerCase();
@@ -57,7 +49,7 @@ function previewMode(file: DocPreviewFile): PreviewMode {
   if (['xls', 'xlsx', 'csv'].includes(ext)) return 'excel';
   if (['md', 'markdown'].includes(ext)) return 'markdown';
   if (['txt', 'log', 'json', 'xml', 'yaml', 'yml'].includes(ext)) return 'text';
-  if (imageExtensions.has(ext)) return 'image';
+  if (KB_IMAGE_EXTENSIONS.has(ext)) return 'image';
   return 'unsupported';
 }
 
@@ -293,11 +285,14 @@ function PreviewError({ message }: { message: string }) {
   );
 }
 
-export function DocPreviewModal({ open, file, onClose }: DocPreviewModalProps) {
+export function DocPreviewModal({ open, file, datasetId, onClose }: DocPreviewModalProps) {
   const [blob, setBlob] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pdfPage, setPdfPage] = useState(1);
+  const [pane, setPane] = useState<'original' | 'elements'>('original');
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  useEffect(() => { setPane('original'); setSelectedAssetIds([]); }, [file?.id, open]);
   const mode = file ? previewMode(file) : 'unsupported';
 
   useEffect(() => {
@@ -354,24 +349,19 @@ export function DocPreviewModal({ open, file, onClose }: DocPreviewModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-      <DialogContent className="sm:max-w-[92vw] h-[88vh] flex flex-col overflow-hidden">
-        <DialogHeader className="shrink-0 border-b pb-4">
+      <DialogContent className="sm:max-w-[94vw] h-[90dvh] gap-0 p-0 flex flex-col overflow-hidden rounded-2xl">
+        <DialogHeader className="shrink-0 border-b px-5 py-4 pr-14">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <DialogTitle className="truncate text-sm">{file.name}</DialogTitle>
-              <p className="mt-1 text-2xs text-muted-foreground">原文预览</p>
+              <p className="mt-1 text-2xs text-muted-foreground">文档预览 · 分块与原文对照</p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void downloadDocument(file.id, file.name)}
-            >
-              <Download size={14} />
-              下载
-            </Button>
           </div>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border">{body}</div>
+        <div className="min-h-0 flex-1 flex flex-col md:flex-row overflow-hidden">
+          {datasetId && open && <div className="min-h-0 h-[38%] md:h-full md:w-[38%] md:max-w-lg shrink-0 border-b md:border-b-0 md:border-r border-border"><ChunksModal embedded open={open} datasetId={datasetId} file={{ ...file, status: 'success', progress: 100, uploadDate: '', enabled: file.enabled ?? true, chunks: 0, metadataFields: 0 }} onClose={() => {}} onSelect={(chunk) => { if ((chunk.pageStart ?? 0) > 0) { setPdfPage(chunk.pageStart!); setPane('original'); } setSelectedAssetIds((chunk.mediaAssets ?? []).map((asset) => asset.assetId)); }} /></div>}
+          <div className="min-w-0 min-h-0 flex flex-1 flex-col"><div className="flex items-center gap-2 border-b border-border px-4 py-2"><Button variant={pane === 'original' ? 'secondary' : 'ghost'} size="sm" onClick={() => setPane('original')}>原文预览</Button><Button variant={pane === 'elements' ? 'secondary' : 'ghost'} size="sm" onClick={() => setPane('elements')}>解析元素</Button><Button className="ml-auto" variant="ghost" size="sm" onClick={() => void downloadDocument(file.id, file.name)}><Download size={14} />下载原文</Button></div><div className="min-h-0 flex-1"><div className={pane === 'original' ? 'h-full' : 'hidden'}>{body}</div>{pane === 'elements' && open && <DocumentElementsPane key={file.id} documentId={file.id} selectedAssetIds={selectedAssetIds} onPage={(page) => { setPdfPage(Math.max(1, page)); setPane('original'); }} />}</div></div>
+        </div>
       </DialogContent>
     </Dialog>
   );

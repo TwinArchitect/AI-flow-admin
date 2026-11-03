@@ -163,6 +163,24 @@ function UserTableToolbar({ table }: { table: TanTable<User> }) {
 export function TableDemo() {
   return (
     <div className="space-y-8">
+      <section className="max-w-5xl space-y-3">
+        <h3 className="text-sm font-medium">首尾固定列与横向滚动</h3>
+        <p className="text-xs text-muted-foreground">选择、姓名固定在左侧，操作固定在右侧；横向滚动查看中间字段，阴影标识固定区域的边界。</p>
+        <DataTable<User, unknown>
+          columns={[
+            { accessorKey: 'name', header: '姓名（固定）', size: 160, cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
+            ...userColumns.filter(column => column.id !== 'actions' && !('accessorKey' in column && column.accessorKey === 'name')).map(column => ({ ...column, size: 'accessorKey' in column && column.accessorKey === 'email' ? 260 : 160 })),
+            { id: 'actions', header: '操作（固定）', size: 120, enableSorting: false, cell: () => <Button variant="ghost" size="sm">查看详情</Button> },
+          ]}
+          data={ALL_DATA.slice(0, 5)}
+          getRowId={row => String(row.id)}
+          pinnedColumns={{ left: ['select', 'name'], right: ['actions'] }}
+          selectable
+          showPagination={false}
+          showViewOptions={false}
+          className="max-w-full overflow-hidden [&_table]:w-[1500px] [&_table]:table-fixed"
+        />
+      </section>
 
       {/* ── 示例一：完整功能（TanStack Table + DataTable 封装）── */}
       <section className="space-y-3">

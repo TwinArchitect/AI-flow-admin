@@ -184,6 +184,11 @@ export async function runWorkflowStream({
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     flushEvents();
+    // workflow_finished 是协议终态；不能继续等待长连接 EOF，否则调试锁无法释放。
+    if (finishedPayload) {
+      await reader.cancel();
+      break;
+    }
   }
 
   if (buffer.trim()) {

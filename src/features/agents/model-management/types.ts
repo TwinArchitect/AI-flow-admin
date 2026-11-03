@@ -1,6 +1,6 @@
 export type ModelCategory = 'llm' | 'multimodal' | 'embedding' | 'rerank' | 'ocr' | 'parser';
 export type ModelType = 'llm' | 'multimodal';
-export type ModelVendor = 'openai' | 'dify' | 'ollama' | 'deepdoc' | 'mineru_http';
+export type ModelVendor = 'openai' | 'dashscope' | 'deepseek' | 'vllm' | 'dify' | 'ollama' | 'deepdoc' | 'mineru' | 'mineru_http';
 
 export type AgentOpenModel = {
   id: string;
@@ -10,6 +10,7 @@ export type AgentOpenModel = {
   baseUrl?: string;
   apiPath?: string;
   dimension?: number;
+  sendDimensions?: boolean | null;
   params?: string;
   type?: ModelType;
   category?: ModelCategory;
@@ -52,6 +53,7 @@ export type ModelSavePayload = {
   baseUrl?: string;
   apiPath?: string;
   dimension?: number;
+  sendDimensions?: boolean | null;
   type?: ModelType;
   category?: ModelCategory;
   vendor?: ModelVendor;
@@ -79,6 +81,9 @@ export type ModelDebugResult = {
   requestUrl?: string;
   content?: string;
   reasoningContent?: string;
+  dimensionsSent?: boolean;
+  configuredDimension?: number;
+  actualDimension?: number;
   responseBody?: string;
   errorMessage?: string;
 };

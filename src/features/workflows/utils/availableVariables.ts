@@ -1,3 +1,4 @@
+import { getVariableUpstreamNodes } from './loopVariableScope';
 import { getNodeModule } from '../nodes/registry';
 import type {
   WorkflowCanvasEdge,
@@ -9,36 +10,6 @@ import {
   normalizeStartConfig,
   VARIABLE_NODE_ID,
 } from '../contracts/startNodeContract';
-
-function getUpstreamNodes(
-  nodeId: string,
-  nodes: WorkflowCanvasNode[],
-  edges: WorkflowCanvasEdge[],
-) {
-  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  const incoming = new Map<string, string[]>();
-
-  edges.forEach((edge) => {
-    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge.source]);
-  });
-
-  const visited = new Set<string>();
-  const ordered: WorkflowCanvasNode[] = [];
-  const queue = [...(incoming.get(nodeId) ?? [])];
-
-  while (queue.length > 0) {
-    const currentId = queue.shift();
-    if (!currentId || visited.has(currentId)) continue;
-
-    visited.add(currentId);
-    const node = nodeMap.get(currentId);
-    if (node) ordered.push(node);
-
-    queue.push(...(incoming.get(currentId) ?? []));
-  }
-
-  return ordered;
-}
 
 export function resolveNodeOutputs(node: WorkflowCanvasNode) {
   return getNodeModule(node.data.nodeType).getOutputs(node);
@@ -73,15 +44,15 @@ export function getAvailableVariablesForNode(
   }
 
   const current = nodes.find((node) => node.id === nodeId);
-  const relatedNodes = getUpstreamNodes(nodeId, nodes, edges);
+  const relatedNodes = getVariableUpstreamNodes(nodeId, nodes, edges);
   if (current?.data.nodeType === 'loop') {
     relatedNodes.push(...nodes.filter((node) => node.parentId === current.id));
-  } else if (current?.parentId) {
-    relatedNodes.push(...getUpstreamNodes(current.parentId, nodes, edges));
   }
 
   relatedNodes.forEach((node) => {
-    resolveNodeOutputs(node).forEach((output) => {
+    const outputs = current?.data.nodeType === 'loop' && node.parentId === current.id && node.data.nodeType === 'reply'
+      ? [{ key: 'text', label: '回复文本', valueType: 'string' as const }] : resolveNodeOutputs(node);
+    outputs.forEach((output) => {
       const ref = buildVariableRef(node.id, output.key);
       options.set(ref, {
         ref,

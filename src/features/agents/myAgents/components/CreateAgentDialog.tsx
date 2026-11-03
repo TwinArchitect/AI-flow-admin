@@ -23,8 +23,8 @@ import type { AgentOpenSysAgent } from '@/types/agent';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
-  name: z.string().min(1, '请输入智能体名称').max(50),
-  remark: z.string().min(1, '请输入智能体描述').max(200),
+  name: z.string().trim().min(1, '请输入智能体名称').max(50),
+  remark: z.string().trim().min(1, '请输入智能体描述').max(200),
   type: z.enum(['workflow', 'chat']),
 });
 
@@ -40,7 +40,7 @@ interface CreateAgentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   agent?: AgentOpenSysAgent | null;
-  onSubmit?: (data: CreateAgentDraft) => void;
+  onSubmit?: (data: CreateAgentDraft) => void | Promise<void>;
 }
 
 export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAgentDialogProps) {
@@ -60,14 +60,18 @@ export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAg
     }
   }, [isOpen, agent, form]);
 
-  const handleSubmit = (data: FormData) => {
-    onSubmit?.(data);
-    onClose();
+  const handleSubmit = async (data: FormData) => {
+    try {
+      await onSubmit?.(data);
+      onClose();
+    } catch {
+      // 调用方展示接口错误；保留表单，允许修正后重试。
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-[560px] p-0 overflow-hidden gap-0" showCloseButton>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !form.formState.isSubmitting && onClose()}>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[560px] p-0 overflow-hidden gap-0" showCloseButton={!form.formState.isSubmitting}>
         <div className="h-[3px] bg-gradient-to-r from-primary via-purple-500 to-destructive shrink-0" />
 
         <DialogHeader className="px-7 pt-7 pb-4 items-start gap-4 relative">
@@ -86,7 +90,7 @@ export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAg
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col">
-            <div className="px-7 pb-6">
+            <fieldset disabled={form.formState.isSubmitting} className="min-w-0 px-7 pb-6">
               <div className="space-y-5">
                 <section>
                   <h3 className="text-[13px] font-bold text-foreground mb-3">智能体类型</h3>
@@ -163,7 +167,7 @@ export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAg
                   </div>
                 </section>
               </div>
-            </div>
+            </fieldset>
 
             <div className="px-7 py-4 border-t border-border flex items-center justify-end gap-4 bg-card">
               <div className="flex items-center gap-2.5">
@@ -172,17 +176,19 @@ export function CreateAgentDialog({ isOpen, onClose, agent, onSubmit }: CreateAg
                   size="sm"
                   type="button"
                   onClick={onClose}
+                  disabled={form.formState.isSubmitting}
                   className="text-sm"
                 >
                   取消
                 </Button>
                 <Button
                   type="submit"
+                  disabled={form.formState.isSubmitting}
                   size="sm"
                   className="text-sm gap-2 bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-700 shadow-sm"
                 >
                   <Sparkles size={15} />
-                  {isEditMode ? '保存' : '创建智能体'}
+                  {form.formState.isSubmitting ? (isEditMode ? '保存中…' : '创建中…') : isEditMode ? '保存' : '创建智能体'}
                 </Button>
               </div>
             </div>

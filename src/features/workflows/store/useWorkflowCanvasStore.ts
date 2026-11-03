@@ -1,3 +1,4 @@
+import { collectNodesRemovedWithDescendants } from '../utils/loopVariableScope';
 import { create } from 'zustand';
 import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import type { Connection, EdgeChange, NodeChange, XYPosition } from '@xyflow/react';
@@ -15,7 +16,7 @@ interface Snapshot {
   edges: WorkflowCanvasEdge[];
 }
 
-const initialNodes: WorkflowCanvasNode[] = [
+export const initialWorkflowNodes: WorkflowCanvasNode[] = [
   {
     id: 'start',
     type: 'start',
@@ -39,6 +40,8 @@ const initialNodes: WorkflowCanvasNode[] = [
     },
   },
 ];
+
+const initialNodes = initialWorkflowNodes;
 
 const initialEdges: WorkflowCanvasEdge[] = [];
 
@@ -249,7 +252,7 @@ export const useWorkflowCanvasStore = create<WorkflowCanvasState>((set, get) => 
 
   deleteNode: (nodeId) => {
     const { nodes, edges, past, selectedNodeId } = get();
-    const removing = new Set([nodeId, ...nodes.filter((node) => node.parentId === nodeId).map((node) => node.id)]);
+    const removing = collectNodesRemovedWithDescendants(nodes, [nodeId]);
     set({
       nodes: syncLoopMetadata(nodes.filter((node) => !removing.has(node.id))),
       edges: edges.filter((edge) => !removing.has(edge.source) && !removing.has(edge.target)),

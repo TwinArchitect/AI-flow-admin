@@ -1,4 +1,6 @@
-import type { DatasetSearchSelectedItem } from '@/features/workflows/types';
+import type { DatasetSearchSelectedItem, StartVariable, WorkflowValueType } from '@/features/workflows/types';
+import { ensureSystemStartVariables, serializeStartVariables } from '../../workflows/contracts/startNodeContract';
+import { WORKFLOW_DATA_TYPES } from '../../workflows/utils/valueTypes';
 
 export interface ChatSkillRef { id: string; name?: string; toolKey?: string; description?: string; meta?: string }
 export interface ChatMcpSkillRef extends ChatSkillRef { enabledToolNames?: string[] }
@@ -22,9 +24,11 @@ export interface ChatAgentConfig {
   basic: { id: string; name: string; intro: string; headImg: string; persona: string };
   dialogue: {
     opening: string;
+    inputVariables: StartVariable[];
     openingQuestions: string[];
     fileUploadEnabled: boolean;
     autoFollowUp: boolean;
+    enableThinking: boolean;
     plan: { modelId: string; model?: string; type?: string } | null;
     maxToolRounds: number;
     toolChoice: 'auto' | 'none' | 'required';
@@ -42,6 +46,7 @@ export function createDefaultChatAgentConfig(input: { id?: string; name: string;
     basic: { id: input.id ?? '', name: input.name, intro: input.intro, headImg: input.headImg ?? '', persona: DEFAULT_CHAT_PERSONA },
     dialogue: {
       opening: '你好，我是你的智能助手，有什么可以帮你的吗？', openingQuestions: ['', '', ''],
+      inputVariables: ensureSystemStartVariables([]), enableThinking: false,
       fileUploadEnabled: false, autoFollowUp: true, plan: null, maxToolRounds: 8,
       toolChoice: 'auto', temperature: 0.7, maxTokens: 4096,
     },
@@ -76,6 +81,59 @@ function normalizePlan(raw: unknown): ChatAgentConfig['dialogue']['plan'] {
   return modelId ? { modelId, model: value.model == null ? undefined : String(value.model), type: value.type == null ? undefined : String(value.type) } : null;
 }
 
+export function parseChatInputVariables(raw: unknown): StartVariable[] {
+  if (!Array.isArray(raw)) return ensureSystemStartVariables([]);
+  return ensureSystemStartVariables(raw.map((item, index) => {
+    const value = (item ?? {}) as Record<string, unknown>;
+    const key = String(value.key ?? '');
+    const valueType = String(value.valueType ?? 'string') as WorkflowValueType;
+    return {
+      id: String(value.id ?? (key || `var-${index}`)), key,
+      label: String(value.label ?? key),
+      description: value.description == null ? undefined : String(value.description),
+      valueType: valueType === 'array' || WORKFLOW_DATA_TYPES.includes(valueType) ? valueType : 'string',
+      required: typeof value.required === 'boolean' ? value.required : undefined,
+      maxLength: typeof value.maxLength === 'number' ? value.maxLength : undefined,
+      defaultValue: value.defaultValue == null ? '' : String(value.defaultValue),
+      system: key === 'files' || Boolean(value.system),
+    };
+  }));
+}
+
+export function validateChatAgentConfig(config: ChatAgentConfig): string | null {
+  if (!config.basic.name.trim()) return '请输入智能体名称';
+  if (!config.dialogue.plan?.modelId?.trim()) return '请选择规划模型';
+  const names = new Set<string>();
+  const keys = new Set<string>();
+  for (const variable of ensureSystemStartVariables(config.dialogue.inputVariables)) {
+    if (!variable.key.trim()) return '输入变量缺少引用键';
+    if (variable.system || variable.key === 'files') continue;
+    if (!variable.label.trim()) return '请输入输入变量名称';
+    if (names.has(variable.label.trim())) return `输入变量名称重复：${variable.label.trim()}`;
+    if (keys.has(variable.key.trim())) return `输入变量引用键重复：${variable.key.trim()}`;
+    names.add(variable.label.trim()); keys.add(variable.key.trim());
+    if (variable.valueType === 'string' && variable.maxLength != null
+      && (!Number.isInteger(variable.maxLength) || variable.maxLength < 1)) return `「${variable.label}」最大长度需为正整数或留空`;
+  }
+  if (config.skills.httpTools.some((item) => !item.id?.trim())) return 'HTTP 组件存在缺少 ID 的项';
+  if (config.skills.mcpServers.some((item) => !item.id?.trim())) return 'MCP 组件存在缺少 ID 的项';
+  if (config.skills.workflows.some((item) => !item.id?.trim())) return '工作流存在缺少 ID 的项';
+  if (config.skills.knowledge.datasets.some((item) => !item.datasetId?.trim())) return '知识库存在缺少 ID 的项';
+  return null;
+}
+
+export function hasChatPersonaVariableRefs(persona: string) {
+  return /\{\{[^{}]+\}\}/.test(persona);
+}
+
+/** 编辑器尚无运行时变量表单；默认值由后端消费，缺值时明确引导而非发送无效调试。 */
+export function getChatDebugInputError(config: ChatAgentConfig): string | null {
+  const missing = config.dialogue.inputVariables.filter((variable) => !variable.system
+    && variable.valueType !== 'file' && variable.required && !variable.defaultValue?.trim());
+  if (!missing.length) return null;
+  return `请先为必填输入变量「${missing.map((item) => item.label || item.key).join('、')}」配置默认值后再调试；运行时也可由调用方传入变量。`;
+}
+
 export function parseChatAgentSetting(raw: unknown, fallback: { id: string; name: string; intro: string; headImg?: string }): ChatAgentConfig {
   let value = raw;
   for (let index = 0; index < 2 && typeof value === 'string'; index += 1) {
@@ -106,7 +164,9 @@ export function parseChatAgentSetting(raw: unknown, fallback: { id: string; name
     basic: { id: fallback.id, name: fallback.name, intro: fallback.intro, headImg: fallback.headImg ?? String(candidate.basic?.headImg ?? ''), persona: String(candidate.basic?.persona ?? defaults.basic.persona) },
     dialogue: {
       opening: String(dialogue?.opening ?? '').trim() ? String(dialogue?.opening) : defaults.dialogue.opening,
-      openingQuestions: Array.isArray(dialogue?.openingQuestions) ? dialogue.openingQuestions.map(String).map((item) => item.slice(0, 50)).slice(0, 10) : defaults.dialogue.openingQuestions,
+      inputVariables: parseChatInputVariables(dialogue?.inputVariables),
+      enableThinking: Boolean(dialogue?.enableThinking ?? false),
+      openingQuestions: Array.isArray(dialogue?.openingQuestions) ? dialogue.openingQuestions.map((item) => String(item ?? '').slice(0, 50)).slice(0, 10) : defaults.dialogue.openingQuestions,
       fileUploadEnabled: Boolean(dialogue?.fileUploadEnabled), autoFollowUp: dialogue?.autoFollowUp == null ? true : Boolean(dialogue.autoFollowUp),
       plan: normalizePlan(dialogue?.plan),
       maxToolRounds: Math.max(1, Math.round(numeric(dialogue?.maxToolRounds, 8) || 8)),
@@ -144,6 +204,8 @@ export function buildChatAgentSettingString(config: ChatAgentConfig): string {
     basic: { id: config.basic.id, name: config.basic.name.trim(), intro: config.basic.intro.trim(), headImg: config.basic.headImg, persona: config.basic.persona },
     dialogue: {
       opening: config.dialogue.opening,
+      inputVariables: serializeStartVariables({ variables: ensureSystemStartVariables(config.dialogue.inputVariables) }),
+      enableThinking: config.dialogue.enableThinking,
       openingQuestions: config.dialogue.openingQuestions.map((item) => item.trim()).filter(Boolean).slice(0, 10),
       fileUploadEnabled: config.dialogue.fileUploadEnabled,
       autoFollowUp: config.dialogue.autoFollowUp,

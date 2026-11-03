@@ -25,6 +25,7 @@ export interface KbModelOption {
 }
 
 export interface KbModelBinding extends KbModelOption {
+  modelId?: string;
   baseUrl?: string;
   apiPath?: string;
 }
@@ -35,12 +36,14 @@ export interface KbModelConfig {
   embeddingModelId?: string;
   rerankModelId?: string;
   llmModelId?: string;
+  taggingModelId?: string;
   vlmModelId?: string;
   ocrModelId?: string;
   parserModelId?: string;
   embeddingModel?: KbModelBinding;
   rerankModel?: KbModelBinding;
   llmModel?: KbModelBinding;
+  taggingModel?: KbModelBinding;
   vlmModel?: KbModelBinding;
   ocrModel?: KbModelBinding;
   parserModel?: KbModelBinding;
@@ -49,11 +52,11 @@ export interface KbModelConfig {
 
 export type KbModelConfigSave = Pick<
   KbModelConfig,
-  'id' | 'embeddingModelId' | 'rerankModelId' | 'llmModelId' | 'vlmModelId' | 'ocrModelId' | 'parserModelId'
+  'id' | 'taggingModelId' | 'embeddingModelId' | 'rerankModelId' | 'llmModelId' | 'vlmModelId' | 'ocrModelId' | 'parserModelId'
 >;
 
 export type DatasetStatus = 'ACTIVE' | 'DISABLED';
-export type ParserType = 'native' | 'ocr' | 'remote';
+export type ParserType = 'native' | 'ocr' | 'mineru' | 'remote';
 export type ChunkStrategyType =
   | 'naive'
   | 'one'
@@ -77,6 +80,10 @@ export interface KnowledgeDataset extends BaseEntity {
   chunkOverlap?: number;
   parserType?: ParserType;
   parserConfig?: string | null;
+  autoTagEnabled?: boolean;
+  documentKnowledgeTagEnabled?: boolean;
+  documentSummaryEnabled?: boolean;
+  documentSummaryMaxChars?: number;
   chunkStrategy?: ChunkStrategyType;
   status?: DatasetStatus;
 }
@@ -108,6 +115,7 @@ export type DocumentStatus =
   | 'PARSING'
   | 'PARSED'
   | 'CHUNKING'
+  | 'TAGGING'
   | 'EMBEDDING'
   | 'INDEXING'
   | 'READY'
@@ -127,10 +135,39 @@ export interface KnowledgeDocument extends BaseEntity {
   progressPercent?: number;
   progressMessage?: string | null;
   searchEnabled?: boolean;
+  knowledgeTags?: string[];
+  knowledgeSummary?: string | null;
+  enrichmentStatus?: string | null;
+}
+
+export interface DocumentEnrichment {
+  documentId: string;
+  datasetId?: string;
+  aiSummary?: string | null;
+  manualSummary?: string | null;
+  effectiveSummary?: string | null;
+  aiTags?: string[];
+  manualAddedTags?: string[];
+  suppressedAiTags?: string[];
+  effectiveTags?: string[];
+  status?: string | null;
+  contentVersion?: string | number | null;
+  modelId?: string | null;
+  generatedAt?: string | null;
+  errorMessage?: string | null;
+}
+
+export interface DocumentEnrichmentUpdate {
+  manualSummary?: string | null;
+  manualAddedTags?: string[];
+  suppressedAiTags?: string[];
 }
 
 export interface DocumentListItem extends KnowledgeDocument {
   chunkCount?: number;
+  metadata?: Record<string, unknown> | string | null;
+  metaData?: unknown;
+  meta_data?: unknown;
 }
 
 export interface DocumentDetail extends DocumentListItem {
@@ -169,7 +206,20 @@ export interface MediaAsset {
   previewUrl?: string;
   caption?: string;
   ocrText?: string;
+  assetType?: MediaAssetType;
+  pageNum?: number;
+  bbox?: MediaAssetBbox;
+  structureContent?: MediaAssetStructureContent;
+  structurePath?: string;
+  source?: string;
+  confidence?: number;
+  tags?: string[];
 }
+
+export type MediaAssetType = 'IMAGE' | 'TABLE' | 'FORMULA' | 'SEAL' | 'SIGNATURE';
+export type MediaAssetBbox = Record<string, unknown> | number[] | string;
+export type MediaAssetStructureContent = Record<string, unknown> | unknown[] | string;
+export interface DocumentElementList { total: number; records: MediaAsset[] }
 
 export interface KnowledgeChunk extends BaseEntity {
   datasetId: string;
@@ -216,6 +266,12 @@ export interface RetrievalRequest {
   page?: number;
   page_size?: number;
   top_k?: number;
+  dense_candidate_k?: number;
+  keyword_candidate_k?: number;
+  fusion_candidate_k?: number;
+  rerank_candidate_k?: number;
+  trace?: boolean;
+  tag_match?: 'all' | 'any';
   similarity_threshold?: number;
   vector_similarity_weight?: number;
   keyword?: boolean;
@@ -244,6 +300,8 @@ export interface RetrievalChunk {
   similarity: number;
   term_similarity?: number;
   vector_similarity?: number;
+  fusion_similarity?: number;
+  rerank_similarity?: number;
   highlight?: string | null;
   image_id?: string | null;
   important_keywords?: string[];
@@ -269,4 +327,38 @@ export interface RetrievalResult {
   chunks: RetrievalChunk[];
   doc_aggs: RetrievalDocumentAggregation[];
   total: number;
+  trace?: RetrievalTrace;
+}
+
+export interface RetrievalTrace {
+  duration_ms: number;
+  dense_candidate_k: number;
+  keyword_candidate_k: number;
+  fusion_candidate_k: number;
+  rerank_candidate_k: number;
+  dense_hits: number;
+  keyword_hits: number;
+  fusion_hits: number;
+  after_threshold_hits: number;
+  rerank_applied: boolean;
+  rerank_reason?: string;
+  returned_hits: number;
+  warnings?: string[];
+  tag_match?: 'all' | 'any';
+  metadata_logic?: 'and' | 'or';
+}
+export interface RetrievalEvaluationCase {
+  id: string;
+  dataset_id: string;
+  name: string;
+  question: string;
+  expected_document_ids: string[];
+  expected_chunk_ids: string[];
+  top_k: number;
+  enabled: boolean;
+}
+export interface RetrievalEvaluationRun { case_count: number; hit_at_k: number; mrr: number }
+
+export interface MineruProbeResult {
+  compatible: boolean; summary?: string; baseUrl?: string; accessMode?: string; protocol?: string; checks?: string[]; diagnostics?: string[];
 }

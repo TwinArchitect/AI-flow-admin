@@ -1,7 +1,7 @@
 import { WORKFLOW_DATA_TYPES } from '../../utils/valueTypes';
 import { getValueTypeLabel, getReferenceValueType } from '../../utils/valueTypes';
 import { useState } from 'react';
-import { BookOpen, Plus, Trash2 } from 'lucide-react';
+import { BookOpen, HelpCircle, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { VariableInput as Input } from './shared/VariableValueField';
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { VariableTextarea as Textarea } from './shared/VariableValueField';
+import { CodeScriptEditor } from './CodeScriptEditor';
 import {
   CODE_FIXED_OUTPUTS,
   DEFAULT_CODE,
@@ -71,7 +71,7 @@ export function CodeConfigPanel({
 }) {
   const value = normalizeCodeConfig(config);
   const [examplesOpen, setExamplesOpen] = useState(false);
-  const [languageDrafts, setLanguageDrafts] = useState<Partial<Record<CodeNodeConfig['codeType'], string>>>({});
+  const [pythonHelpOpen, setPythonHelpOpen] = useState(false);
 
   function updateInput(index: number, patch: Partial<CodeInputVariable>) {
     onUpdate({
@@ -181,23 +181,35 @@ export function CodeConfigPanel({
         <div className="text-xs font-semibold text-foreground">代码内容</div>
         <div className="flex items-center justify-between gap-2">
           <Select value={value.codeType} onValueChange={(language: CodeNodeConfig['codeType']) => {
-            setLanguageDrafts((drafts) => ({ ...drafts, [value.codeType]: value.code }));
-            onUpdate({ codeType: language, code: languageDrafts[language] ?? (language === 'py' ? DEFAULT_PYTHON_CODE : DEFAULT_CODE) });
+            const isDefault = !value.code.trim() || [DEFAULT_CODE.trim(), DEFAULT_PYTHON_CODE.trim()].includes(value.code.trim());
+            onUpdate({ codeType: language, ...(isDefault ? { code: language === 'py' ? DEFAULT_PYTHON_CODE : DEFAULT_CODE } : {}) });
           }}>
             <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="js">JavaScript</SelectItem><SelectItem value="py">Python</SelectItem></SelectContent>
           </Select>
+          {value.codeType === 'py' && <Button type="button" variant="ghost" size="icon-sm" aria-label="可用 Python 包说明" aria-expanded={pythonHelpOpen} onClick={() => setPythonHelpOpen(open => !open)}><HelpCircle size={14} /></Button>}
           <Button type="button" variant="outline" size="sm" onClick={() => setExamplesOpen(true)}>
             <BookOpen size={13} />代码示例
           </Button>
         </div>
+        {value.codeType === 'py' && pythonHelpOpen && (
+          <div role="region" aria-label="Python 包与使用限制" className="space-y-2 rounded-md border border-border bg-muted p-3 text-xs text-muted-foreground">
+            <p className="font-medium text-foreground">可用 Python 包（实际以部署环境为准）</p>
+            <p>文本与数据格式：json、re、string、csv、io、html、xml.etree.ElementTree</p>
+            <p>计算、日期与集合：math、decimal、fractions、statistics、datetime、time、collections、itertools、functools、random</p>
+            <p>编码与模板：base64、hashlib、hmac、uuid、jinja2</p>
+            <p>默认未安装：numpy、pandas、openpyxl、Pillow、beautifulsoup4、PyYAML。</p>
+            <p>httpx 可导入，但默认禁止网络请求；requests 虽已安装，默认环境导入受限。</p>
+            <p>文件、网络和进程操作受限制，不支持脚本内在线安装依赖，需要额外库请联系管理员预装。</p>
+          </div>
+        )}
         <PromptOptimizeControl
           scene="code_optimize"
           content={value.code}
           agentId={agentId}
           codeLanguage={value.codeType}
           inputParams={value.inputVariables.map((item, index) => (
-            `${item.key.trim() || `arg${index}`}=${item.label.trim() || item.valueType}`
+            `arg${index}（${item.key.trim() || `arg${index}`}）:${item.valueType}`
           )).join(', ') || undefined}
           outputHint={value.outputVariables.map((item) => (
             item.label.trim()
@@ -207,12 +219,12 @@ export function CodeConfigPanel({
           onApply={(code) => onUpdate({ code: normalizeCodeSource(code, value.codeType) })}
         >
           <div className="relative">
-            <Textarea variables={[]}
+            <CodeScriptEditor language={value.codeType}
+              agentId={agentId}
+              inputParams={value.inputVariables.map((item, index) => `arg${index}（${item.key.trim() || `arg${index}`}）:${item.valueType}`).join(', ') || undefined}
+              outputHint={value.outputVariables.map(item => item.label.trim() ? `${item.key.trim() || 'result'}=${item.label.trim()}` : `${item.key.trim() || 'result'}:${item.valueType}`).join(', ') || undefined}
               value={value.code}
-              onChange={(event) => onUpdate({ code: event.target.value })}
-              spellCheck={false}
-              className="min-h-64 resize-y pb-10 font-mono text-xs leading-relaxed"
-              placeholder="编写执行脚本"
+              onChange={(code) => onUpdate({ code })}
             />
             <span className="pointer-events-none absolute bottom-2 left-3 text-[10px] tabular-nums text-muted-foreground">
               {value.code.length}

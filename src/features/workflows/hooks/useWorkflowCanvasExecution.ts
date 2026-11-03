@@ -31,6 +31,7 @@ export function useWorkflowCanvasExecution() {
   ) => {
     setNodeStates((current) => {
       const next = applyWorkflowNodeSseEvent(current, eventName, payload);
+      if (eventName === 'node_started' || eventName === 'flow-io' || eventName === 'node_failed') return next;
       const branchResult = payload.outputs?.ifElseResult;
       const sourceHandle = payload.statusCode === 200
         ? payload.flowNodeType === 'ifElseNode' && typeof branchResult === 'string'

@@ -26,6 +26,7 @@ export interface NodeConfigPanelProps {
   config: WorkflowNodeConfig;
   variables: WorkflowVariableOption[];
   onUpdate: (patch: Record<string, unknown>) => void;
+  onRename?: (label: string) => void;
   onRemoveSourceHandle: (handleId: string) => void;
 }
 
@@ -37,6 +38,7 @@ export interface NodeReferenceValue {
   value: string;
   context: string;
   acceptedValueTypes?: WorkflowOutputSchema['valueType'][];
+  loopCollection?: boolean;
 }
 
 export interface NodeConnectionRules {

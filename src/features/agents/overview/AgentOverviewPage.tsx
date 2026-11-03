@@ -31,9 +31,9 @@ import {
   ThumbsDown,
   X,
 } from 'lucide-react';
-import { prepareChatUploadFile, isMobileCaptureDevice } from '../orchestration/cameraCapture';
+import { prepareChatUploadFile, isMobileCaptureDevice, fileAcceptAllowsImages } from '../orchestration/cameraCapture';
 import { uploadWorkflowDebugFile, type WorkflowDebugFile } from '@/features/workflows/api/workflowDebugApi';
-import { validateWorkflowUploadFile } from '@/features/workflows/utils/workflowDebugContext';
+import { resolveAgentUploadGuide, validateAgentPhoto } from './agentFileUpload';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -64,7 +64,7 @@ import {
   resolveConversationResultRichBlocks,
 } from '@/features/message-render/richContent';
 import { appendPersistedRichBlocks } from './utils/chatContents';
-import { getAgent } from '@/features/agents/api/agentApi';
+import { getAgent, getAgentFileUpload } from '@/features/agents/api/agentApi';
 import {
   ChatPreviewToolMonitor,
   PreviewWaitingStatus,
@@ -107,6 +107,31 @@ export function AgentOverviewPage({
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [selectedPublishedAgent, setSelectedPublishedAgent] =
     useState<SelectedPublishedAgent | null>(null);
+
+  const selectedAgentId = selectedPublishedAgent?.id;
+  const [uploadCapability, setUploadCapability] = useState<{ agentId: string; guide: ReturnType<typeof resolveAgentUploadGuide> } | null>(null);
+  const [mobileCapture, setMobileCapture] = useState(isMobileCaptureDevice);
+  const captureGeneration = useRef(0);
+  useEffect(() => {
+    const resize = () => setMobileCapture(isMobileCaptureDevice());
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    captureGeneration.current += 1;
+    setCaptureFile(null);
+    setCaptureUploading(false);
+    setUploadCapability(null);
+    if (cameraCaptureEnabled && selectedAgentId) {
+      getAgentFileUpload(selectedAgentId).then((capability) => {
+        if (!cancelled) setUploadCapability({ agentId: selectedAgentId, guide: resolveAgentUploadGuide(capability) });
+      }).catch(() => { /* 无法确认权限时不展示拍照入口。 */ });
+    }
+    return () => { cancelled = true; captureGeneration.current += 1; };
+  }, [selectedAgentId, cameraCaptureEnabled]);
+  const uploadGuide = uploadCapability?.agentId === selectedAgentId ? uploadCapability?.guide : undefined;
+  const canCapture = cameraCaptureEnabled && Boolean(uploadGuide?.enabled) && fileAcceptAllowsImages(uploadGuide?.types) && (cameraCapturePreview || mobileCapture);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
@@ -434,19 +459,21 @@ export function AgentOverviewPage({
     : '请先选择一个已发布的智能体';
 
   const capturePhoto = async (raw: File) => {
-    if (!selectedPublishedAgent || captureUploading || isSending) return;
+    if (!selectedPublishedAgent || !canCapture || !uploadGuide || captureUploading || isSending) return;
+    const generation = captureGeneration.current;
     setCaptureUploading(true);
     try {
       const file = await prepareChatUploadFile(raw);
-      const error = validateWorkflowUploadFile(file);
+      const error = validateAgentPhoto(file, uploadGuide);
       if (error) throw new Error(error);
-      setCaptureFile(await uploadWorkflowDebugFile(file, selectedPublishedAgent.id));
+      const uploaded = await uploadWorkflowDebugFile(file, selectedPublishedAgent.id);
+      if (generation === captureGeneration.current) setCaptureFile(uploaded);
     } catch (error) { toast.error(error instanceof Error ? error.message : '照片上传失败'); }
-    finally { setCaptureUploading(false); }
+    finally { if (generation === captureGeneration.current) setCaptureUploading(false); }
   };
   const chatInputProps = {
     value: inputValue,
-    cameraCaptureEnabled: cameraCaptureEnabled && (cameraCapturePreview || isMobileCaptureDevice()),
+    cameraCaptureEnabled: canCapture,
     onCapture: capturePhoto,
     pendingFileName: captureUploading ? '照片上传中…' : captureFile?.name,
     onRemoveFile: () => setCaptureFile(null),
@@ -552,7 +579,7 @@ export function AgentOverviewPage({
       </AnimatePresence>
 
       {/* ═══ 主内容区 ═══ */}
-      <div className="flex-1 flex flex-col h-full min-h-0 bg-background relative isolate">
+      <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 bg-background relative isolate">
         {/* 顶栏 */}
         {!hideToolbar && <div className="h-11 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background relative z-[120]">
           <div className="flex items-center gap-3">
@@ -731,7 +758,7 @@ export function AgentOverviewPage({
           </div>
         ) : (
           /* 空状态欢迎区 */
-          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center bg-background px-6 relative z-0">
+          <div className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto flex flex-col items-center justify-center bg-background px-6 relative z-0">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}

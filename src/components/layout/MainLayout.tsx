@@ -16,6 +16,7 @@ export function MainLayout() {
     .find((handle) => handle?.contentLayout)?.contentLayout ?? 'fixed';
   const showSidebar = layoutMode === 'fixed';
   const showHeader = layoutMode !== 'fullscreen';
+  const contentPadding = !matches.some((match) => (match.handle as { contentPadding?: boolean } | undefined)?.contentPadding === false);
 
   return (
     <div className="flex h-screen bg-[var(--color-bg-page)]">
@@ -25,7 +26,7 @@ export function MainLayout() {
         {showHeader && <Header />}
         <RouteTabs showBack={layoutMode !== 'fixed'} />
 
-        <main className={cn('flex-1 min-h-0 overflow-y-auto', layoutMode !== 'fullscreen' && 'p-4')}>
+        <main className={cn('flex-1 min-h-0 overflow-y-auto', layoutMode !== 'fullscreen' && contentPadding && 'p-4')}>
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>

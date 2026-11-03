@@ -139,6 +139,15 @@
   }
 
   /* 滚动条样式 */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-slate-300) transparent;
+  }
+
+  .dark * {
+    scrollbar-color: var(--color-slate-600) transparent;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -266,6 +275,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-text: var(--color-text-brand);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -300,7 +310,7 @@
   --popover-foreground: var(--color-text-primary);
 
   /* 主色 */
-  --primary: var(--color-brand-600);
+  --primary: var(--color-action-primary);
   --primary-foreground: #ffffff;
 
   /* 次色 */
@@ -336,8 +346,8 @@
   /* Sidebar */
   --sidebar: var(--color-bg-card);
   --sidebar-foreground: var(--color-text-primary);
-  --sidebar-primary: var(--color-brand-600);
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary: var(--color-nav-selected-bg);
+  --sidebar-primary-foreground: var(--color-nav-selected-text);
   --sidebar-accent: var(--color-bg-hover);
   --sidebar-accent-foreground: var(--color-text-primary);
   --sidebar-border: var(--color-border-default);

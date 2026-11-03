@@ -1,3 +1,4 @@
+import { extractedCodeInputs } from '../utils/extractCodeIo';
 import type {
   CodeInputVariable,
   CodeNodeConfig,
@@ -39,7 +40,7 @@ export const CODE_FIXED_OUTPUTS: WorkflowOutputSchema[] = [
   { key: 'error', label: '错误信息', valueType: 'string' },
 ];
 
-export const DEFAULT_PYTHON_CODE = `def main(*args):
+export const DEFAULT_PYTHON_CODE = `def main():
     return {}
 `;
 
@@ -49,7 +50,7 @@ export const DEFAULT_CODE = `function main() {
 return main();`;
 
 const RESERVED_INPUT_KEYS = new Set(['system_addInputParam', 'codeType', 'code']);
-const RESERVED_OUTPUT_KEYS = new Set(['system_rawResponse', 'error', 'system_addOutputParam']);
+const RESERVED_OUTPUT_KEYS = new Set(['system_rawResponse', 'error', 'system_addOutputParam', 'out_value']);
 
 const CODE_CUSTOM_INPUT_CONFIG = {
   selectValueTypeList: CODE_VALUE_TYPES,
@@ -267,18 +268,18 @@ export function parseCodeModule(module: WorkflowModule) {
       valueType: normalizeValueType(input.valueType),
     }));
   const parsedOutputs = (module.outputs ?? [])
-    .filter((output) => output.key && output.type === 'dynamic' && !RESERVED_OUTPUT_KEYS.has(output.key))
+    .filter((output) => output.key && (output.type === 'dynamic' || output.type === 'static' || !output.type) && !RESERVED_OUTPUT_KEYS.has(output.key))
     .map((output, index) => ({
       id: output.id || rowId('code-output', index),
       key: output.label && output.label !== output.key ? output.label : output.key,
       label: normalizeExtractPath(output.key),
       valueType: normalizeValueType(output.valueType, 'any'),
     }));
-  const codeType = parseStringInput(inputs, 'codeType') === 'py' ? 'py' : 'js';
+  const codeType = ['py', 'python', 'python3'].includes(parseStringInput(inputs, 'codeType')) ? 'py' : 'js';
   const node = createCanvasNode('code', module, normalizeCodeConfig({
     codeType,
     code: normalizeCodeSource(parseStringInput(inputs, 'code') || (codeType === 'py' ? DEFAULT_PYTHON_CODE : DEFAULT_CODE), codeType),
-    inputVariables: parsedInputs,
+    inputVariables: parsedInputs.length ? parsedInputs : extractedCodeInputs(parseStringInput(inputs, 'code')),
     outputVariables: parsedOutputs,
     catchError: Boolean(module.catchError),
   }));

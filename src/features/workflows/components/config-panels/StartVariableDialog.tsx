@@ -36,7 +36,6 @@ function createVariable(): StartVariable {
     description: '',
     valueType: 'string',
     required: true,
-    maxLength: 512,
     defaultValue: '',
   };
 }
@@ -110,6 +109,7 @@ export function StartVariableDialog({
                 onChange={(event) => patch({ maxLength: event.target.value ? Number(event.target.value) : undefined })}
                 placeholder="留空不限制"
               />
+              <p className="text-xs text-muted-foreground">留空表示不限制字符长度</p>
             </Field>
           )}
           <Field label="默认值">

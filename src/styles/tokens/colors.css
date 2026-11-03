@@ -66,9 +66,13 @@
   --color-border-disabled: var(--color-slate-200);
 
   /* 主色调 */
-  --color-primary: var(--color-brand-600);
+  --color-action-primary: var(--color-brand-600);
+  --color-primary: var(--color-action-primary);
   --color-primary-hover: var(--color-brand-700);
   --color-primary-light: var(--color-brand-50);
+  --color-text-brand: var(--color-brand-600);
+  --color-nav-selected-bg: var(--color-primary);
+  --color-nav-selected-text: #ffffff;
 
   /* 状态色（直接使用语义名） */
   --color-success: var(--color-success-600);
@@ -96,8 +100,16 @@
   /* 边框 */
   --color-border-default: #333333;
   --color-border-hover: #4b4b4b;
-  --color-border-focus: var(--color-brand-500);
+  --color-border-focus: #7faae5;
   --color-border-disabled: #292929;
+
+  /* 主色按角色适配：实色操作、强调文字、导航选中背景分别维护 */
+  --color-action-primary: #365f9b;
+  --color-primary-hover: #416fab;
+  --color-primary-light: #202d40;
+  --color-text-brand: #9bbbea;
+  --color-nav-selected-bg: #24344b;
+  --color-nav-selected-text: #adc9f5;
 
   /* 状态色微调 */
   --color-success: var(--color-success-500);

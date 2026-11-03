@@ -17,8 +17,10 @@
  */
 
 import { useEffect, useState } from 'react';
+import { ListPageLayout, ListPageHeader, ListPageContent, ListPageFooter } from '@/components/layout/ListPageLayout';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, CircleHelp, Filter, Loader2, Plus, RefreshCw, Search } from 'lucide-react';
+import { CircleHelp, Filter, Loader2, Plus, RefreshCw, Search } from 'lucide-react';
+import { Pagination } from '@/components/ui/pagination';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -46,6 +48,8 @@ import { buildChatAgentSettingString, createDefaultChatAgentConfig } from '../or
 import { AgentListCard } from './components/AgentListCard';
 import { CreateAgentDialog, type CreateAgentDraft } from './components/CreateAgentDialog';
 import type { AgentOpenSysAgent } from '@/types/agent';
+import { buildAgentSettingString } from '@/features/workflows/api/workflowApi';
+import { initialWorkflowNodes } from '@/features/workflows/store/useWorkflowCanvasStore';
 
 const PAGE_SIZE = 20;
 
@@ -61,21 +65,22 @@ export function MyAgentsPage() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | '0' | '1'>('all');
   const [pageNum, setPageNum] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AgentOpenSysAgent | null>(null);
 
   const agentsQuery = useQuery({
-    queryKey: ['agents', 'mine', pageNum, selectedStatus, appliedSearch],
+    queryKey: ['agents', 'mine', pageNum, pageSize, selectedStatus, appliedSearch],
     queryFn: () => queryAgents({
       pageNum,
-      pageSize: PAGE_SIZE,
+      pageSize,
       status: selectedStatus === 'all' ? undefined : Number(selectedStatus),
       agentName: appliedSearch || undefined,
     }),
   });
   const agents = agentsQuery.data?.records ?? [];
   const total = agentsQuery.data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const deleteMutation = useMutation({
     mutationFn: deleteAgent,
@@ -117,26 +122,32 @@ export function MyAgentsPage() {
           userGuide: config.dialogue.opening,
           agentSetting: buildChatAgentSettingString(config),
         });
+        if (!saved?.id) throw new Error('创建失败：后端未返回智能体 ID');
         await agentsQuery.refetch();
         navigate(`/agents/orchestration?id=${encodeURIComponent(saved.id)}`);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : '创建对话式智能体失败');
+        throw error;
       }
       return;
     }
-    navigate('/workflows?new=1', {
-      state: {
-        workflowDraft: {
-          agentName: draft.name.trim(),
-          remark: draft.remark.trim(),
-        },
-      },
-    });
+    try {
+      const saved = await saveAgent({
+        agentName: draft.name.trim(), remark: draft.remark.trim(), flowType: 1, status: 0,
+        agentSetting: buildAgentSettingString(initialWorkflowNodes, []), userGuide: '',
+      });
+      if (!saved?.id) throw new Error('创建失败：后端未返回智能体 ID');
+      await agentsQuery.refetch();
+      navigate(`/workflows?id=${encodeURIComponent(saved.id)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '创建工作流智能体失败');
+      throw error;
+    }
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-y-auto bg-background">
-      <div className="shrink-0 space-y-6 pb-0">
+    <ListPageLayout>
+      <ListPageHeader className="space-y-6">
         {/* 标题栏 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -239,10 +250,10 @@ export function MyAgentsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </ListPageHeader>
 
       {/* 列表区域 */}
-      <div className="flex-1 min-h-0 overflow-y-auto mt-6  pb-6">
+      <ListPageContent>
         {agentsQuery.isLoading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
             <Loader2 size={20} className="animate-spin" />
@@ -278,24 +289,12 @@ export function MyAgentsPage() {
             <p className="text-xs text-muted-foreground">可调整标签、状态或搜索条件后重试</p>
           </div>
         )}
-      </div>
+      </ListPageContent>
 
       {/* 底部统计 */}
-      <div className="shrink-0 px-6 py-4 border-t border-border">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground">
-            共 {total} 个，第 {pageNum}/{totalPages} 页
-          </p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={pageNum <= 1 || agentsQuery.isFetching} onClick={() => setPageNum((page) => Math.max(1, page - 1))}>
-              <ChevronLeft size={14} />上一页
-            </Button>
-            <Button variant="outline" size="sm" disabled={pageNum >= totalPages || agentsQuery.isFetching} onClick={() => setPageNum((page) => Math.min(totalPages, page + 1))}>
-              下一页<ChevronRight size={14} />
-            </Button>
-          </div>
-        </div>
-      </div>
+      <ListPageFooter>
+        <Pagination page={pageNum} pageCount={totalPages} pageSize={pageSize} total={total} onPageChange={setPageNum} onPageSizeChange={size => { setPageSize(size); setPageNum(1); }} disabled={agentsQuery.isFetching} />
+      </ListPageFooter>
 
       <CreateAgentDialog
         isOpen={isCreateOpen}
@@ -334,6 +333,6 @@ export function MyAgentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </ListPageLayout>
   );
 }

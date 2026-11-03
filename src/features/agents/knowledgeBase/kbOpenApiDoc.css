@@ -1,0 +1,63 @@
+/* 文档页复用系统语义 token，自动适配深浅主题。 */
+div:has(> header + div > nav[aria-label="API 文档目录"]) > header {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 1rem);
+  background: linear-gradient(110deg, color-mix(in srgb, var(--primary) 7%, var(--card)), var(--card) 65%);
+}
+nav[aria-label="API 文档目录"] {
+  box-shadow: var(--shadow-sm);
+}
+nav[aria-label="API 文档目录"] > button {
+  line-height: 1.6;
+  padding-top: .5rem;
+  padding-bottom: .5rem;
+  border-radius: var(--radius-md, .5rem);
+}
+nav[aria-label="API 文档目录"] + article {
+  box-shadow: var(--shadow-sm);
+  scrollbar-gutter: stable;
+}
+nav[aria-label="API 文档目录"] + article > * {
+  max-width: 64rem;
+  margin-inline: auto;
+}
+section[aria-label="接口一览"] {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 1rem);
+  background: color-mix(in srgb, var(--muted) 40%, var(--card));
+}
+section[aria-label="接口一览"] > h2 { margin-top: 0; }
+section[aria-label="接口一览"] > ul {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  gap: .5rem;
+}
+section[aria-label="接口一览"] li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .25rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, .5rem);
+  background: var(--card);
+  padding: .625rem .875rem;
+}
+section[aria-label="接口一览"] li > code {
+  color: var(--primary);
+  font-size: .75rem;
+  font-weight: 600;
+}
+section[aria-label="接口一览"] li > span { margin-left: 0; font-size: .75rem; }
+nav[aria-label="API 文档目录"] + article pre {
+  position: relative;
+  border-left: 3px solid color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+nav[aria-label="API 文档目录"] + article :not(pre) > code {
+  padding: .125rem .375rem;
+  border-radius: var(--radius-sm, .25rem);
+  background: var(--muted);
+  font-size: .85em;
+}

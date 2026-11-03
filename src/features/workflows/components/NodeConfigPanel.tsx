@@ -153,6 +153,7 @@ export function NodeConfigPanel({
           config={node.data.config}
           variables={variables}
           onUpdate={(patch) => updateNodeConfig(node.id, patch)}
+          onRename={(label) => updateNodeLabel(node.id, label)}
           onRemoveSourceHandle={removeEdgesBySourceHandle}
         />
         </div>

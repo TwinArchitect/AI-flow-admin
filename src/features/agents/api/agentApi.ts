@@ -9,6 +9,11 @@ import type {
 
 const AGENT_API_BASE = '/gpt/base/agent';
 
+export function getAgentFileUpload(id: string) {
+  return http.get<import('../overview/agentFileUpload').AgentFileUploadCapability>(`${AGENT_API_BASE}/fileUpload/${encodeURIComponent(id)}`)
+    .then((response) => response.data);
+}
+
 export function queryAgents(params: AgentQueryParams) {
   return http
     .post<AgentPageResult>(`${AGENT_API_BASE}/query`, {
@@ -128,7 +133,7 @@ export async function exportAgentConfig(id: string, fallbackName = 'agent') {
 export function importAgentConfig(id: string, file: File) {
   const data = new FormData();
   data.append('file', file);
-  return http.post<AgentOpenSysAgent>(`${AGENT_API_BASE}/importConfig/${encodeURIComponent(id)}`, data, { headers: { 'Content-Type': undefined } }).then((response) => response.data);
+  return http.post<AgentOpenSysAgent>(`${AGENT_API_BASE}/importConfig/${encodeURIComponent(id)}`, data, { timeout: 0, headers: { 'Content-Type': undefined } }).then((response) => response.data);
 }
 
 export async function generateOpeningQuestions(params: { agentId: string; agentName: string; intro: string; persona: string; opening: string }): Promise<string[]> {

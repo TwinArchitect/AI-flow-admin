@@ -24,6 +24,10 @@ export function queryDocumentChunks(documentId: string, page = 1, size = 20) {
   ).then((response) => response.data);
 }
 
+export function listChunkTagsByDocument(documentId: string) {
+  return http.get<string[]>(`${CHUNK_API_BASE}/tags/document/${encodeURIComponent(documentId)}`).then((response) => response.data ?? []);
+}
+
 export function addChunk(payload: {
   datasetId: string;
   documentId: string;
@@ -32,6 +36,7 @@ export function addChunk(payload: {
   pageStart?: number;
   pageEnd?: number;
   available?: boolean;
+  tags?: string[];
 }) {
   return http.post<KnowledgeChunk>(`${CHUNK_API_BASE}/add`, payload)
     .then((response) => response.data);

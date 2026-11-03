@@ -1,3 +1,4 @@
+import { getVariableUpstreamNodes } from './loopVariableScope';
 import { getNodeConnectionRules, getNodeModule } from '../nodes/registry';
 import type { WorkflowCanvasEdge, WorkflowCanvasNode } from '../types';
 import { parseVariableRef, parseVariableRefs } from './variableRefs';
@@ -29,23 +30,6 @@ function hasCycle(edges: WorkflowCanvasEdge[]) {
   }
 
   return [...adjacency.keys()].some((nodeId) => visit(nodeId));
-}
-
-function getUpstreamNodeIds(nodeId: string, edges: WorkflowCanvasEdge[]) {
-  const incoming = new Map<string, string[]>();
-  edges.forEach((edge) => {
-    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge.source]);
-  });
-
-  const upstream = new Set<string>();
-  const queue = [...(incoming.get(nodeId) ?? [])];
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current || upstream.has(current)) continue;
-    upstream.add(current);
-    queue.push(...(incoming.get(current) ?? []));
-  }
-  return upstream;
 }
 
 function getReachableNodeIds(startId: string, edges: WorkflowCanvasEdge[], reverse = false) {
@@ -97,6 +81,7 @@ function validateReference(
   upstreamNodeIds: Set<string>,
   errors: string[],
   acceptedValueTypes?: string[],
+  loopIds: Set<string> = new Set(),
 ) {
   parseVariableRefs(value).forEach((ref) => {
     const nodeOutputs = outputs.get(ref.nodeId);
@@ -110,7 +95,9 @@ function validateReference(
     }
     const outputType = nodeOutputs.get(ref.outputKey);
     if (!outputType) {
-      errors.push(`${context} 引用了不存在的输出 ${ref.raw}`);
+      errors.push(loopIds.has(ref.nodeId)
+        ? `${context} 引用的循环旧输出 ${ref.raw} 已不可用，请重新选择 {{${ref.nodeId}.results}}（字符串数组），不要直接沿用旧输出类型`
+        : `${context} 引用了不存在的输出 ${ref.raw}`);
       return;
     }
     if (acceptedValueTypes?.length && !acceptedValueTypes.includes(outputType)) {
@@ -190,15 +177,12 @@ export function validateWorkflowForBackend(
     }
     const config = normalizeLoopConfig(loop.data.config);
     const arrayRef = parseVariableRef(config.loopRunInputArray);
-    if (arrayRef && nodeMap.get(arrayRef.nodeId)?.parentId === loop.id) {
+    if (config.loopRunMode === 'array' && arrayRef && nodeMap.get(arrayRef.nodeId)?.parentId === loop.id) {
       errors.push(`循环体 ${loop.data.label} 的输入数组不能引用自身内部节点`);
     }
-    config.customOutputs.forEach((output) => {
-      const ref = parseVariableRef(output.value);
-      if (ref && nodeMap.get(ref.nodeId)?.parentId !== loop.id) {
-        errors.push(`循环体 ${loop.data.label} 的输出 ${output.key || '未命名'} 必须引用本循环体内节点`);
-      }
-    });
+    // Collection may use an upstream/global value or a loop-body output. Scope validation is shared with the picker.
+    const outputRef = parseVariableRef(config.loopOutputSource);
+    if (outputRef?.nodeId === loop.id) errors.push(`循环体 ${loop.data.label} 的收集结果不能引用自身输出`);
   });
 
   nodes.filter((node) => node.parentId).forEach((node) => {
@@ -245,22 +229,19 @@ export function validateWorkflowForBackend(
   });
 
   const outputs = buildOutputMap(nodes);
+  const loopIds = new Set(nodes.filter((node) => node.data.nodeType === 'loop').map((node) => node.id));
   nodes.forEach((node) => {
-    const upstream = getUpstreamNodeIds(node.id, edges);
-    if (node.data.nodeType === 'loop') {
-      nodes.filter((item) => item.parentId === node.id).forEach((item) => upstream.add(item.id));
-    } else if (node.parentId) {
-      getUpstreamNodeIds(node.parentId, edges).forEach((item) => upstream.add(item));
-    }
+    const baseUpstream = new Set(getVariableUpstreamNodes(node.id, nodes, edges).map((source) => source.id));
     getNodeModule(node.data.nodeType).getReferences(node).forEach((reference) => {
-      validateReference(
-        reference.value,
-        reference.context,
-        outputs,
-        upstream,
-        errors,
-        reference.acceptedValueTypes,
-      );
+      const upstream = new Set(baseUpstream);
+      const visibleOutputs = new Map(outputs);
+      if (node.data.nodeType === 'loop' && reference.loopCollection) {
+        nodes.filter((item) => item.parentId === node.id).forEach((child) => {
+          upstream.add(child.id);
+          if (child.data.nodeType === 'reply') visibleOutputs.set(child.id, new Map([['text', 'string']]));
+        });
+      }
+      validateReference(reference.value, reference.context, visibleOutputs, upstream, errors, reference.acceptedValueTypes, loopIds);
     });
   });
 

@@ -78,11 +78,21 @@ export function applyWorkflowNodeSseEvent(
 ): WorkflowNodeExecutionStates {
   const nodeId = payload.nodeId;
   const current = states[nodeId] ?? createEmptyNodeExecutionState();
+  if (eventName === 'node_started') {
+    return { ...states, [nodeId]: {
+      ...createEmptyNodeExecutionState(), status: 'running', startedAt: Date.now(),
+      flowNodeType: payload.flowNodeType, summaryLog: '开始执行', executionLogs: ['开始执行'],
+    } };
+  }
   const inputs = parseRecordField(payload.inputs);
   const outputs = parseRecordField(payload.outputs ?? payload.flowNodeResponse);
-  const durationMs = typeof payload.ts === 'number' ? payload.ts : current.durationMs;
+  const durationMs = typeof payload.ts === 'number' ? payload.ts
+    : current.startedAt != null ? Math.max(0, Date.now() - current.startedAt) : current.durationMs;
   const logLine = payload.log?.trim();
-  const succeeded = payload.statusCode === 200;
+  if (eventName === 'flow-io') {
+    return { ...states, [nodeId]: { ...current, debugInputs: inputs ?? current.debugInputs, debugOutputs: outputs ?? current.debugOutputs } };
+  }
+  const succeeded = eventName !== 'node_failed' && payload.statusCode === 200;
 
   return {
     ...states,
@@ -113,7 +123,7 @@ export function markNodesRunning(
   nodeIds.forEach((nodeId) => {
     const current = next[nodeId] ?? createEmptyNodeExecutionState();
     if (current.status === 'success' || current.status === 'error') return;
-    next[nodeId] = { ...current, status: 'running' };
+    next[nodeId] = { ...current, status: 'running', startedAt: current.startedAt ?? Date.now() };
   });
 
   return next;
@@ -132,6 +142,12 @@ export function settleWorkflowNodeStates(
     if (current.status === 'success' || current.status === 'error') return;
 
     if (current.status === 'running') {
+      if (outcome === 'success') {
+        const errorMessage = '执行已结束，但未收到该节点的完成事件';
+        next[nodeId] = { ...current, status: 'error', summaryLog: errorMessage, debugError: errorMessage,
+          durationMs: current.startedAt != null ? Math.max(0, Date.now() - current.startedAt) : current.durationMs };
+        return;
+      }
       if (outcome === 'cancelled') {
         next[nodeId] = {
           ...current,

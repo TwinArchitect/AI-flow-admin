@@ -77,6 +77,17 @@ export function DatasetSearchParamsDialog({
     if (open) setDraft(paramsFromConfig(configRef.current));
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !rerankQuery.data?.length) return;
+    setDraft((current) => {
+      if (!current.usingReRank) return current;
+      const available = rerankQuery.data ?? [];
+      if (available.some((model) => (model.model?.trim() || model.id) === current.rerankModel)) return current;
+      const first = available[0];
+      return first ? { ...current, rerankModel: first.model?.trim() || first.id } : current;
+    });
+  }, [open, rerankQuery.data]);
+
   const patch = (value: Partial<ParamsDraft>) => setDraft((current) => ({ ...current, ...value }));
 
   return (
@@ -147,7 +158,7 @@ export function DatasetSearchParamsDialog({
             {draft.usingReRank ? (
               <div className="space-y-4 border-t border-border pt-4">
                 <Field label="Rerank 模型">
-                  <Select value={draft.rerankModel} onValueChange={(rerankModel) => patch({ rerankModel })}>
+                  <Select disabled={rerankQuery.isLoading || !rerankQuery.data?.length} value={draft.rerankModel} onValueChange={(rerankModel) => patch({ rerankModel })}>
                     <SelectTrigger><SelectValue placeholder={rerankQuery.isLoading ? '加载中...' : '请选择 Rerank 模型'} /></SelectTrigger>
                     <SelectContent>
                       {draft.rerankModel && !rerankQuery.data?.some((model) => (model.model?.trim() || model.id) === draft.rerankModel) ? (
@@ -159,6 +170,7 @@ export function DatasetSearchParamsDialog({
                     </SelectContent>
                   </Select>
                   {rerankQuery.error ? <p className="text-xs text-destructive">Rerank 模型加载失败</p> : null}
+                  {!rerankQuery.isLoading && !rerankQuery.error && !rerankQuery.data?.length ? <p className="text-xs text-muted-foreground">暂无可用 Rerank 模型</p> : null}
                 </Field>
 
                 <Field label={`重排权重：${draft.rerankWeight.toFixed(2)}`}>

@@ -73,7 +73,7 @@ function ChatInputBar({
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) onSend(); }}
             disabled={disabled}
             placeholder={placeholder}
-            className="flex-1 border-none bg-transparent text-sm font-medium shadow-none focus-visible:ring-0 disabled:opacity-60 dark:bg-transparent"
+            className="min-w-0 flex-1 border-none bg-transparent text-sm font-medium shadow-none focus-visible:ring-0 disabled:opacity-60 dark:bg-transparent"
           />
 
           <div className="flex items-center gap-2 pr-1">

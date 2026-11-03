@@ -1,3 +1,4 @@
+import { VariableLedgerPanel } from './debug/VariableLedgerPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import isEqual from 'lodash-es/isEqual';
 import {
@@ -43,6 +44,7 @@ import { NodeSidebar } from './NodeSidebar';
 import { WorkflowNode } from './WorkflowNode';
 import { WorkflowPublishDialog } from './WorkflowPublishDialog';
 import { WorkflowDebugDrawer } from './debug/WorkflowDebugDrawer';
+import { AgentTransferMenu } from '@/features/agents/orchestration/AgentTransferMenu';
 import { AgentOperationsButtons } from '@/features/agents/orchestration/AgentOperationsButtons';
 import { JsonViewDialog } from './JsonViewDialog';
 
@@ -73,6 +75,8 @@ interface WorkflowToolbarExecutionProps {
   nodeStates: WorkflowNodeExecutionStates;
   isRunning: boolean;
   onOpenDebug: () => void;
+  onOpenLedger: () => void;
+  ledgerOpen: boolean;
 }
 
 function WorkflowToolbar({
@@ -88,6 +92,8 @@ function WorkflowToolbar({
   nodeStates,
   isRunning,
   onOpenDebug,
+  onOpenLedger,
+  ledgerOpen,
 }: WorkflowToolbarProps & WorkflowToolbarExecutionProps) {
   const { fitView, getViewport } = useReactFlow();
   const saveWorkflowMutation = useSaveWorkflowConfig();
@@ -246,6 +252,8 @@ function WorkflowToolbar({
           </TooltipTrigger>
           <TooltipContent>查看流程 JSON</TooltipContent>
         </Tooltip>
+        <Button variant={ledgerOpen ? "secondary" : "outline"} size="sm" onClick={onOpenLedger}>变量台账</Button>
+        <AgentTransferMenu agentId={agentId} agentName={agentName} disabled={isRunning || saveWorkflowMutation.isPending} onImported={() => { window.location.reload(); }} />
         <AgentOperationsButtons agentId={agentId} />
         <Button
           variant="outline"
@@ -366,6 +374,7 @@ function WorkflowCanvasInner({
   const isDark = useThemeStore((state) => state.isDark);
   const { fitView, screenToFlowPosition } = useReactFlow();
   const canvasExecution = useWorkflowCanvasExecution();
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [activeSidePanel, setActiveSidePanel] = useState<'node' | 'debug' | null>(null);
@@ -506,6 +515,8 @@ function WorkflowCanvasInner({
         onOpenSidebar={onOpenSidebar}
         nodeStates={canvasExecution.nodeStates}
         isRunning={debugRunning}
+        ledgerOpen={ledgerOpen}
+        onOpenLedger={() => setLedgerOpen((value) => !value)}
         onOpenDebug={() => {
           setDebugOpen(true);
           setActiveSidePanel('debug');
@@ -513,7 +524,8 @@ function WorkflowCanvasInner({
         }}
       />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="relative min-w-0 flex-1 overflow-hidden" onDrop={handleDrop} onDragOver={handleDragOver}>
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden" onDrop={handleDrop} onDragOver={handleDragOver}>
+          <div className="relative min-h-0 flex-1">
           <WorkflowExecutionProvider value={canvasExecution.nodeStates}>
             <ReactFlow
           nodes={nodes}
@@ -584,6 +596,11 @@ function WorkflowCanvasInner({
           >
             <Map size={14} />
           </Button>
+          </div>
+          <VariableLedgerPanel key={agentId ?? 'new'} open={ledgerOpen} nodes={nodes} edges={edges} nodeStates={canvasExecution.nodeStates} onClose={() => setLedgerOpen(false)} onSelectNode={(nodeId) => {
+            setSelectedNodeId(nodeId); setActiveSidePanel('node'); setSidePanelCollapsed(false);
+            void fitView({ nodes: [{ id: nodeId }], padding: 0.5, maxZoom: 1, duration: 280 });
+          }} />
         </div>
         {selectedNodeId && (
           <NodeConfigPanel

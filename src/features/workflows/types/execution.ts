@@ -10,6 +10,7 @@ export type WorkflowExecutionOutcome = 'success' | 'error' | 'cancelled';
 
 export interface NodeExecutionState {
   status: NodeExecutionStatus;
+  startedAt?: number;
   durationMs?: number;
   summaryLog?: string;
   executionLogs?: string[];

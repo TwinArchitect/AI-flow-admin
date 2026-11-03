@@ -1,7 +1,11 @@
 import { http } from '@/api/client';
 import { authFetch } from '@/lib/authSession';
+import { isParseSubmitSkipped } from '../kbContracts';
+import { normalizeDocumentElementList } from '../mediaNormalization';
 import type {
   DocumentDetail,
+  DocumentEnrichment,
+  DocumentEnrichmentUpdate,
   DocumentListItem,
   DocumentProgress,
   DocumentParseSubmit,
@@ -13,8 +17,35 @@ const DOCUMENT_API_BASE = '/gpt/kb/document';
 
 export interface DocumentPageQuery {
   keyword?: string;
+  tag?: string;
   page?: number;
   size?: number;
+}
+
+export function queryDocumentEnrichmentPage(datasetId: string, params: DocumentPageQuery = {}) {
+  return http.get<KbPageResult<DocumentListItem>>(`${DOCUMENT_API_BASE}/enrichment/page/${encodeURIComponent(datasetId)}`, {
+    params: { keyword: params.keyword?.trim() || undefined, tag: params.tag?.trim() || undefined, page: params.page ?? 1, size: params.size ?? 20 },
+  }).then((response) => response.data);
+}
+
+export function listDocumentEnrichmentTags(datasetId: string) {
+  return http.get<string[]>(`${DOCUMENT_API_BASE}/enrichment/tags/${encodeURIComponent(datasetId)}`, { params: { limit: 200 } }).then((response) => response.data ?? []);
+}
+
+export function getDocumentEnrichment(id: string) {
+  return http.get<DocumentEnrichment>(`${DOCUMENT_API_BASE}/enrichment/${encodeURIComponent(id)}`).then((response) => response.data);
+}
+
+export function updateDocumentEnrichment(id: string, payload: DocumentEnrichmentUpdate) {
+  return http.put<DocumentEnrichment>(`${DOCUMENT_API_BASE}/enrichment/${encodeURIComponent(id)}`, payload).then((response) => response.data);
+}
+
+export function regenerateDocumentEnrichment(id: string) {
+  return http.post<DocumentEnrichment | null>(`${DOCUMENT_API_BASE}/enrichment/${encodeURIComponent(id)}/regenerate`).then((response) => response.data);
+}
+
+export function restoreDocumentEnrichmentAi(id: string) {
+  return http.post<DocumentEnrichment | null>(`${DOCUMENT_API_BASE}/enrichment/${encodeURIComponent(id)}/restore-ai`).then((response) => response.data);
 }
 
 export function queryDocuments(datasetId: string, params: DocumentPageQuery = {}) {
@@ -33,6 +64,18 @@ export function queryDocuments(datasetId: string, params: DocumentPageQuery = {}
 export function getDocument(documentId: string) {
   return http.get<DocumentDetail>(`${DOCUMENT_API_BASE}/get/${encodeURIComponent(documentId)}`)
     .then((response) => response.data);
+}
+
+export async function listDocumentImages(documentId: string) {
+  const response = await http.get<unknown>(`${DOCUMENT_API_BASE}/images/${encodeURIComponent(documentId)}`);
+  return normalizeDocumentElementList(response.data);
+}
+
+export async function listDocumentElements(documentId: string) {
+  try {
+    const response = await http.get<unknown>(`${DOCUMENT_API_BASE}/elements/${encodeURIComponent(documentId)}`);
+    return normalizeDocumentElementList(response.data);
+  } catch { return listDocumentImages(documentId); }
 }
 
 export function getDocumentProgress(documentId: string) {
@@ -83,6 +126,16 @@ export function parseDocument(documentId: string, force = false) {
   ).then((response) => response.data);
 }
 
+/** 旧服务可返回 null；已完成文档的增量提交需用进度确认是否跳过。 */
+export async function submitDocumentParse(documentId: string, status: string, force: boolean) {
+  const result = await parseDocument(documentId, force);
+  let skipped = isParseSubmitSkipped(result);
+  if (!skipped && status === 'READY' && !force) {
+    skipped = (await getDocumentProgress(documentId)).status === 'READY';
+  }
+  return { result, skipped };
+}
+
 export function stopDocumentParse(documentId: string) {
   return http.post<null>(`${DOCUMENT_API_BASE}/stopParse/${encodeURIComponent(documentId)}`)
     .then((response) => response.data);
@@ -117,7 +170,7 @@ export async function fetchDocumentBlob(documentId: string) {
           '错误信息'?: string;
         } | null;
       };
-      if (typeof payload.code === 'number') {
+      if (typeof payload.code === 'number' || payload.message || payload.data?.errorMessage || payload.data?.taskError || payload.data?.['错误信息']) {
         throw new Error(
           payload.data?.errorMessage
             || payload.data?.taskError

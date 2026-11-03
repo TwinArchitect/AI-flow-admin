@@ -38,6 +38,7 @@ function constrain(position: Position): Position {
 }
 
 export interface FloatingAiAssistantProps {
+  embedHostControls?: { expanded: boolean; onClose: () => void; onToggleExpanded: () => void };
   embed?: boolean;
   embedOpenPage?: boolean;
   lockedAgentId?: string | null;
@@ -45,7 +46,7 @@ export interface FloatingAiAssistantProps {
   cameraCapturePreview?: boolean;
 }
 
-export function FloatingAiAssistant({ embed = false, embedOpenPage = false, lockedAgentId, cameraCaptureEnabled = false, cameraCapturePreview = false }: FloatingAiAssistantProps = {}) {
+export function FloatingAiAssistant({ embedHostControls, embed = false, embedOpenPage = false, lockedAgentId, cameraCaptureEnabled = false, cameraCapturePreview = false }: FloatingAiAssistantProps = {}) {
   const location = useLocation();
   const hidden = !embed && HIDDEN_PATHS.has(location.pathname);
   const pageMode = embed && embedOpenPage;
@@ -82,6 +83,7 @@ export function FloatingAiAssistant({ embed = false, embedOpenPage = false, lock
 
   const openPanel = useCallback(() => { setMounted(true); setOpen(true); }, []);
   const closePanel = () => {
+    if (embedHostControls) { embedHostControls.onClose(); return; }
     setOpen(false);
     if (embed && window.self !== window.top) {
       window.parent.postMessage({ type: 'agent-open:assistant-close' }, '*');
@@ -136,7 +138,7 @@ export function FloatingAiAssistant({ embed = false, embedOpenPage = false, lock
               <button type="button" onClick={() => setSidebarOpen((value) => !value)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title="历史会话"><Menu size={19} /></button>
               <h2 className="pointer-events-none absolute inset-x-0 text-center text-sm font-semibold">智能助理</h2>
               <div className="z-10 flex items-center">
-                {!pageMode && <button type="button" onClick={toggleExpanded} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title={expanded ? '还原窗口' : '放大窗口'}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button>}
+                {(!pageMode || embedHostControls) && <button type="button" onClick={embedHostControls?.onToggleExpanded ?? toggleExpanded} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title={(embedHostControls?.expanded ?? expanded) ? '还原窗口' : '放大窗口'}>{(embedHostControls?.expanded ?? expanded) ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button>}
                 <button type="button" onClick={closePanel} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" title="关闭"><X size={19} /></button>
               </div>
             </header>

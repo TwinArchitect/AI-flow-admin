@@ -23,7 +23,8 @@ export function getCurrentUser(loginResult: LoginResult, fallbackUsername = ''):
     username: loginResult.username ?? fallbackUsername,
     nickname: loginResult.nickName ?? '',
     email: loginResult.email ?? '',
-    role: 'admin',
+    role: (loginResult.isPlatformAdmin ?? loginResult.isSuperAdmin) ? 'admin' : 'viewer',
+    isPlatformAdmin: Boolean(loginResult.isPlatformAdmin ?? loginResult.isSuperAdmin),
     permissions: loginResult.roles?.map((role) => role.code).filter(Boolean) as string[] ?? [],
   };
 }

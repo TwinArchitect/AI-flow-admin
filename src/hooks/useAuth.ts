@@ -1,3 +1,4 @@
+import { prepareMenus } from '@/features/permissions/routes';
 import { useMutation } from '@tanstack/react-query';
 import { login, logout, getCurrentUser } from '@/api';
 import { useAuthStore } from '@/stores/auth';
@@ -10,8 +11,10 @@ export function useLogin() {
   return useMutation({
     mutationFn: (payload: LoginPayload) => login(payload),
     onSuccess: (data, variables) => {
+      useLayoutStore.getState().resetLayout();
       setToken(data.token, data.refreshToken, data.tenantId, data.expiresIn);
       setUser(getCurrentUser(data, variables.username));
+      if (data.permission?.menus !== undefined) useAuthStore.getState().setMenus(prepareMenus(data.permission.menus));
     },
   });
 }
