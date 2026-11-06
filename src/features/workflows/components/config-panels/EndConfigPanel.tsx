@@ -89,7 +89,7 @@ export function EndConfigPanel({
           <div className="mb-2 text-xs font-semibold text-foreground">返回字段预览（非运行结果）</div>
           <div className="flex flex-wrap gap-2">
             {value.outputVariables.filter((output) => output.key.trim()).map((output) => (
-              <Badge key={output.id} variant="outline" className="font-mono text-[10px]">{output.key}: string</Badge>
+              <Badge key={output.id} variant="outline" size="compact" className="font-mono">{output.key}: string</Badge>
             ))}
           </div>
         </div>

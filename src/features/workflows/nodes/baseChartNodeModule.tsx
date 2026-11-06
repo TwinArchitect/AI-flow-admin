@@ -26,7 +26,7 @@ export const baseChartNodeModule: WorkflowNodeModule = {
     name: '基础图表',
     description: BASE_CHART_NODE_DESCRIPTION,
     category: '数据',
-    tone: 'bg-violet-500/10 text-violet-600 border-violet-500/20 dark:text-violet-400',
+    badgeVariant: 'accent',
     iconTone: 'bg-violet-500 text-white',
   },
   icon: BarChart3,

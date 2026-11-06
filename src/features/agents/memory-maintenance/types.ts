@@ -1,46 +1,84 @@
-export type MemoryCategory = 'preference' | 'fact' | 'episodic' | 'behavior';
+type PageResult<T> = { records: T[]; total: number; current?: number; size?: number; pages?: number };
 
-export type ImportanceLevel = 'critical' | 'high' | 'medium' | 'low';
+/** 记忆类型 */
+export type MemoryType = 'profile' | 'preference' | 'fact' | 'constraint';
 
-export type MemoryStatus = 'active' | 'inactive';
+/** 来源 */
+export type MemorySource = 'manual' | 'extract';
 
-export interface MemoryItem {
+export type MemoryItemVo = {
   id: string;
-  content: string;
-  category: MemoryCategory;
-  categoryLabel: string;
+  agentId?: string;
+  /** 分页查询时回填 */
+  agentName?: string;
+  userId?: string;
+  scope?: string;
+  memoryType?: MemoryType | string;
+  content?: string;
+  structuredJson?: string;
+  memoryKey?: string;
+  importance?: number;
+  confidence?: number;
+  /** 1 置顶 / 0 否 */
+  pinned?: number;
+  status?: string;
+  source?: MemorySource | string;
+  sourceMsgId?: string;
+  sourceGroupId?: string;
+  createTime?: string;
+  updateTime?: string;
+};
+
+export type MemoryQueryDto = {
+  agentId?: string;
+  /** 智能体名称模糊匹配 */
+  agentName?: string;
+  memoryType?: string;
+  keyword?: string;
+  current?: number;
+  size?: number;
+};
+
+export type MemorySaveDto = {
   agentId: string;
-  agentName: string;
-  importance: ImportanceLevel;
-  hitCount: number;
-  status: MemoryStatus;
-  updateTime: string;
-  tags: string[];
-}
-
-export interface ExtractionResult {
-  id: string;
-  fact: string;
-  type: MemoryCategory;
-  typeLabel: string;
-  confidence: string;
-  reason: string;
-}
-
-export interface RecallResult extends MemoryItem {
-  score: number;
-}
-
-export interface MemoryQuery {
-  search?: string;
-  category?: MemoryCategory | 'all';
-  importance?: ImportanceLevel | 'all';
-}
-
-export interface MemorySavePayload {
   content: string;
-  category: MemoryCategory;
-  agentName: string;
-  importance: ImportanceLevel;
-  tags: string[];
-}
+  memoryType?: string;
+  memoryKey?: string;
+  pinned?: boolean;
+};
+
+export type MemoryUpdateDto = {
+  id: string;
+  content?: string;
+  memoryType?: string;
+  memoryKey?: string;
+  pinned?: boolean;
+};
+
+export type MemoryRecallDebugDto = {
+  agentId: string;
+  query: string;
+  topK?: number;
+};
+
+export type MemoryRecallStrategy = 'empty' | 'vector' | 'keyword' | string;
+
+export type MemoryRecallVectorHitVo = {
+  id?: string;
+  content?: string;
+  score?: number;
+  matchedInDb?: boolean;
+};
+
+export type MemoryRecallDebugVo = {
+  agentId?: string;
+  query?: string;
+  topK?: number;
+  activeCount?: number;
+  strategy?: MemoryRecallStrategy;
+  promptBlock?: string;
+  items?: MemoryItemVo[];
+  vectorHits?: MemoryRecallVectorHitVo[];
+};
+
+export type MemoryPageResult = PageResult<MemoryItemVo>;

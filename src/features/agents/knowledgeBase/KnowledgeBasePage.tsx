@@ -423,14 +423,14 @@ function ListView({
 }) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <ListPageLayout>
+    <ListPageLayout scrollMode="table">
       <ListPageHeader>
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <div className="w-1.5 h-6 bg-primary rounded-full" />
             <h1 className="text-xl font-bold text-foreground tracking-tight">知识库列表</h1>
-            <Badge variant="secondary" className="text-2xs font-bold uppercase tracking-widest">
+            <Badge variant="secondary" size="compact" className="uppercase tracking-widest">
               ALL
             </Badge>
           </div>
@@ -460,7 +460,7 @@ function ListView({
       </header>
       </ListPageHeader>
 
-      <ListPageContent>
+      <ListPageContent className="overflow-y-auto">
         {loading && <div className="py-20 text-center text-sm text-muted-foreground">正在加载知识库...</div>}
         {error && (
           <div className="py-20 text-center text-sm text-destructive">
@@ -596,7 +596,7 @@ function DetailView({
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="flex h-full min-w-0 flex-1 gap-6"
+      className="flex h-full min-h-0 min-w-0 flex-1 gap-6"
     >
       <aside className={cn('shrink-0 bg-card border border-border rounded-2xl shadow-sm flex flex-col transition-[width,padding]', collapsed ? 'w-20 p-3' : 'w-64 p-5')}>
         <Button variant="ghost" size="icon-xs" className="mb-3 self-end" aria-label={collapsed ? '展开知识库导航' : '收起知识库导航'} onClick={() => setCollapsed(value => !value)}><ChevronRight size={16} className={collapsed ? '' : 'rotate-180'} /></Button>
@@ -645,7 +645,7 @@ function DetailView({
           <ChevronRight size={16} className="rotate-180 shrink-0" /> {!collapsed && '返回列表'}
         </Button>
       </aside>
-      <div className="min-w-0 flex-1 flex flex-col gap-6 overflow-hidden">
+      <div className="min-h-0 min-w-0 flex-1 flex flex-col gap-6 overflow-hidden">
         {tab === 'files' && (
           <FileTab kbId={kbId} datasetName={currentKb.name} parserType={currentKb.parserType} />
         )}
@@ -986,7 +986,7 @@ function FileTab({ kbId, datasetName, parserType }: { kbId: string; datasetName:
           cell: ({ row }) => {
             const document = documents.find((item) => item.id === row.original.id);
             return <button type="button" className="group w-full rounded-lg p-2 text-left space-y-2 transition-colors hover:bg-muted/60" onClick={() => setEnrichmentTarget(row.original)}>
-              <div className="flex flex-wrap gap-1">{document?.knowledgeTags?.slice(0, 3).map((tag) => <Badge key={tag} variant="secondary" className="text-2xs">{tag}</Badge>)}{!document?.knowledgeTags?.length && <span className="text-xs text-muted-foreground">查看标签与摘要</span>}</div>
+              <div className="flex flex-wrap gap-1">{document?.knowledgeTags?.slice(0, 3).map((tag) => <Badge key={tag} variant="secondary" size="compact">{tag}</Badge>)}{!document?.knowledgeTags?.length && <span className="text-xs text-muted-foreground">查看标签与摘要</span>}</div>
               {document?.knowledgeSummary && <p className="line-clamp-2 text-xs leading-5 text-muted-foreground" title={document.knowledgeSummary}>{document.knowledgeSummary}</p>}
               {document?.enrichmentStatus && <span className="text-2xs text-muted-foreground">{{ READY: '已生成', FAILED: '生成失败', GENERATING: '生成中', PENDING: '待生成', STALE: '待更新', SKIPPED: '无可富化内容' }[document.enrichmentStatus] ?? document.enrichmentStatus}</span>}
             </button>;
@@ -1188,7 +1188,7 @@ function FileTab({ kbId, datasetName, parserType }: { kbId: string; datasetName:
 
   return (
     <>
-      <div className="flex-1 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
         <div className="px-8 py-4 h-16 flex items-center justify-between border-b border-border shrink-0">
           <div className="flex gap-1 p-1 bg-muted rounded-xl">
             {/*<span className="px-4 py-1.5 bg-background rounded-lg text-xs font-bold shadow-sm">*/}
@@ -1221,10 +1221,11 @@ function FileTab({ kbId, datasetName, parserType }: { kbId: string; datasetName:
             </Button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-8 py-2">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-8 py-2">
           {documentsQuery.data?.degraded && <p role="status" className="py-2 text-xs text-muted-foreground">标签查询暂不可用，当前仅筛选本页已返回的文档标签。</p>}
           {documentTagsQuery.isError && <p className="py-2 text-xs text-muted-foreground">全部标签选项加载失败，仍可使用当前页标签筛选。</p>}
           <DataTable
+            scrollable
             columns={columns}
             data={files}
             getRowId={(file) => file.id}
@@ -1558,9 +1559,9 @@ function SearchTab({ kbId }: { kbId: string }) {
             </h3>
             <Button size="sm" variant="outline" disabled={evaluationRunning} onClick={() => void runEvaluation()}>{evaluationRunning ? '评测中…' : '运行评测集'}</Button>
             {ran && !searching && (
-              <span className="text-2xs font-mono px-2 py-0.5 bg-primary/10 text-primary rounded">
+              <Badge variant="info" size="compact" className="font-mono">
                 {elapsed} ms · {total} 条
-              </span>
+              </Badge>
             )}
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -1590,14 +1591,14 @@ function SearchTab({ kbId }: { kbId: string }) {
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="secondary" className="text-2xs">
+                      <Badge variant="secondary" size="compact">
                         {item.page_start ? `第 ${item.page_start} 页` : `分块 ${idx + 1}`}
                       </Badge>
                       <span className="text-2xs text-muted-foreground">{item.document_keyword || item.document_id}</span>
                     </div>
-                    <span className="px-2 py-0.5 bg-success/10 text-success rounded text-xs font-bold font-mono shrink-0">
+                    <Badge variant="success" className="font-mono">
                       {item.similarity.toFixed(4)}
-                    </span>
+                    </Badge>
                   </div>
                   <p className="whitespace-pre-wrap text-xs font-medium leading-relaxed text-foreground/80">
                     <RetrievalHighlight html={item.highlight} fallback={item.content} />

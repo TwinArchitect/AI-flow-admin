@@ -14,11 +14,12 @@ interface UploadResponse {
 export async function uploadWorkflowDebugFile(
   file: File,
   voucherId: string,
+  voucherCode = 'workflow-debug',
 ): Promise<WorkflowDebugFile> {
   const body = new FormData();
   body.append('multipartFile', file);
   const query = new URLSearchParams({
-    srcVoucherCode: 'workflow-debug',
+    srcVoucherCode: voucherCode,
     srcVoucherId: voucherId,
     status: '1',
   });

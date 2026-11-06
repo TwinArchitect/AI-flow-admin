@@ -1,3 +1,4 @@
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Activity,
@@ -179,10 +180,10 @@ export default function AgentTrafficMonitor({ agentId, onError }: AgentTrafficMo
       <div className="max-w-7xl mx-auto w-full space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
           <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 text-[11px] font-semibold mb-2">
+            <Badge variant="accent" className="mb-2">
               <Activity size={13} />
               运行监控
-            </div>
+            </Badge>
             <h2 className="text-lg font-bold text-foreground">流量监控看板</h2>
             <p className="text-xs text-muted-foreground mt-1">
               统计 Web 调试与开放 API 调用数据，刷盘延迟约 3 秒
@@ -314,7 +315,7 @@ export default function AgentTrafficMonitor({ agentId, onError }: AgentTrafficMo
                 title="用户数趋势"
                 subtitle="每日去重活跃用户"
                 badge="用户数"
-                badgeClass="bg-cyan-50 text-cyan-700 border-cyan-100 dark:bg-cyan-950/30 dark:text-cyan-300 dark:border-cyan-900/40"
+                badgeVariant="info"
                 icon={<Users className="text-cyan-500" size={17} />}
                 empty={!trendData.length}
               >
@@ -346,7 +347,7 @@ export default function AgentTrafficMonitor({ agentId, onError }: AgentTrafficMo
                 title="会话次数趋势"
                 subtitle="每日 run 次数"
                 badge="会话次数"
-                badgeClass="bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900/40"
+                badgeVariant="info"
                 icon={<MessageSquare className="text-blue-500" size={17} />}
                 empty={!trendData.length}
               >
@@ -378,7 +379,7 @@ export default function AgentTrafficMonitor({ agentId, onError }: AgentTrafficMo
                 title="用户反馈趋势"
                 subtitle="每日点赞 + 点踩合计"
                 badge="反馈次数"
-                badgeClass="bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
+                badgeVariant="success"
                 icon={<ThumbsUp className="text-emerald-500" size={16} />}
                 empty={!trendData.length}
               >
@@ -404,7 +405,7 @@ export default function AgentTrafficMonitor({ agentId, onError }: AgentTrafficMo
                 title="平均运行时长趋势"
                 subtitle="每日加权平均耗时（秒）"
                 badge="平均时长(s)"
-                badgeClass="bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-900/40"
+                badgeVariant="accent"
                 icon={<Clock className="text-purple-500" size={17} />}
                 empty={!trendData.length}
               >
@@ -424,7 +425,7 @@ export default function AgentTrafficMonitor({ agentId, onError }: AgentTrafficMo
               title="Token 消耗趋势"
               subtitle="每日 AI 对话输出 token 估算合计"
               badge="Token"
-              badgeClass="bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/40"
+              badgeVariant="warning"
               icon={<Coins className="text-amber-500" size={17} />}
               empty={!trendData.length}
             >
@@ -484,7 +485,7 @@ function TrendCard({
   title,
   subtitle,
   badge,
-  badgeClass,
+  badgeVariant,
   icon,
   children,
   empty
@@ -492,7 +493,7 @@ function TrendCard({
   title: string;
   subtitle: string;
   badge: string;
-  badgeClass: string;
+  badgeVariant: BadgeVariant;
   icon: ReactNode;
   children: ReactNode;
   empty?: boolean;
@@ -508,9 +509,7 @@ function TrendCard({
           </div>
           <Info size={13} className="text-muted-foreground shrink-0" aria-label={subtitle} />
         </div>
-        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border shrink-0 ${badgeClass}`}>
-          {badge}
-        </span>
+        <Badge variant={badgeVariant} className="font-mono">{badge}</Badge>
       </div>
       <div className="h-56 w-full">
         {empty ? (

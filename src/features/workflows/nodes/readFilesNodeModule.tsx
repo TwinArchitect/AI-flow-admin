@@ -36,7 +36,7 @@ export const readFilesNodeModule: WorkflowNodeModule = {
     name: '文件解析',
     description: READ_FILES_NODE_DESCRIPTION,
     category: '数据',
-    tone: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20 dark:text-cyan-400',
+    badgeVariant: 'info',
     iconTone: 'bg-cyan-500 text-white',
   },
   icon: FileText,

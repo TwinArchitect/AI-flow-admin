@@ -1,28 +1,34 @@
-import type { ImportanceLevel, MemoryCategory } from './types';
+import type { MemoryRecallStrategy, MemorySource, MemoryType } from './types';
 
-const categoryLabelMap: Record<MemoryCategory, string> = {
-  preference: '用户习惯',
-  fact: '系统事实',
-  episodic: '会话摘要',
-  behavior: '行为特征',
-};
+export const MEMORY_TYPE_OPTIONS: { value: MemoryType; label: string }[] = [
+  { value: 'profile', label: '身份/画像' },
+  { value: 'preference', label: '偏好' },
+  { value: 'fact', label: '事实' },
+  { value: 'constraint', label: '约束' }
+];
 
-const importanceLabelMap: Record<ImportanceLevel, string> = {
-  critical: '非常核心',
-  high: '中高匹配',
-  medium: '普通检索',
-  low: '次要参考',
-};
-
-export function categoryLabel(category: MemoryCategory): string {
-  return categoryLabelMap[category];
+export function memoryTypeLabel(type?: string) {
+  return MEMORY_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type ?? '事实';
 }
 
-export function importanceLabel(importance: ImportanceLevel): string {
-  return importanceLabelMap[importance];
+export function memorySourceLabel(source?: MemorySource | string) {
+  if (source === 'extract') return '对话凝练';
+  if (source === 'manual') return '手工录入';
+  return source || '—';
 }
 
-export function formatDate(value?: string): string {
-  if (!value) return '-';
-  return value.slice(0, 16);
+export function memoryStrategyLabel(strategy?: MemoryRecallStrategy) {
+  if (strategy === 'vector') return '语义召回';
+  if (strategy === 'keyword') return '关键词兜底';
+  if (strategy === 'empty') return '暂无记忆';
+  return strategy || '未知';
+}
+
+export function formatMemoryTime(value?: string) {
+  if (!value) return '—';
+  return value.replace('T', ' ').slice(0, 16);
+}
+
+export function isMemoryPinned(pinned?: number) {
+  return pinned === 1;
 }

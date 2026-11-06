@@ -38,7 +38,7 @@ export const loopNodeModule: WorkflowNodeModule = {
   backendRunnable: true,
   definition: {
     type: 'loop', name: '循环体', description: LOOP_NODE_DESCRIPTION, category: '逻辑',
-    tone: 'bg-violet-500/10 text-violet-600 border-violet-500/20 dark:text-violet-400', iconTone: 'bg-violet-500 text-white',
+    badgeVariant: 'accent', iconTone: 'bg-violet-500 text-white',
   },
   icon: Repeat2,
   CanvasComponent: LoopContainerNode,
@@ -55,7 +55,7 @@ export const loopNodeModule: WorkflowNodeModule = {
 
 export const loopStartNodeModule: WorkflowNodeModule = {
   type: 'loopStart', backendType: 'loopRunStart', backendRunnable: true, paletteVisible: false,
-  definition: { type: 'loopStart', name: '循环开始', description: '每轮循环的起点，输出当前索引与当前项', category: '逻辑', tone: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400', iconTone: 'bg-emerald-500 text-white' },
+  definition: { type: 'loopStart', name: '循环开始', description: '每轮循环的起点，输出当前索引与当前项', category: '逻辑', badgeVariant: 'success', iconTone: 'bg-emerald-500 text-white' },
   icon: Play,
   createDefaultConfig: () => ({ ...createDefaultLoopStartConfig() }), ConfigPanel: LoopStartPanel, ExecutionDetails: DefaultNodeExecutionDetails,
   getOutputs: () => LOOP_START_OUTPUTS, getReferences: () => [], serialize: serializeLoopStartNode, parse: parseLoopStartNode, validate: () => [],
@@ -64,7 +64,7 @@ export const loopStartNodeModule: WorkflowNodeModule = {
 
 export const loopBreakNodeModule: WorkflowNodeModule = {
   type: 'loopBreak', backendType: 'loopRunBreak', backendRunnable: true, paletteVisible: false,
-  definition: { type: 'loopBreak', name: '循环终止', description: '执行到此节点时终止剩余循环', category: '逻辑', tone: 'bg-rose-500/10 text-rose-600 border-rose-500/20 dark:text-rose-400', iconTone: 'bg-rose-500 text-white' },
+  definition: { type: 'loopBreak', name: '循环终止', description: '执行到此节点时终止剩余循环', category: '逻辑', badgeVariant: 'danger', iconTone: 'bg-rose-500 text-white' },
   icon: Square,
   createDefaultConfig: () => ({}), ConfigPanel: LoopBreakPanel, ExecutionDetails: DefaultNodeExecutionDetails,
   getOutputs: () => [], getReferences: () => [], serialize: serializeLoopBreakNode, parse: parseLoopBreakNode, validate: () => [],

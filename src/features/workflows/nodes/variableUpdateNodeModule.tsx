@@ -31,7 +31,7 @@ export const variableUpdateNodeModule: WorkflowNodeModule = {
     name: '变量更新',
     description: VARIABLE_UPDATE_NODE_DESCRIPTION,
     category: '基础',
-    tone: 'bg-teal-500/10 text-teal-600 border-teal-500/20 dark:text-teal-400',
+    badgeVariant: 'success',
     iconTone: 'bg-teal-500 text-white',
   },
   icon: Variable,

@@ -5,7 +5,7 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,scale] duration-150 ease-out enabled:active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -43,9 +43,17 @@ const Button = React.forwardRef<
   React.ComponentProps<"button"> &
     VariantProps<typeof buttonVariants> & {
       asChild?: boolean
+      tone?: 'neutral' | 'brand' | 'danger' | 'warning' | 'success'
     }
->(({ className, variant = "default", size = "default", asChild = false, ...props }, ref) => {
+>(({ className, variant = "default", size = "default", asChild = false, tone = 'neutral', ...props }, ref) => {
   const Comp = asChild ? Slot.Root : "button"
+  const toneClass = (variant === 'ghost' || variant === 'outline') ? {
+    neutral: '',
+    brand: 'text-primary-text hover:text-primary-text hover:bg-primary/10',
+    danger: 'text-destructive hover:text-destructive hover:bg-destructive/10',
+    warning: 'text-warning hover:text-warning hover:bg-warning/10',
+    success: 'text-success hover:text-success hover:bg-success/10',
+  }[tone] : ''
 
   return (
     <Comp
@@ -53,7 +61,9 @@ const Button = React.forwardRef<
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-tone={tone}
+      title={props.title ?? (size?.startsWith('icon') ? props['aria-label'] : undefined)}
+      className={cn(buttonVariants({ variant, size }), toneClass, className)}
       {...props}
     />
   )

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BrainCircuit, Database, FileScan, Image, MessageSquare, ScanLine, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, Database, FileScan, Image, MessageSquare, RefreshCw, Save, ScanLine, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,7 +53,7 @@ export function KbEngineSettings({ onBack }: { onBack: () => void }) {
     catch (error) { setProbe({ compatible: false, summary: error instanceof Error ? error.message : '检测失败' }); }
     finally { setChecking(false); }
   };
-  const configQuery = useQuery({ queryKey: knowledgeBaseKeys.modelConfig(), queryFn: getKbModelConfig });
+  const configQuery = useQuery({ queryKey: knowledgeBaseKeys.modelConfig(), queryFn: getKbModelConfig, refetchOnWindowFocus: false });
   const modelQueries = useQueries({
     queries: FIELDS.map((field) => ({
       queryKey: knowledgeBaseKeys.modelOptions(field.category),
@@ -68,8 +68,8 @@ export function KbEngineSettings({ onBack }: { onBack: () => void }) {
 
   const saveMutation = useMutation({
     mutationFn: saveKbModelConfig,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: knowledgeBaseKeys.modelConfig() });
+    onSuccess: (saved) => {
+      queryClient.setQueryData(knowledgeBaseKeys.modelConfig(), saved);
       setProbe(null);
       toast.success('模型配置已保存');
     },
@@ -87,23 +87,25 @@ export function KbEngineSettings({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center justify-between border-b border-border/60 px-6 py-4">
-        <div className="flex items-center gap-3">
+      <header className="flex shrink-0 flex-wrap items-center gap-4 border-b border-border/60 px-4 py-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <Button variant="ghost" size="icon-sm" onClick={onBack} title="返回知识库列表"><ArrowLeft size={17} /></Button>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary"><BrainCircuit size={18} /></div>
           <div><h1 className="text-base font-bold">知识库模型配置</h1><p className="text-xs text-muted-foreground">配置当前租户知识库使用的默认模型</p></div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { setProbe(null); void configQuery.refetch(); modelQueries.forEach((query) => { void query.refetch(); }); }}>刷新</Button>
-        <Button size="sm" disabled={configQuery.isLoading || configQuery.isError || saveMutation.isPending} onClick={handleSave}>
-          {saveMutation.isPending ? '保存中...' : '保存配置'}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <Button variant="outline" size="sm" disabled={checking || saveMutation.isPending || configQuery.isFetching} onClick={() => { setProbe(null); void configQuery.refetch(); modelQueries.forEach((query) => { void query.refetch(); }); }}><RefreshCw size={14} />刷新</Button>
+        <Button size="sm" disabled={checking || configQuery.isFetching || configQuery.isError || saveMutation.isPending} onClick={handleSave}>
+          <Save size={14} />{saveMutation.isPending ? '保存中...' : '保存配置'}
         </Button>
+        </div>
       </header>
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto space-y-4">
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
             Embedding 是文档索引和检索的必要配置；复杂文档解析还可能依赖 Parser、OCR 或 VLM。这里只展示模型中心中已启用且类别匹配的模型。
           </div>
-          <Link className="text-sm text-primary" to="/agents/models">前往模型管理配置模型</Link>
+          <Link className="inline-flex items-center rounded-md text-xs font-medium text-primary underline-offset-4 hover:underline" to="/agents/models">前往模型管理配置模型</Link>
           {configQuery.isError && <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{configQuery.error.message}</div>}
           <div className="grid gap-4 md:grid-cols-2">
             {FIELDS.map((field, index) => {
@@ -120,9 +122,9 @@ export function KbEngineSettings({ onBack }: { onBack: () => void }) {
                 <section key={field.key} className="rounded-2xl border border-border/60 bg-card/50 p-5">
                   <div className="mb-4 flex items-start gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon size={17} /></div>
-                    <div><div className="flex items-center gap-2"><h2 className="text-sm font-semibold">{field.label}</h2>{field.key === 'embeddingModelId' && <Badge variant="secondary" className="text-[10px]">必要</Badge>}</div><p className="mt-1 text-xs leading-5 text-muted-foreground">{field.help}</p></div>
+                    <div><div className="flex items-center gap-2"><h2 className="text-sm font-semibold">{field.label}</h2>{field.key === 'embeddingModelId' && <Badge variant="secondary" size="compact">必要</Badge>}</div><p className="mt-1 text-xs leading-5 text-muted-foreground">{field.help}</p></div>
                   </div>
-                  <Select disabled={configQuery.isLoading || saveMutation.isPending} value={form[field.key] || '__none__'} onValueChange={(value) => { if (field.key === 'parserModelId') setProbe(null); setForm((current) => ({ ...current, [field.key]: value === '__none__' ? '' : value })); }}>
+                  <Select disabled={checking || configQuery.isFetching || configQuery.isError || saveMutation.isPending} value={form[field.key] || '__none__'} onValueChange={(value) => { if (field.key === 'parserModelId') setProbe(null); setForm((current) => ({ ...current, [field.key]: value === '__none__' ? '' : value })); }}>
                     <SelectTrigger className="w-full"><SelectValue placeholder="选择已启用模型" /></SelectTrigger>
                     <SelectContent><SelectItem value="__none__">不绑定</SelectItem>{models.map((model) => <SelectItem key={model.id} value={model.id} disabled={model.status === 1}>{optionLabel(model)}{model.status === 1 ? '（已关闭或不可用）' : ''}</SelectItem>)}</SelectContent>
                   </Select>

@@ -42,3 +42,12 @@ logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# 本地迁移、对齐与验收记录
+*MIGRATION*.zh-CN.md
+*ALIGNMENT*.zh-CN.md
+*ACCEPTANCE*.zh-CN.md
+
+# 本地测试文件
+*.test.*
+*.spec.*

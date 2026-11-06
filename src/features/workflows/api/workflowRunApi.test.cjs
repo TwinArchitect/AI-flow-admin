@@ -4,19 +4,30 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function loadApi(response) {
+function loadApi(response, onRequest = () => {}) {
   const exported = {};
   const script = ts.transpileModule(fs.readFileSync(__dirname + '/workflowRunApi.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   vm.runInNewContext(script, { exports: exported, Headers, TextDecoder,
-    require: (path) => path.includes('authSession') ? { authFetch: async () => response }
+    require: (path) => path.includes('authSession') ? { authFetch: async (...args) => { onRequest(...args); return response; } }
       : { parseSseToConversationDeltas: () => [] },
   });
   return exported;
 }
 const finished = (status, error) => `event: workflow_finished\ndata: ${JSON.stringify({ event: 'workflow_finished', data: { status, outputs: { answer: 'OK' }, error } })}\n\n`;
 const request = { appId: 'acceptance', message: [{ role: 'user', content: 'test' }] };
+
+test('square conversations send the snapshot flag together with their agent and group IDs', async () => {
+  let body;
+  const response = new Response(finished('succeeded'));
+  await loadApi(response, (_url, options) => { body = JSON.parse(options.body); }).runWorkflowStream({
+    request: { ...request, fromSquare: true, chatGroupId: 'square-group' }, onNodeEvent() {},
+  });
+  assert.equal(body.fromSquare, true);
+  assert.equal(body.appId, 'acceptance');
+  assert.equal(body.chatGroupId, 'square-group');
+});
 
 test('terminal event completes and cancels an SSE stream that never closes', async () => {
   let cancelled = false;

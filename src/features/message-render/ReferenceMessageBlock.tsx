@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { useEffect, useMemo, useState } from 'react';
 import { FileText, ImageIcon, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -81,7 +82,7 @@ export function ReferenceMessageBlock({ payload, streaming }: { payload: unknown
         <div className="space-y-2">
           {data.sources.map((source) => (
             <div key={`${source.datasetId}-${source.docId}`} className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
-              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">{extensionLabel(source)}</span>
+              <Badge variant="info" size="compact">{extensionLabel(source)}</Badge>
               <button type="button" onClick={() => setSelected({ source })} className="min-w-0 flex-1 truncate text-left text-xs font-medium text-foreground hover:text-primary" title={`查看原文件：${source.docName}`}>
                 {source.docName}
               </button>

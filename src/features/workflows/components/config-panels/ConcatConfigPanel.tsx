@@ -102,7 +102,7 @@ export function ConcatConfigPanel({
 
       <section className="space-y-2 border-t border-border pt-4">
         <h3 className="text-xs font-semibold text-foreground">系统输出</h3>
-        <Badge variant="outline" className="font-mono text-[10px]">system_text: string</Badge>
+        <Badge variant="outline" size="compact" className="font-mono">system_text: string</Badge>
       </section>
 
       <Dialog open={examplesOpen} onOpenChange={setExamplesOpen}>

@@ -14,13 +14,17 @@
  */
 
 import { useRef } from 'react';
-import { Camera, X, Mic, SendHorizontal, Sparkles, Square } from 'lucide-react';
+import { Camera, X, SendHorizontal, Sparkles, Square } from 'lucide-react';
+import { toast } from 'sonner';
+import { useVoiceInput } from '@/features/speech/useVoiceInput';
+import { VoiceMicButton } from '@/features/speech/VoiceMicButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 /* ─── ChatInputBar ─── */
 interface ChatInputBarProps {
+  compact?: boolean;
   cameraCaptureEnabled?: boolean;
   onCapture?: (file: File) => void;
   pendingFileName?: string;
@@ -38,20 +42,31 @@ interface ChatInputBarProps {
 }
 
 function ChatInputBar({
-  cameraCaptureEnabled, onCapture, pendingFileName, onRemoveFile, hasAttachment,
+  compact = false, cameraCaptureEnabled, onCapture, pendingFileName, onRemoveFile, hasAttachment,
   value, onChange, onSend, onStop, disabled, isSending,
   placeholder, onOpenAgentPicker, activeAgentLabel,
 }: ChatInputBarProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
+  const sendRef = useRef({ onSend, disabled, isSending });
+  sendRef.current = { onSend, disabled, isSending };
+  const voice = useVoiceInput({ value, onChange, disabled: disabled || isSending, onError: message => toast.error(message) });
+  const send = async () => {
+    if (voice.status === 'stopping') return;
+    if (voice.listening) await voice.stop();
+    // 使用最新回调发送，包含停止识别时收到的最终纠错文本。
+    const latest = sendRef.current;
+    if (!latest.disabled && !latest.isSending) latest.onSend();
+  };
   return (
     <div className="relative">
       {pendingFileName && <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><Camera size={14} /><span className="truncate">{pendingFileName}</span><Button variant="ghost" size="icon-xs" disabled={disabled} onClick={onRemoveFile} aria-label="移除照片"><X size={12} /></Button></div>}
       {cameraCaptureEnabled && <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) onCapture?.(file); event.target.value = ''; }} />}
       {/* 品牌色描边容器 */}
-      <div className="rounded-full border border-primary/70 bg-background shadow-sm">
-        <div className="w-full bg-background rounded-full h-14 flex items-center px-4 gap-3">
+      <div className={cn('border shadow-sm', compact ? 'rounded-2xl border-border bg-card focus-within:border-ring' : 'rounded-full border-primary/70 bg-background')}>
+        {compact && <div className="px-3 pt-3"><Button variant="ghost" size="sm" onClick={onOpenAgentPicker} className="h-auto max-w-full justify-start gap-2 rounded-lg bg-primary/5 px-2 py-1.5 text-xs text-primary-text" title={activeAgentLabel || '选择智能体'}><Sparkles size={14} /><span className="truncate">{activeAgentLabel || '选择智能体开始对话'}</span></Button></div>}
+        <div className={cn("flex h-14 w-full items-center", compact ? "gap-2 rounded-2xl px-3" : "gap-3 rounded-full bg-background px-4")}>
           {/* 智能体选择按钮 */}
-          <Button
+          {!compact && <Button
             variant="ghost"
             size="icon-sm"
             onClick={onOpenAgentPicker}
@@ -64,23 +79,22 @@ function ChatInputBar({
             title={activeAgentLabel ? `当前：${activeAgentLabel}` : '选择智能体'}
           >
             <Sparkles size={18} />
-          </Button>
+          </Button>}
 
           <Input
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) onSend(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }}
             disabled={disabled}
-            placeholder={placeholder}
+            readOnly={voice.listening}
+            placeholder={voice.listening ? '正在识别…' : compact && activeAgentLabel ? '输入你的问题…' : placeholder}
             className="min-w-0 flex-1 border-none bg-transparent text-sm font-medium shadow-none focus-visible:ring-0 disabled:opacity-60 dark:bg-transparent"
           />
 
           <div className="flex items-center gap-2 pr-1">
             {cameraCaptureEnabled && <Button variant="ghost" size="icon-sm" disabled={disabled} onClick={() => cameraRef.current?.click()} aria-label="拍照"><Camera size={18} /></Button>}
-            <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
-              <Mic size={18} />
-            </Button>
+            <VoiceMicButton voice={voice} disabled={disabled || isSending} />
             <div className="w-px h-6 bg-border" />
             {isSending ? (
               <Button
@@ -96,8 +110,9 @@ function ChatInputBar({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={onSend}
-                disabled={disabled || (!value.trim() && !hasAttachment)}
+                aria-label="发送消息"
+                onClick={() => void send()}
+                disabled={disabled || voice.status === 'stopping' || (!value.trim() && !hasAttachment)}
                 className={cn(
                   'rounded-lg',
                   value.trim() && !disabled

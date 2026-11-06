@@ -90,7 +90,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowCanvasNod
           {data.description}
         </p>
         <div className="flex items-center justify-between gap-2">
-          <Badge variant="outline" className={cn('text-[10px]', def.tone)}>
+          <Badge variant={def.badgeVariant} size="compact">
             {data.nodeType}
           </Badge>
           <span className={cn('inline-flex items-center gap-1 text-[10px]', statusMeta.className)}>

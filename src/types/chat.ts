@@ -14,6 +14,7 @@ export interface ChatContentBlock {
 
 export interface AgentOpenChatGroup {
   id: string;
+  agentId?: string;
   groupName: string;
   messageCount?: number;
   lastQuestion?: string;

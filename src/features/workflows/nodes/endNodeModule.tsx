@@ -31,7 +31,7 @@ export const endNodeModule: WorkflowNodeModule = {
     name: '结束',
     description: '工作流出口',
     category: '基础',
-    tone: 'bg-muted text-muted-foreground border-border',
+    badgeVariant: 'muted',
     iconTone: 'bg-muted-foreground text-background',
   },
   icon: Square,

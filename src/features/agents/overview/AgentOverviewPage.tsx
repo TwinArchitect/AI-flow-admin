@@ -238,6 +238,7 @@ export function AgentOverviewPage({
       if (created?.id) {
         setActiveGroupId(created.id);
         setMessages([]);
+        if (embedded) setIsSidebarOpen(false);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '新建会话失败');
@@ -473,6 +474,7 @@ export function AgentOverviewPage({
   };
   const chatInputProps = {
     value: inputValue,
+    compact: embedded,
     cameraCaptureEnabled: canCapture,
     onCapture: capturePhoto,
     pendingFileName: captureUploading ? '照片上传中…' : captureFile?.name,
@@ -493,14 +495,17 @@ export function AgentOverviewPage({
   return (
     <div className={cn('relative flex h-full min-h-0 overflow-hidden bg-background', embedded && 'rounded-none')}>
       {/* ═══ 侧边栏：对话分组 ═══ */}
+      {embedded && isSidebarOpen && (
+        <button type="button" aria-label="收起对话分组" onClick={() => setIsSidebarOpen(false)} className="absolute inset-0 z-[140] bg-black/30" />
+      )}
       <AnimatePresence initial={false}>
         {isSidebarOpen && (
           <motion.aside
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 256, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
+            initial={embedded ? { x: '-100%', opacity: 0 } : { width: 0, opacity: 0 }}
+            animate={embedded ? { x: 0, opacity: 1 } : { width: 256, opacity: 1 }}
+            exit={embedded ? { x: '-100%', opacity: 0 } : { width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="h-full border-r border-border bg-background flex flex-col shrink-0 overflow-hidden"
+            className={cn('h-full border-r border-border bg-background flex flex-col shrink-0 overflow-hidden', embedded && 'absolute inset-y-0 left-0 z-[150] w-72 max-w-[85%] shadow-xl')}
           >
             {/* 侧边栏头部 */}
             <div className="p-4 border-b border-border flex items-center justify-between">
@@ -758,29 +763,27 @@ export function AgentOverviewPage({
           </div>
         ) : (
           /* 空状态欢迎区 */
-          <div className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto flex flex-col items-center justify-center bg-background px-6 relative z-0">
+          <div className={cn("flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto flex flex-col items-center justify-center bg-background relative z-0", embedded ? "px-7 py-6" : "px-6")}>
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-2xl text-center space-y-12"
+              className={cn("w-full max-w-2xl text-center", embedded ? "space-y-5" : "space-y-12")}
             >
-              <h1 className="text-3xl font-medium text-foreground tracking-tight leading-normal">
-                随时准备好，只等你需要
+              {embedded && <div className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/5 text-primary-text"><Sparkles size={28} strokeWidth={1.5} /></div>}
+              <h1 className={cn(embedded ? "text-xl font-semibold" : "text-3xl font-medium", "text-foreground tracking-tight leading-normal")}>
+                {embedded ? '你好，有什么可以帮你？' : '随时准备好，只等你需要'}
               </h1>
-              <div className="relative max-w-xl mx-auto">
-                <ChatInputArea {...chatInputProps} />
-                <div className="absolute -inset-10 bg-primary/5 blur-[80px] -z-10 rounded-full pointer-events-none" />
-              </div>
+              {embedded && <p className="mx-auto max-w-64 text-sm leading-6 text-muted-foreground">从一个问题开始，与你选择的智能体一起梳理思路、寻找答案。</p>}
+              {!embedded && <div className="relative max-w-xl mx-auto"><ChatInputArea {...chatInputProps} /><div className="absolute -inset-10 bg-primary/5 blur-[80px] -z-10 rounded-full pointer-events-none" /></div>}
             </motion.div>
           </div>
         )}
 
-        {/* 底部输入区（有消息时） */}
-        {hasMessages && (
-          <div className={cn('border-t border-border shrink-0 bg-background relative z-[110]', embedded ? 'px-3 py-3' : 'px-6 py-4')}>
-            <div className="w-full mx-auto">
-              <ChatInputArea {...chatInputProps} />
-            </div>
+        {/* 底部输入区 */}
+        {(hasMessages || embedded) && (
+          <div className={cn('shrink-0 bg-background relative z-[110]', embedded ? 'px-4 pb-4 pt-2' : 'border-t border-border px-6 py-4')}>
+            <div className="w-full mx-auto"><ChatInputArea {...chatInputProps} /></div>
+            {embedded && <p className="mt-2.5 text-center text-2xs text-muted-foreground">Enter 发送 · 请核对重要信息</p>}
           </div>
         )}
       </div>

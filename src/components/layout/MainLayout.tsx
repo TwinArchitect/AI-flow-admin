@@ -1,4 +1,4 @@
-import { Outlet, useMatches } from 'react-router-dom';
+import { Outlet, useMatches, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { RouteTabs } from './RouteTabs';
@@ -9,6 +9,7 @@ import { FloatingAiAssistant } from '@/features/agents/overview/components/Float
 
 export function MainLayout() {
   const matches = useMatches();
+  const { pathname } = useLocation();
   const { sidebarCollapsed, toggleSidebar } = useLayoutStore();
   const layoutMode = [...matches]
     .reverse()
@@ -17,6 +18,7 @@ export function MainLayout() {
   const showSidebar = layoutMode === 'fixed';
   const showHeader = layoutMode !== 'fullscreen';
   const contentPadding = !matches.some((match) => (match.handle as { contentPadding?: boolean } | undefined)?.contentPadding === false);
+  const internalScroll = matches.some(match => (match.handle as { contentScroll?: string } | undefined)?.contentScroll === 'internal');
 
   return (
     <div className="flex h-screen bg-[var(--color-bg-page)]">
@@ -26,7 +28,7 @@ export function MainLayout() {
         {showHeader && <Header />}
         <RouteTabs showBack={layoutMode !== 'fixed'} />
 
-        <main className={cn('flex-1 min-h-0 overflow-y-auto', layoutMode !== 'fullscreen' && contentPadding && 'p-4')}>
+        <main key={pathname} className={cn('page-enter flex-1 min-h-0', internalScroll ? 'overflow-hidden' : 'overflow-y-auto', layoutMode !== 'fullscreen' && contentPadding && 'p-4')}>
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>

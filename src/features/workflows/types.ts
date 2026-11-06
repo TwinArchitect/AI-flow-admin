@@ -1,3 +1,4 @@
+import type { BadgeVariant } from '@/components/ui/badge';
 import type { Edge, Node } from '@xyflow/react';
 
 export type WorkflowNodeType =
@@ -20,6 +21,8 @@ export type WorkflowNodeType =
   | 'loopBreak'
   | 'plugin'
   | 'workflowCall'
+  | 'httpPluginCall'
+  | 'mcpCall'
   | 'mcp';
 
 export interface WorkflowNodeData extends Record<string, unknown> {
@@ -38,7 +41,7 @@ export interface WorkflowNodeDef {
   name: string;
   description: string;
   category: string;
-  tone: string;
+  badgeVariant: BadgeVariant;
   iconTone: string;
 }
 
@@ -413,6 +416,8 @@ export type WorkflowNodeConfig =
 
 export type BackendFlowNodeType =
   | 'workflowCall'
+  | 'httpPluginCall'
+  | 'mcpCall'
   | 'workflowStart'
   | 'chatNode'
   | 'workflowEnd'

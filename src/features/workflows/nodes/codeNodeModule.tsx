@@ -37,7 +37,7 @@ export const codeNodeModule: WorkflowNodeModule = {
     name: '代码执行',
     description: CODE_NODE_DESCRIPTION,
     category: '逻辑',
-    tone: 'bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400',
+    badgeVariant: 'warning',
     iconTone: 'bg-orange-500 text-white',
   },
   icon: Code2,

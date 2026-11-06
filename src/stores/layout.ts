@@ -13,6 +13,7 @@ interface LayoutState {
   openRouteTab: (tab: RouteTab) => void;
   closeRouteTab: (path: string) => void;
   closeAllRouteTabs: () => void;
+  closeOtherRouteTabs: (path: string) => void;
   closeRouteTabsLeft: (path: string) => void;
   closeRouteTabsRight: (path: string) => void;
   updateRouteTabTitle: (path: string, title: string) => void;
@@ -45,6 +46,10 @@ export const useLayoutStore = create<LayoutState>()(
         routeTabs: [{ path: '/', title: '工作台' }],
         activeTabPath: '/',
       }),
+      closeOtherRouteTabs: (path) => set((state) => ({
+        routeTabs: state.routeTabs.filter(item => item.path === '/' || item.path === path),
+        activeTabPath: path,
+      })),
       closeRouteTabsLeft: (path) => set((state) => {
         const index = state.routeTabs.findIndex((item) => item.path === path);
         if (index < 0) return state;

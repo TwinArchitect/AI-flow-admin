@@ -41,7 +41,7 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
 
   return (
     <article
-      className="bg-card rounded-2xl border border-border p-5 flex flex-col h-full min-h-[260px] group hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
+      className="bg-card rounded-2xl border border-border p-5 flex flex-col h-full min-h-[220px] group hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
       onClick={onOpen}
     >
       {/* 头部：图标 + 名称 + 菜单 */}
@@ -55,7 +55,7 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
             <h3 className="text-sm font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary-text">
               {agent.agentName}
             </h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {agent.username?.trim() || agent.creator?.trim() || '未知用户'}
             </p>
           </div>
@@ -65,7 +65,8 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
         <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
           <Button
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
+            aria-label={`智能体操作 ${agent.agentName}`}
             onClick={(e) => {
               e.stopPropagation();
               setMenuOpen(!menuOpen);
@@ -104,8 +105,8 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
       </div>
 
       {/* 描述 */}
-      <div className="flex-1 min-h-0 space-y-3">
-        <p className="text-xs text-muted-foreground leading-relaxed">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <p title={agent.remark || '暂无描述'} className="line-clamp-2 text-sm text-muted-foreground leading-relaxed">
           {agent.remark || '暂无描述'}
         </p>
 
@@ -113,7 +114,7 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
         {tagNames.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             {tagNames.map((name) => (
-              <Badge key={name} variant="secondary" className="text-2xs font-medium">
+              <Badge key={name} variant="secondary">
                 #{name}
               </Badge>
             ))}
@@ -121,7 +122,7 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
         )}
 
         {/* 底部信息 */}
-        <div className="flex items-center justify-between pt-3 border-t border-border">
+        <div className="flex items-center justify-between mt-auto pt-3 border-t border-border">
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
@@ -129,24 +130,17 @@ export function AgentListCard({ agent, onOpen, onDelete }: AgentListCardProps) {
                 agent.status === 1 ? 'bg-success' : 'bg-muted-foreground/40'
               )}
             />
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {agentStatusLabel(agent.status)}
             </span>
           </div>
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-2xs font-medium',
-              isWorkflow
-                ? 'bg-primary/10 text-primary'
-                : 'bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400'
-            )}
-          >
+          <Badge variant={isWorkflow ? "accent" : "info"}>
             {isWorkflow ? <Layers size={11} /> : <MessageCircle size={11} />}
             {agentFlowTypeLabel(agent.flowType)}
-          </span>
+          </Badge>
         </div>
 
-        <div className="flex items-center justify-between text-2xs">
+        <div className="flex items-center justify-between text-xs">
           <span className="text-primary-text font-medium">最近编辑</span>
           <span className="text-muted-foreground tabular-nums">{editTime}</span>
         </div>

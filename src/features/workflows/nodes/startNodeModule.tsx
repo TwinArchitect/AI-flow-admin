@@ -32,7 +32,7 @@ export const startNodeModule: WorkflowNodeModule = {
     name: '开始',
     description: '工作流入口',
     category: '系统',
-    tone: 'bg-success/10 text-success border-success/20',
+    badgeVariant: 'success',
     iconTone: 'bg-success text-white',
   },
   icon: Play,

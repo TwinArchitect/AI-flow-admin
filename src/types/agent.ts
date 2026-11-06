@@ -69,12 +69,11 @@ export interface AgentLabel {
   updateTime?: string;
 }
 
-export type AgentLabelCategory = 'mine' | 'system' | 'business';
+export type AgentLabelCategory = 'mine' | 'square';
 
 export const AGENT_LABEL_CATEGORY_OPTIONS: { value: AgentLabelCategory; label: string }[] = [
-  { value: 'mine', label: '我的标签' },
-  { value: 'system', label: '系统标签' },
-  { value: 'business', label: '业务标签' },
+  { value: 'mine', label: '我的智能体' },
+  { value: 'square', label: '智能体广场' },
 ];
 
 export function agentLabelCategoryLabel(category?: string) {

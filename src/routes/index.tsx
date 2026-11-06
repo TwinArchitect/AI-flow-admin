@@ -1,9 +1,19 @@
+import { SystemConfigPage } from '@/features/system-config/SystemConfigPage';
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout';
 import { DashboardPage } from '@/features/dashboard';
 import { WorkflowsPage } from '@/features/workflows';
 import { UsersPage } from '@/features/users';
+import { MenuManagementPage } from '@/features/permissions/MenuManagementPage';
+import { RoleManagementPage } from '@/features/roles/RoleManagementPage';
+import { DepartmentManagementPage } from '@/features/departments/DepartmentManagementPage';
+import { PostManagementPage } from '@/features/posts/PostManagementPage';
+import { DictManagementPage } from '@/features/dict/DictManagementPage';
+import { OrganizationTreePage } from '@/features/organization-tree/OrganizationTreePage';
+import { MessageManagementPage } from '@/features/messages/MessageManagementPage';
+import { AttachmentManagementPage } from '@/features/attachments/AttachmentManagementPage';
+import { TenantManagementPage } from '@/features/tenants/TenantManagementPage';
 import { SettingsPage } from '@/features/settings';
 import { LoginPage } from '@/features/auth';
 import { PrivateRoute } from './PrivateRoute';
@@ -18,9 +28,10 @@ import { TagManagementPage } from '@/features/agents/tag-management';
 import { AgentPlazaPage, AgentChatPage } from '@/features/agents/agent-plaza';
 import { ModelManagementPage } from '@/features/agents/model-management';
 import { MemoryMaintenancePage } from '@/features/agents/memory-maintenance';
-import { MobileOverviewPage } from '@/features/agents/mobile-overview';
+import { RouteAccess, RouteStatusPage } from './RouteAccess';
 import { EmbedAssistantPage } from '@/features/agents/overview/EmbedAssistantPage';
 import { ChatAgentOrchestrationPage } from '@/features/agents/orchestration';
+import { AgentAuditPage } from '@/features/agents/audit/AgentAuditPage';
 
 
 // Demo 页懒加载，减少首屏 bundle 体积
@@ -146,34 +157,46 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <MainLayout />,
-        children: [
+        children: [{ element: <RouteAccess />, children: [
           { index: true, element: <DashboardPage /> },
           { path: 'agents', element: <Navigate to="myAgents" replace /> },
           { path: 'agents/AgentPlaza', element: <AgentPlazaPage /> },
+          { path: 'agents/audit', element: <AgentAuditPage />, handle: { contentScroll: 'internal' } },
           {
             path: 'agents/overview',
             element: <AgentOverviewPage />,
           },
           { path: 'agents/myAgents', element: <MyAgentsPage />, handle: { contentPadding: false } },
           { path: 'agents/orchestration', element: <ChatAgentOrchestrationPage />, handle: { contentLayout: 'fullscreen' } },
-          { path: 'agents/knowledge', element: <KnowledgeBasePage />, handle: { contentPadding: false } },
+          { path: 'agents/knowledge', element: <KnowledgeBasePage />, handle: { contentPadding: false, contentScroll: 'internal' } },
           { path: 'agents/knowledge/settings', element: <KbEngineSettingsPage /> },
           { path: 'agents/knowledge/api-doc', element: <KbOpenApiDocPage /> },
-          { path: 'agents/tags', element: <TagManagementPage /> },
+          { path: 'agents/tags', element: <TagManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
           { path: 'agents/AgentPlaza/chat', element: <AgentChatPage /> },
           { path: 'agents/models', element: <ModelManagementPage />, handle: { contentPadding: false } },
-          { path: 'agents/memory', element: <MemoryMaintenancePage /> },
-          { path: 'agents/httpTools', element: <HttpToolsPage /> },
-          { path: 'agents/mcpTools', element: <McpToolsPage /> },
-          { path: 'agents/mobile-overview', element: <MobileOverviewPage /> },
+          { path: 'agents/memory', element: <MemoryMaintenancePage />, handle: { contentScroll: 'internal' } },
+          { path: 'agents/httpTools', element: <HttpToolsPage />, handle: { contentPadding: false } },
+          { path: 'agents/mcpTools', element: <McpToolsPage />, handle: { contentPadding: false } },
+
           {
             path: 'workflows',
             element: <WorkflowsPage />,
             handle: { contentLayout: 'fullscreen' },
           },
-          { path: 'users', element: <UsersPage /> },
+          { path: 'system/user', element: <UsersPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/menu', element: <MenuManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/role', element: <RoleManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/dept', element: <DepartmentManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/post', element: <PostManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/dict', element: <DictManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/tree', element: <OrganizationTreePage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/message', element: <MessageManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/file', element: <AttachmentManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'system/config', element: <SystemConfigPage /> },
+          { path: 'system/tenant', element: <TenantManagementPage />, handle: { contentPadding: false, contentScroll: 'internal' } },
+          { path: 'users', element: <Navigate to="/system/user" replace /> },
           { path: 'settings', element: <SettingsPage /> },
-          {
+          ...(import.meta.env.DEV ? [{
             path: 'components',
             element: <ComponentsLayout />,
             children: [
@@ -428,9 +451,11 @@ export const router = createBrowserRouter([
                 ),
               },
             ],
-          },
-          { path: '*', element: <Navigate to="/" replace /> },
-        ],
+          }] : []),
+          { path: '403', element: <RouteStatusPage status="forbidden" /> },
+          { path: '404', element: <RouteStatusPage status="not-found" /> },
+          { path: '*', element: <RouteStatusPage status="not-found" />, handle: { unimplemented: true } },
+        ] }],
       },
     ],
   },

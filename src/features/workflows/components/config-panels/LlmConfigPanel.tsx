@@ -26,7 +26,7 @@ function SectionTitle({ children, optional }: { children: string; optional?: boo
   return (
     <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
       <span>{children}</span>
-      {optional && <Badge variant="secondary" className="text-[9px]">可选</Badge>}
+      {optional && <Badge variant="secondary" size="compact">可选</Badge>}
     </div>
   );
 }
@@ -238,9 +238,9 @@ export function LlmConfigPanel({
       <section className="space-y-3 border-t border-border pt-5">
         <SectionTitle>系统输出</SectionTitle>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="font-mono text-[10px]">history: chatHistory</Badge>
-          <Badge variant="outline" className="font-mono text-[10px]">answerText: string</Badge>
-          <Badge variant="outline" className="font-mono text-[10px]">reasoningText: string</Badge>
+          <Badge variant="outline" size="compact" className="font-mono">history: chatHistory</Badge>
+          <Badge variant="outline" size="compact" className="font-mono">answerText: string</Badge>
+          <Badge variant="outline" size="compact" className="font-mono">reasoningText: string</Badge>
         </div>
       </section>
 

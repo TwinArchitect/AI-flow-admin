@@ -36,7 +36,7 @@ export const databaseNodeModule: WorkflowNodeModule = {
     name: '数据库',
     description: DATABASE_NODE_DESCRIPTION,
     category: '数据',
-    tone: 'bg-emerald-600/10 text-emerald-700 border-emerald-600/20 dark:text-emerald-400',
+    badgeVariant: 'success',
     iconTone: 'bg-emerald-600 text-white',
   },
   icon: Database,

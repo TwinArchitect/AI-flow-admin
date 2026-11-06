@@ -48,7 +48,7 @@ export const classifyNodeModule: WorkflowNodeModule = {
     name: '意图识别',
     description: CLASSIFY_NODE_DESCRIPTION,
     category: '逻辑',
-    tone: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400',
+    badgeVariant: 'warning',
     iconTone: 'bg-amber-500 text-white',
   },
   icon: Search,

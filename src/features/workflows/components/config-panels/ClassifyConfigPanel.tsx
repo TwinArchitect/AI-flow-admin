@@ -160,7 +160,7 @@ export function ClassifyConfigPanel({
           </div>
         ) : customAgents.map((agent, index) => (
           <div key={agent.key} className="flex items-center gap-2 rounded-lg border border-border p-2.5">
-            <Badge variant="secondary" className="shrink-0 text-[10px]">#{index + 1}</Badge>
+            <Badge variant="secondary" size="compact" className="shrink-0">#{index + 1}</Badge>
             <Input variables={variables}
               value={agent.value}
               onChange={(event) => updateAgents(customAgents.map((item) => (
@@ -195,7 +195,7 @@ export function ClassifyConfigPanel({
 
       <section className="space-y-2 border-t border-border pt-5">
         <div className="text-xs font-semibold text-foreground">系统输出</div>
-        <Badge variant="outline" className="font-mono text-[10px]">cqResult: string</Badge>
+        <Badge variant="outline" size="compact" className="font-mono">cqResult: string</Badge>
       </section>
     </div>
   );

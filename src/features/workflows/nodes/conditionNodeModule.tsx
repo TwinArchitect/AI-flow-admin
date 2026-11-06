@@ -46,7 +46,7 @@ export const conditionNodeModule: WorkflowNodeModule = {
     name: '判断器',
     description: CONDITION_NODE_DESCRIPTION,
     category: '逻辑',
-    tone: 'bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400',
+    badgeVariant: 'warning',
     iconTone: 'bg-orange-500 text-white',
   },
   icon: GitBranch,

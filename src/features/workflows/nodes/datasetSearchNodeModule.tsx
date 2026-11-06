@@ -30,7 +30,7 @@ export const datasetSearchNodeModule: WorkflowNodeModule = {
   definition: {
     type: 'knowledge', name: '知识库搜索', description: DATASET_SEARCH_NODE_DESCRIPTION,
     category: '数据',
-    tone: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400',
+    badgeVariant: 'info',
     iconTone: 'bg-blue-500 text-white',
   },
   icon: BookOpen,

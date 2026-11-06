@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ListPageLayout, ListPageHeader, ListPageContent, ListPageFooter } from '@/components/layout/ListPageLayout';
+import { Pagination } from '@/components/ui/pagination';
+import * as api from './tagApi';
 import {
   Plus,
   Trash2,
   Edit2,
   Tag,
   Undo2,
-  ChevronLeft,
-  ChevronRight,
   Calendar,
   CheckCircle2,
   X,
@@ -42,7 +44,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { MOCK_TAGS, PAGE_SIZE } from './data/tagMock';
 import {
   AGENT_LABEL_CATEGORY_OPTIONS,
   agentLabelCategoryLabel,
@@ -55,12 +56,15 @@ type FilterStatus = 'all' | '1' | '0';
 type FilterCategory = 'all' | AgentLabelCategory;
 
 export function TagManagementPage() {
-  const [tags, setTags] = useState<AgentLabel[]>(MOCK_TAGS);
+  const client = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AgentLabel | null>(null);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [categoryFilter, setCategoryFilter] = useState<FilterCategory>('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTag, setEditTag] = useState<AgentLabel | null>(null);
   const [formName, setFormName] = useState('');
@@ -68,21 +72,22 @@ export function TagManagementPage() {
   const [formSort, setFormSort] = useState(0);
   const [formDesc, setFormDesc] = useState('');
 
-  const filtered = tags.filter((t) => {
-    const matchSearch =
-      t.name.toLowerCase().includes(appliedSearch.toLowerCase()) ||
-      (t.description ?? '').toLowerCase().includes(appliedSearch.toLowerCase());
-    const matchStatus = statusFilter === 'all' || String(t.status) === statusFilter;
-    const matchCategory = categoryFilter === 'all' || t.category === categoryFilter;
-    return matchSearch && matchStatus && matchCategory;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const stats = {
-    total: tags.length,
-    active: tags.filter((t) => t.status === 1).length,
-    inactive: tags.filter((t) => t.status !== 1).length,
+  const list = useQuery({ queryKey: ['agent-labels', page, pageSize, appliedSearch, statusFilter, categoryFilter], placeholderData: keepPreviousData, queryFn: () => api.queryLabels({ pageNum: page, pageSize, name: appliedSearch || undefined, status: statusFilter === 'all' ? undefined : Number(statusFilter), category: categoryFilter === 'all' ? undefined : categoryFilter }) });
+  const counts = useQuery({ queryKey: ['agent-label-counts'], queryFn: async () => {
+    const [all, active, inactive] = await Promise.all([api.queryLabels({ pageNum: 1, pageSize: 1 }), api.queryLabels({ pageNum: 1, pageSize: 1, status: 1 }), api.queryLabels({ pageNum: 1, pageSize: 1, status: 0 })]);
+    return { total: all.total, active: active.total, inactive: inactive.total };
+  } });
+  const paged = list.data?.records ?? [];
+  const total = list.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const stats = counts.data ?? { total: 0, active: 0, inactive: 0 };
+  useEffect(() => { if (list.data && !list.isPlaceholderData && page > totalPages) setPage(totalPages); }, [list.data, list.isPlaceholderData, page, totalPages]);
+  const refresh = () => Promise.all([client.invalidateQueries({ queryKey: ['agent-labels'] }), client.invalidateQueries({ queryKey: ['agent-label-counts'] }), client.invalidateQueries({ queryKey: ['agent-labels-enabled'] })]);
+  const run = async (action: () => Promise<unknown>, message: string) => {
+    setBusy(true);
+    try { await action(); await refresh(); toast.success(message); return true; }
+    catch (error) { toast.error(error instanceof Error ? error.message : '操作失败'); return false; }
+    finally { setBusy(false); }
   };
 
   const openCreate = () => {
@@ -102,64 +107,25 @@ export function TagManagementPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formName.trim()) {
-      toast.error('标签名称不能为空');
-      return;
-    }
-    if (editTag) {
-      setTags((prev) =>
-        prev.map((t) =>
-          t.id === editTag.id
-            ? {
-                ...t,
-                name: formName.trim(),
-                description: formDesc.trim() || undefined,
-                category: formCategory,
-                sort: formSort,
-              }
-            : t
-        )
-      );
-      toast.success(`更新标签「${formName}」成功`);
-    } else {
-      const newTag: AgentLabel = {
-        id: 't-' + Date.now(),
-        name: formName.trim(),
-        description: formDesc.trim() || undefined,
-        category: formCategory,
-        sort: formSort,
-        status: 0,
-        createTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      };
-      setTags((prev) => [...prev, newTag]);
-      toast.success(`新建标签「${formName}」成功`);
-    }
-    setDialogOpen(false);
+  const handleSave = async () => {
+    if (!formName.trim()) { toast.error('标签名称不能为空'); return; }
+    const payload = { name: formName.trim(), category: formCategory, sort: formSort, description: formDesc.trim(), status: editTag?.status === 1 ? 1 : 0 };
+    if (await run(() => api.saveLabel(editTag ? { ...payload, id: editTag.id } : payload), editTag ? '标签已更新' : '标签已创建')) setDialogOpen(false);
   };
-
-  const handleDelete = (tag: AgentLabel) => {
-    setTags((prev) => prev.filter((t) => t.id !== tag.id));
-    toast.success(`已删除标签「${tag.name}」`);
-  };
-
-  const handleToggleStatus = (tag: AgentLabel) => {
-    const next = tag.status === 1 ? 0 : 1;
-    setTags((prev) => prev.map((t) => (t.id === tag.id ? { ...t, status: next } : t)));
-    toast.success(`标签「${tag.name}」已${next === 1 ? '开启' : '关闭'}`);
-  };
+  const handleToggleStatus = (tag: AgentLabel) => void run(() => api.saveLabel({ ...tag, category: tag.category as AgentLabelCategory, status: tag.status === 1 ? 0 : 1 }), '标签状态已更新');
 
   const resetFilters = () => {
     setSearch('');
     setAppliedSearch('');
     setStatusFilter('all');
     setCategoryFilter('all');
+    setPage(1);
   };
   const hasFilters = appliedSearch || statusFilter !== 'all' || categoryFilter !== 'all';
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-6 space-y-6 mx-auto">
+    <ListPageLayout scrollMode="table">
+      <ListPageHeader>
         {/* 标题栏 */}
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -168,7 +134,7 @@ export function TagManagementPage() {
             </h1>
             <p className="text-xs text-muted-foreground mt-1">维护智能体分类标签</p>
           </div>
-          <Button size="sm" className="text-xs gap-2 rounded-2xl shadow-sm" onClick={openCreate}>
+          <Button size="sm" disabled={busy} className="text-xs gap-2 rounded-2xl shadow-sm" onClick={openCreate}>
             <Plus size={16} /> 新建标签
           </Button>
         </div>
@@ -306,12 +272,15 @@ export function TagManagementPage() {
           </div>
         </div>
 
+      </ListPageHeader>
+      <ListPageContent>
+        {list.isError && <p role="alert" className="mb-4 text-sm text-destructive">{list.error.message}</p>}
+        {counts.isError && <p role="alert" className="mb-4 text-sm text-destructive">统计加载失败：{counts.error.message}</p>}
         {/* 表格 */}
-        <Card className="rounded-2xl border-border overflow-hidden p-0">
+        <Card className="min-h-0 flex-1 rounded-2xl border-border overflow-hidden p-0">
           {paged.length > 0 ? (
             <>
-              <div className="overflow-x-auto">
-                <Table>
+                <Table scrollable>
                   <TableHeader>
                     <TableRow className="bg-muted/30 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                       <TableHead className="px-6">名称</TableHead>
@@ -328,11 +297,7 @@ export function TagManagementPage() {
                       <TableRow key={tag.id} className="group hover:bg-accent/40 text-xs">
                         <TableCell className="px-6">
                           <Badge
-                            variant={tag.status === 1 ? 'default' : 'secondary'}
-                            className={cn(
-                              'text-xs font-bold',
-                              tag.status !== 1 && 'text-muted-foreground'
-                            )}
+                            variant={tag.status === 1 ? 'info' : 'muted'}
                           >
                             #{tag.name}
                           </Badge>
@@ -365,25 +330,25 @@ export function TagManagementPage() {
                               {agentLabelStatusLabel(tag.status)}
                             </span>
                             <Switch
-                              checked={tag.status === 1}
+                              aria-label={`启用标签 ${tag.name}`} disabled={busy} checked={tag.status === 1}
                               onCheckedChange={() => handleToggleStatus(tag)}
                             />
                           </div>
                         </TableCell>
                         <TableCell className="px-6 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button
+                            <Button tone="brand"
                               variant="ghost"
                               size="icon-xs"
-                              onClick={() => openEdit(tag)}
+                              aria-label={`修改标签 ${tag.name}`} disabled={busy} onClick={() => openEdit(tag)}
                               className="text-muted-foreground hover:text-primary"
                             >
                               <Edit2 size={13} />
                             </Button>
-                            <Button
+                            <Button tone="danger"
                               variant="ghost"
                               size="icon-xs"
-                              onClick={() => handleDelete(tag)}
+                              aria-label={`删除标签 ${tag.name}`} disabled={busy} onClick={() => setDeleteTarget(tag)}
                               className="text-muted-foreground hover:text-destructive"
                             >
                               <Trash2 size={13} />
@@ -394,48 +359,29 @@ export function TagManagementPage() {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
-              <div className="px-6 py-4 flex items-center justify-between border-t border-border">
-                <span className="text-xs text-muted-foreground">
-                  当前页 {paged.length} 条 / 共 {filtered.length} 个标签
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon-xs"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    <ChevronLeft size={14} />
-                  </Button>
-                  <span className="text-xs font-bold tabular-nums text-foreground">
-                    {page} / {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon-xs"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    <ChevronRight size={14} />
-                  </Button>
-                </div>
-              </div>
+
             </>
           ) : (
             <div className="text-center py-16">
               <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
                 <Tag size={20} />
               </div>
-              <h4 className="text-sm font-bold text-foreground mt-4">暂未发现匹配的标签</h4>
+              <h4 className="text-sm font-bold text-foreground mt-4">{list.isFetching ? '正在加载标签…' : list.isError ? '标签加载失败' : '暂未发现匹配的标签'}</h4>
               <p className="text-xs text-muted-foreground mt-1">可调整筛选词或创建新标签</p>
             </div>
           )}
         </Card>
 
+      </ListPageContent>
+      <ListPageFooter><Pagination page={page} pageCount={totalPages} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} disabled={list.isFetching || busy} /></ListPageFooter>
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !busy) setDeleteTarget(null); }}>
+        <DialogContent><DialogHeader><DialogTitle>删除标签</DialogTitle><DialogDescription>确定删除标签「{deleteTarget?.name}」吗？删除后无法恢复；已被智能体引用的标签无法删除。</DialogDescription></DialogHeader>
+        <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>取消</Button><Button variant="destructive" disabled={busy} onClick={async () => { if (deleteTarget && await run(() => api.deleteLabel(deleteTarget.id), '标签已删除')) setDeleteTarget(null); }}>确认删除</Button></div>
+        </DialogContent>
+      </Dialog>
         {/* 创建/编辑 Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={(o) => !o && setDialogOpen(false)}>
-          <DialogContent className="sm:max-w-3xl">
+        <Dialog open={dialogOpen} onOpenChange={(o) => !o && !busy && setDialogOpen(false)}>
+          <DialogContent className="sm:max-w-3xl" showCloseButton={!busy}>
             <DialogHeader>
               <DialogTitle>{editTag ? '修改标签' : '新建标签'}</DialogTitle>
               <DialogDescription>
@@ -501,6 +447,7 @@ export function TagManagementPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={busy}
                   onClick={() => setDialogOpen(false)}
                   className="text-xs"
                 >
@@ -508,7 +455,7 @@ export function TagManagementPage() {
                 </Button>
                 <Button
                   size="sm"
-                  disabled={!formName.trim()}
+                  disabled={busy || !formName.trim()}
                   onClick={handleSave}
                   className="text-xs gap-2"
                 >
@@ -518,7 +465,6 @@ export function TagManagementPage() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-    </div>
+    </ListPageLayout>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { Fragment, useState, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import {
   // Search,
@@ -17,6 +17,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useLogout } from '@/hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import { resolveRouteTitle } from './RouteTabs';
+import { menuBreadcrumbs } from '@/features/permissions/routes';
 
 export function Header() {
   const { isDark, setTheme } = useThemeStore();
@@ -51,15 +52,22 @@ export function Header() {
   const location = useLocation();
   const nickname = useAuthStore(state => state.user?.nickname ?? '');
   const title = resolveRouteTitle(location.pathname);
+  const menus = useAuthStore(state => state.menus);
+  const trail = menuBreadcrumbs(location.pathname, menus ?? []);
+  const breadcrumbs = location.pathname === '/' ? ['工作台']
+    : location.pathname.startsWith('/components') ? ['组件示例', title]
+    : trail.length ? trail : [title];
 
   return (
     <header className="flex items-center justify-between h-14 px-6 bg-card border-b border-border/50 shrink-0">
       {/* 左侧：面包屑导航 */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Home size={15} className="mr-1 text-muted-foreground" /><span>工作空间</span>
-        <ChevronRight size={10} />
-        <span className="text-foreground font-medium">{title}</span>
-      </div>
+      <nav aria-label="面包屑" className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+        <Home size={15} className="mr-1 shrink-0 text-muted-foreground" />
+        {breadcrumbs.map((label, index) => <Fragment key={`${index}:${label}`}>
+          {index > 0 && <ChevronRight size={10} className="shrink-0" />}
+          <span aria-current={index === breadcrumbs.length - 1 ? 'page' : undefined} className={index === breadcrumbs.length - 1 ? 'truncate font-medium text-foreground' : 'truncate'}>{label}</span>
+        </Fragment>)}
+      </nav>
 
       {/* 右侧操作 */}
       <div className="flex items-center gap-1">

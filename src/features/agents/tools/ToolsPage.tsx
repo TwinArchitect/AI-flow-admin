@@ -16,8 +16,6 @@ interface ToolsPageProps {
   icon: LucideIcon;
   /** Banner 装饰色（渐变用 token class） */
   gradient: string;
-  /** Badge 色 */
-  badgeClass: string;
   /** Banner 标题 */
   title: string;
   /** Banner 描述 */
@@ -30,7 +28,6 @@ export function ToolsPage({
   type,
   icon: Icon,
   gradient,
-  badgeClass,
   title,
   description,
 }: ToolsPageProps) {
@@ -81,8 +78,7 @@ export function ToolsPage({
           <div className="absolute inset-0 flex items-center px-8 md:px-12 z-10">
             <div className="max-w-2xl space-y-2">
               <Badge
-                variant="secondary"
-                className={cn('text-2xs font-bold uppercase tracking-wider border', badgeClass)}
+                variant={type === "HTTP" ? "info" : "accent"}
               >
                 {type} Center
               </Badge>
@@ -102,7 +98,7 @@ export function ToolsPage({
         {/* 操作栏 */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-muted/30 p-5 rounded-3xl border border-border">
           <div className="flex items-center gap-2 text-xs font-bold text-primary">
-            <Badge variant="outline" className="text-2xs font-bold">
+            <Badge variant="outline" size="compact">
               当前 {filtered.length} 款 {type} 工具
             </Badge>
           </div>

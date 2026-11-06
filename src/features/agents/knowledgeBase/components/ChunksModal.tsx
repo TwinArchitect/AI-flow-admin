@@ -70,6 +70,12 @@ export function ChunksModal({ open, file, datasetId, onClose, embedded = false, 
     },
     enabled: open && Boolean(file),
   });
+  useEffect(() => {
+    if (!open || embedded || !chunksQuery.data || chunksQuery.isFetching) return;
+    const maxPage = Math.max(1, Math.ceil(chunksQuery.data.total / 20));
+    if (page > maxPage) setPage(maxPage);
+  }, [open, embedded, chunksQuery.data, chunksQuery.isFetching, page]);
+
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['knowledge-base', 'chunks'] }),

@@ -30,7 +30,7 @@ export const replyNodeModule: WorkflowNodeModule = {
     name: '指定回复',
     description: '输出固定文本或变量内容',
     category: '基础',
-    tone: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400',
+    badgeVariant: 'success',
     iconTone: 'bg-emerald-500 text-white',
   },
   icon: MessageSquare,

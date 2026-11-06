@@ -38,7 +38,7 @@ const definitions: Array<[WorkflowNodeDef, ElementType]> = [
     name: '插件',
     description: '调用内置插件完成动作',
     category: '工具',
-    tone: 'bg-violet-500/10 text-violet-600 border-violet-500/20 dark:text-violet-400',
+    badgeVariant: 'accent',
     iconTone: 'bg-violet-500 text-white',
   }, Layers],
   [{
@@ -46,7 +46,7 @@ const definitions: Array<[WorkflowNodeDef, ElementType]> = [
     name: 'MCP 工具',
     description: '连接外部 MCP 工具能力',
     category: '工具',
-    tone: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400',
+    badgeVariant: 'warning',
     iconTone: 'bg-amber-500 text-white',
   }, PlugZap],
 ];

@@ -1,3 +1,6 @@
+import { useBrand } from '@/features/system-config/systemConfigApi';
+import { squareAssetUrl } from '@/features/agents/agent-plaza/squareApi';
+import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, MotionConfig } from 'framer-motion';
@@ -16,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { useLogin } from '@/hooks/useAuth';
 
 export function LoginPage() {
+  const brand = useBrand();
   const navigate = useNavigate();
   const loginMutation = useLogin();
   const [username, setUsername] = useState('');
@@ -62,11 +66,11 @@ export function LoginPage() {
             transition={{ duration: 0.45 }}
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-              <Bot size={20} />
+              {brand?.customLogo ? <img src={squareAssetUrl(brand.customLogo)} alt="" className="size-full rounded-[inherit] object-contain" /> : <Bot size={20} />}
             </div>
             <div>
-              <div className="text-sm font-semibold tracking-wide">智构平台</div>
-              <div className="text-xs text-muted-foreground">企业级智能体开发与运营平台</div>
+              <div className="text-sm font-semibold tracking-wide">{brand?.appName?.trim() || '睿创智枢'}</div>
+              <div className="text-xs text-muted-foreground">{brand?.appIntro || '企业级智能体开发与运营平台'}</div>
             </div>
           </motion.div>
 
@@ -76,9 +80,9 @@ export function LoginPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.08, ease: 'easeOut' }}
           >
-            <div className="mb-6 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <Badge variant="info" className="mb-6">
               AI Agent Platform
-            </div>
+            </Badge>
             <h1 className="max-w-xl text-4xl font-semibold leading-[1.18] tracking-tight xl:text-5xl">
               让智能体真正进入
               <span className="mt-2 block text-primary">企业业务流程</span>
@@ -130,9 +134,9 @@ export function LoginPage() {
             />
             <div className="mb-8 flex items-center gap-3 lg:hidden">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Bot size={18} />
+                {brand?.customLogo ? <img src={squareAssetUrl(brand.customLogo)} alt="" className="size-full rounded-[inherit] object-contain" /> : <Bot size={18} />}
               </div>
-              <span className="font-semibold">智构平台</span>
+              <span className="font-semibold">{brand?.appName?.trim() || '睿创智枢'}</span>
             </div>
 
             <div className="mb-8">
@@ -210,6 +214,7 @@ export function LoginPage() {
             <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
               登录即表示您同意平台的使用规范与数据安全政策
             </p>
+            {brand?.appCopyright && <p className="mt-2 text-center text-xs text-muted-foreground">{brand.appCopyright}</p>}
           </motion.div>
         </section>
       </div>

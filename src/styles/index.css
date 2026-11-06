@@ -356,3 +356,47 @@
 
 /* 暗色模式：token 已在 colors.css 里切换，这里无需重复 */
 .dark {}
+
+/* 普通文本不显示插入光标，输入区域保留正常编辑反馈。 */
+:root { caret-color: transparent; }
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable=""],
+[contenteditable="plaintext-only"],
+[role="textbox"] { caret-color: var(--color-text-primary); }
+
+/* 公共动效：只响应导航与交互，不绑定接口请求。 */
+.sidebar-submenu {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 200ms cubic-bezier(.2,0,0,1), opacity 150ms ease-out, visibility 200ms;
+}
+.sidebar-submenu[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+.sidebar-chevron { transition: transform 200ms cubic-bezier(.2,0,0,1), opacity 120ms; }
+.sidebar-label, .sidebar-account-label { transition: opacity 120ms ease-out; white-space: nowrap; }
+.sidebar-brand { overflow: hidden; max-width: 190px; opacity: 1; transition: max-width 200ms cubic-bezier(.2,0,0,1), opacity 100ms; }
+.app-sidebar[data-collapsed="true"] .sidebar-brand { max-width: 0; opacity: 0; }
+.app-sidebar[data-collapsed="true"] .sidebar-label,
+.app-sidebar[data-collapsed="true"] .sidebar-account-label,
+.app-sidebar[data-collapsed="true"] .sidebar-chevron { opacity: 0; width: 0; overflow: hidden; }
+.app-sidebar[data-collapsed="true"] .sidebar-root-button { padding-inline: 0; justify-content: center; }
+.app-sidebar[data-collapsed="true"] .sidebar-root-button,
+.app-sidebar[data-collapsed="true"] .sidebar-root-button > span { gap: 0; }
+.app-sidebar nav a, .app-sidebar nav button { transition: color 150ms ease-out, background-color 150ms ease-out; }
+@keyframes page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.page-enter { animation: page-enter 180ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .page-enter { animation: none; }
+  .app-sidebar, .app-sidebar *, [data-slot="button"] { transition: none !important; }
+  [data-slot="button"]:active { scale: 1; }
+}

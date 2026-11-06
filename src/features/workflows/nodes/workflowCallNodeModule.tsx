@@ -7,7 +7,7 @@ import type { WorkflowNodeModule } from './types';
 
 export const workflowCallNodeModule: WorkflowNodeModule = {
   type: 'workflowCall', backendType: 'workflowCall', backendRunnable: true,
-  definition: { type: 'workflowCall', name: '工作流插件', description: WORKFLOW_CALL_DESCRIPTION, category: '工具', tone: 'bg-primary/10 text-primary-text border-primary/20', iconTone: 'bg-primary text-primary-foreground' },
+  definition: { type: 'workflowCall', name: '工作流插件', description: WORKFLOW_CALL_DESCRIPTION, category: '工具', badgeVariant: 'info', iconTone: 'bg-primary text-primary-foreground' },
   icon: Workflow, ConfigPanel: WorkflowCallConfigPanel, ExecutionDetails: DefaultNodeExecutionDetails,
   createDefaultConfig: () => ({ ...normalizeWorkflowCallConfig(undefined) }),
   getOutputs: node => {

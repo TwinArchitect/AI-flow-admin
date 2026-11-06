@@ -24,7 +24,7 @@ export function Pagination({ page, pageCount, pageSize, total, onPageChange, onP
         {selection}<span>每页</span>
         {onPageSizeChange ? (
           <Select value={String(pageSize)} onValueChange={v => onPageSizeChange(Number(v))} disabled={disabled}>
-            <SelectTrigger className="w-[64px] h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="每页条数" className="w-[76px] h-7 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>{Array.from(new Set([5, 10, 20, 50, pageSize])).sort((a, b) => a - b).map(size => <SelectItem key={size} value={String(size)}>{size}</SelectItem>)}</SelectContent>
           </Select>
         ) : <span>{pageSize}</span>}

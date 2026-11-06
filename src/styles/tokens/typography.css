@@ -5,8 +5,8 @@
 
 :root {
   /* ---------- 字号 ---------- */
-  --text-2xs: 10px;
-  --text-xs: 12px;
+  --text-2xs: 11px;
+  --text-xs: 13px;
   --text-sm: 14px;
   --text-base: 14px;        /* 后台系统正文基准 */
   --text-lg: 16px;
@@ -16,8 +16,8 @@
   --text-4xl: 30px;
 
   /* ---------- 行高（与字号配套）---------- */
-  --leading-2xs: 14px;
-  --leading-xs: 16px;
+  --leading-2xs: 16px;
+  --leading-xs: 18px;
   --leading-sm: 20px;
   --leading-base: 22px;     /* 正文行高 */
   --leading-lg: 24px;

@@ -33,7 +33,7 @@ export const concatNodeModule: WorkflowNodeModule = {
     name: '模板转换',
     description: CONCAT_NODE_DESCRIPTION,
     category: '基础',
-    tone: 'bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400',
+    badgeVariant: 'info',
     iconTone: 'bg-sky-500 text-white',
   },
   icon: FileText,

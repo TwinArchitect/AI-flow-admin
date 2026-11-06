@@ -146,7 +146,7 @@ export function AgentsPage() {
                         <span className="text-[11px] text-muted-foreground">{agent.model}</span>
                       </div>
                     </div>
-                    <Badge variant="outline" className={cn('gap-1 text-[10px]', status.badgeClass)}>
+                    <Badge variant={status.badgeVariant}>
                       <Circle size={5} className={cn('fill-current', status.dotClass)} />
                       {status.label}
                     </Badge>
@@ -160,7 +160,7 @@ export function AgentsPage() {
                   {/* 标签 */}
                   <div className="flex items-center gap-1.5 mb-3 flex-wrap">
                     {agent.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-[10px]">
+                      <Badge key={tag} variant="secondary" size="compact">
                         {tag}
                       </Badge>
                     ))}

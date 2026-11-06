@@ -116,9 +116,9 @@ export const agents: Agent[] = [
 ];
 
 export const statusConfig = {
-  running: { label: '运行中', dotClass: 'bg-success', badgeClass: 'bg-success/10 text-success' },
-  paused: { label: '已暂停', dotClass: 'bg-warning', badgeClass: 'bg-warning/10 text-warning' },
-  error: { label: '异常', dotClass: 'bg-destructive', badgeClass: 'bg-destructive/10 text-destructive' },
+  running: { label: '运行中', dotClass: 'bg-success', badgeVariant: 'success' as const },
+  paused: { label: '已暂停', dotClass: 'bg-warning', badgeVariant: 'warning' as const },
+  error: { label: '异常', dotClass: 'bg-destructive', badgeVariant: 'danger' as const },
 };
 
 export const tagOptions = [

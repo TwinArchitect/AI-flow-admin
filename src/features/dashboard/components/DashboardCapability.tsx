@@ -50,7 +50,7 @@ export function DashboardCapability() {
 
                   <div className="pt-4 mt-4 border-t border-border flex flex-wrap gap-1.5">
                     {cp.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-[10px] font-black">
+                      <Badge key={tag} variant="secondary" size="compact">
                         {tag}
                       </Badge>
                     ))}

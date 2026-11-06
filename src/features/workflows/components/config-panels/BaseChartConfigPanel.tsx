@@ -101,7 +101,7 @@ export function BaseChartConfigPanel({
         <div className="text-xs font-semibold text-foreground">系统输出</div>
         <div className="flex flex-wrap gap-2">
           {BASE_CHART_NODE_OUTPUTS.map((output) => (
-            <Badge key={output.key} variant="outline" className="font-mono text-[10px]">{output.key}: {output.valueType}</Badge>
+            <Badge key={output.key} variant="outline" size="compact" className="font-mono">{output.key}: {output.valueType}</Badge>
           ))}
         </div>
       </section>

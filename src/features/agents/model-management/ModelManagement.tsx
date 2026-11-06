@@ -109,6 +109,13 @@ const emptyForm = (): FormState => ({
 
 const PAGE_SIZE = 12;
 
+const DEFAULT_RERANK_DOCUMENTS = [
+  '人工智能和大模型在各个行业中正实现快速的渗透与融合落地。',
+  '向量数据库是高维向量近似最近邻搜索的重要基础架构，广泛用于知识库。',
+  '重排模型作为二阶段排序能够明显纠正一阶段检索的精度偏置。',
+  '本周全国大部地区气温明显回升，华北黄淮等地可能迎来高温。',
+];
+
 const CATEGORY_COLORS: Record<ModelCategory, string> = {
   llm: 'bg-amber-500',
   multimodal: 'bg-rose-500',
@@ -128,6 +135,7 @@ export default function ModelManagement() {
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const loadSequenceRef = useRef(0);
 
   const [searchInput, setSearchInput] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -147,7 +155,7 @@ export default function ModelManagement() {
   const [debugRawStreamEvents, setDebugRawStreamEvents] = useState<string[]>([]);
   const [debugText, setDebugText] = useState('hello embedding');
   const [debugQuery, setDebugQuery] = useState('什么是 RAG？');
-  const [debugDocuments, setDebugDocuments] = useState(['知识库检索结果需要经过重排模型提升相关性。', '向量模型用于将文本转换为向量。']);
+  const [debugDocuments, setDebugDocuments] = useState([...DEFAULT_RERANK_DOCUMENTS]);
   const [debugImageBase64, setDebugImageBase64] = useState('');
   useEffect(() => () => { debugAbortRef.current?.abort(); }, []);
   const [debugPrompt, setDebugPrompt] = useState('你好，请简短回复 OK');
@@ -156,31 +164,42 @@ export default function ModelManagement() {
   const [debugResult, setDebugResult] = useState<ModelDebugResult | null>(null);
 
   const loadData = useCallback(async () => {
+    const sequence = ++loadSequenceRef.current;
     setLoading(true);
     setError('');
-    try {
-      const page = await queryModels({
+    const [pageResult, categoryResult] = await Promise.allSettled([
+      queryModels({
         pageNum,
         pageSize,
         model: appliedQuery.model || undefined,
         category: (appliedQuery.type as ModelCategory) || undefined,
         status: appliedQuery.status === '' ? undefined : Number(appliedQuery.status),
-      });
+      }),
+      getModelCategories(),
+    ]);
+    if (sequence !== loadSequenceRef.current) return;
+
+    if (pageResult.status === 'fulfilled') {
+      const page = pageResult.value;
       setModels(page?.records || []);
       setTotal(page?.total || 0);
-      const categoryData = await getModelCategories();
-      setCategories(categoryData?.categories || []);
-    } catch (e) {
+    } else {
+      const e: unknown = pageResult.reason;
       setError(e instanceof Error ? e.message : '加载失败');
       setModels([]);
       setTotal(0);
-    } finally {
-      setLoading(false);
     }
+    if (categoryResult.status === 'fulfilled') {
+      setCategories(categoryResult.value?.categories || []);
+    } else if (pageResult.status === 'fulfilled') {
+      toast.warning('分类统计加载失败，请稍后刷新');
+    }
+    setLoading(false);
   }, [pageNum, pageSize, appliedQuery]);
 
   useEffect(() => {
     loadData();
+    return () => { loadSequenceRef.current += 1; };
   }, [loadData]);
 
 
@@ -338,7 +357,7 @@ export default function ModelManagement() {
     setDebugImageBase64('');
     setDebugText('hello embedding');
     setDebugQuery('什么是 RAG？');
-    setDebugDocuments(['知识库检索结果需要经过重排模型提升相关性。', '向量模型用于将文本转换为向量。']);
+    setDebugDocuments([...DEFAULT_RERANK_DOCUMENTS]);
     setDebugTarget(item);
     setDebugPrompt('你好，请简短回复 OK');
     setDebugTimeout(30);
@@ -541,8 +560,8 @@ export default function ModelManagement() {
                       <Cpu size={24} />
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon-sm" aria-label={`编辑 ${model.name || model.model}`} title="编辑" onClick={() => openEdit(model)}><Pencil size={16} /></Button>
-                      <Button variant="ghost" size="icon-sm" aria-label={`删除 ${model.name || model.model}`} title="删除" className="text-muted-foreground hover:text-destructive" onClick={() => handleDelete(model)}><Trash2 size={16} /></Button>
+                      <Button tone="brand" variant="ghost" size="icon-sm" aria-label={`编辑 ${model.name || model.model}`} title="编辑" onClick={() => openEdit(model)}><Pencil size={16} /></Button>
+                      <Button tone="danger" variant="ghost" size="icon-sm" aria-label={`删除 ${model.name || model.model}`} title="删除" className="text-muted-foreground hover:text-destructive" onClick={() => handleDelete(model)}><Trash2 size={16} /></Button>
                       <Switch
                         checked={active}
                         onCheckedChange={() => toggleStatus(model)}
@@ -868,8 +887,8 @@ export default function ModelManagement() {
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center gap-3">
                     <Badge
-                      variant={debugResult.success ? 'default' : 'destructive'}
-                      className="text-xs"
+                      variant={debugResult.success ? 'success' : 'danger'}
+                     
                     >
                       {debugResult.success ? '连通成功' : '连通失败'}
                     </Badge>

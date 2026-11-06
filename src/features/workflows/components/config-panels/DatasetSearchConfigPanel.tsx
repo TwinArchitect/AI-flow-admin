@@ -141,7 +141,7 @@ export function DatasetSearchConfigPanel({
                 <div key={dataset.datasetId} className="flex items-center gap-2 rounded-md border border-border px-2.5 py-2">
                   <BookOpen size={13} className="shrink-0 text-blue-500" />
                   <span className="min-w-0 flex-1 truncate text-xs">{dataset.name || dataset.datasetId}</span>
-                  {dataset.isDeleted && <Badge variant="destructive" className="text-[9px]">已删除</Badge>}
+                  {dataset.isDeleted && <Badge variant="destructive" size="compact">已删除</Badge>}
                   <Button
                     type="button"
                     variant="ghost"
@@ -230,7 +230,7 @@ export function DatasetSearchConfigPanel({
         <div className="text-xs font-semibold text-foreground">系统输出</div>
         <div className="flex flex-wrap gap-2">
           {DATASET_SEARCH_NODE_OUTPUTS.map((output) => (
-            <Badge key={output.key} variant="outline" className="font-mono text-[10px]">
+            <Badge key={output.key} variant="outline" size="compact" className="font-mono">
               {output.key}: {output.valueType}
             </Badge>
           ))}

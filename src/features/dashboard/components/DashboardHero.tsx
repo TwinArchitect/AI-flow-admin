@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight, Globe, Lock, Activity, Database } from 'lucide-react';
@@ -65,10 +66,10 @@ console.log(\`[SUCCESS] \${result.count} items\`);`}</pre>
               transition={{ duration: 0.25 }}
               className="space-y-6 max-w-5xl"
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/30 rounded-full text-[11px] font-black uppercase tracking-wider text-primary/80">
+              <Badge variant="info">
                 <Sparkles size={12} className="animate-pulse" />
                 智能体平台 v1.0
-              </div>
+              </Badge>
 
               <h1 className="text-4xl font-black leading-none tracking-tight text-foreground md:text-5xl lg:text-[54px]">
                 智能体平台 <br />
@@ -111,10 +112,10 @@ console.log(\`[SUCCESS] \${result.count} items\`);`}</pre>
               transition={{ duration: 0.25 }}
               className="space-y-6"
             >
-              <div className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 border border-primary/30 rounded-full text-[11px] font-black uppercase tracking-wider text-primary">
+              <Badge variant="info">
                 <Globe size={12} className="animate-pulse" />
                 智能体平台 v1.0
-              </div>
+              </Badge>
 
               <h1 className="text-4xl font-black leading-[1] tracking-tight text-foreground md:text-5xl lg:text-[46px]">
                 打造企业自主可控的 <br />

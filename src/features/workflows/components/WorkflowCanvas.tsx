@@ -41,6 +41,7 @@ import type { WorkflowNodeExecutionStates } from '../types/execution';
 import type { SaveWorkflowConfigResult } from '../api/workflowApi';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { NodeSidebar } from './NodeSidebar';
+import { CanvasNodePicker } from './CanvasNodePicker';
 import { WorkflowNode } from './WorkflowNode';
 import { WorkflowPublishDialog } from './WorkflowPublishDialog';
 import { WorkflowDebugDrawer } from './debug/WorkflowDebugDrawer';
@@ -380,6 +381,7 @@ function WorkflowCanvasInner({
   const [activeSidePanel, setActiveSidePanel] = useState<'node' | 'debug' | null>(null);
   const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
   const [debugRunning, setDebugRunning] = useState(false);
+  const [nodePicker, setNodePicker] = useState<{ screen: { x: number; y: number }; flow: { x: number; y: number } } | null>(null);
   const [debugResetVersion, setDebugResetVersion] = useState(0);
   const fittedAgentIdRef = useRef<string>();
   const debugContext = useMemo(() => getWorkflowDebugContext(nodes), [nodes]);
@@ -439,14 +441,9 @@ function WorkflowCanvasInner({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [redo, undo]);
 
-  const handleDrop = useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
+  const createNodeAtPosition = useCallback(
+    (type: WorkflowNodeType, absolutePosition: { x: number; y: number }) => {
       if (debugRunning) return;
-      const type = event.dataTransfer.getData('application/workflow-node-type') as WorkflowNodeType;
-      if (!type) return;
-
-      const absolutePosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       const targetLoop = type === 'loop' || type === 'start' || type === 'end'
         ? undefined
         : findLoopAtPosition(absolutePosition, nodes);
@@ -457,8 +454,14 @@ function WorkflowCanvasInner({
       setActiveSidePanel('node');
       setSidePanelCollapsed(false);
     },
-    [addNode, debugRunning, nodes, screenToFlowPosition],
+    [addNode, debugRunning, nodes],
   );
+  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const type = event.dataTransfer.getData('application/workflow-node-type') as WorkflowNodeType;
+    if (!WORKFLOW_NODE_MODULES.some(module => module.type === type)) return;
+    createNodeAtPosition(type, screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+  }, [createNodeAtPosition, screenToFlowPosition]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -534,7 +537,15 @@ function WorkflowCanvasInner({
           onNodesChange={guardedOnNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onPaneContextMenu={event => {
+            event.preventDefault();
+            if (debugRunning) return;
+            const screen = { x: event.clientX, y: event.clientY };
+            setNodePicker({ screen, flow: screenToFlowPosition(screen) });
+          }}
+          onMoveStart={() => setNodePicker(null)}
           onPaneClick={() => {
+            setNodePicker(null);
             setSelectedNodeId(null);
             setActiveSidePanel(debugOpen ? 'debug' : null);
           }}
@@ -586,6 +597,10 @@ function WorkflowCanvasInner({
               )}
             </ReactFlow>
           </WorkflowExecutionProvider>
+          <CanvasNodePicker point={debugRunning ? null : nodePicker?.screen ?? null} onClose={() => setNodePicker(null)} onSelect={type => {
+            if (nodePicker) createNodeAtPosition(type, nodePicker.flow);
+            setNodePicker(null);
+          }} />
           <Button
             type="button"
             variant={showMiniMap ? 'secondary' : 'outline'}

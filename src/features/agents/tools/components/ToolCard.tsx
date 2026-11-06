@@ -66,13 +66,7 @@ export function ToolCard({ tool, onEdit, onDelete, onToggle, onDebug }: ToolCard
               {tool.title}
             </h4>
             <Badge
-              variant={tool.type === 'HTTP' ? 'default' : 'secondary'}
-              className={cn(
-                'text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5',
-                tool.type === 'HTTP'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
-                  : 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400'
-              )}
+              variant={tool.type === 'HTTP' ? 'info' : 'accent'}
             >
               {tool.type}
             </Badge>
@@ -108,7 +102,7 @@ export function ToolCard({ tool, onEdit, onDelete, onToggle, onDebug }: ToolCard
         {/* 底部 */}
         <div className="pt-3.5 border-t border-border">
           <div className="flex items-center justify-between mb-3 text-2xs">
-            <Badge variant="outline" className="text-2xs font-bold bg-muted/50">
+            <Badge variant="outline">
               {tool.category}
             </Badge>
             <div className="flex items-center gap-1 text-muted-foreground font-bold">

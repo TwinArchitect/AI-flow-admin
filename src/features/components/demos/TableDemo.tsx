@@ -33,11 +33,11 @@ const ALL_DATA: User[] = [
   { id: 12, name: '褚十四', email: 'chu@example.com',      role: '编辑',   status: '活跃', joined: '2024-08-28', amount: 5500  },
 ];
 
-const STATUS_STYLE: Record<string, string> = {
-  活跃: 'bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400',
-  禁用: 'bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400',
-  待审: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400',
-};
+const STATUS_VARIANT = {
+  活跃: 'success',
+  禁用: 'danger',
+  待审: 'warning',
+} as const;
 
 // ── 列定义（ColumnDef[] 声明式，与渲染逻辑分离）─────────────────────
 const userColumns: ColumnDef<User>[] = [
@@ -66,7 +66,7 @@ const userColumns: ColumnDef<User>[] = [
   {
     accessorKey: 'role',
     header: '角色',
-    cell: ({ row }) => <Badge variant="outline" className="text-xs">{row.getValue('role')}</Badge>,
+    cell: ({ row }) => <Badge variant="outline">{row.getValue('role')}</Badge>,
     filterFn: (row, _id, value) => value === '全部' || row.getValue('role') === value,
   },
   {
@@ -74,7 +74,7 @@ const userColumns: ColumnDef<User>[] = [
     header: '状态',
     cell: ({ row }) => {
       const s = row.getValue<string>('status');
-      return <Badge className={`text-xs ${STATUS_STYLE[s]}`}>{s}</Badge>;
+      return <Badge variant={STATUS_VARIANT[s as keyof typeof STATUS_VARIANT] ?? "muted"}>{s}</Badge>;
     },
     filterFn: (row, _id, value) => value === '全部' || row.getValue('status') === value,
   },
@@ -233,7 +233,7 @@ export function TableDemo() {
               header: '状态',
               cell: ({ row }) => {
                 const s = row.getValue<string>('status');
-                return <Badge className={`text-xs ${STATUS_STYLE[s]}`}>{s}</Badge>;
+                return <Badge variant={STATUS_VARIANT[s as keyof typeof STATUS_VARIANT] ?? "muted"}>{s}</Badge>;
               },
             },
             { accessorKey: 'joined', header: '加入时间' },

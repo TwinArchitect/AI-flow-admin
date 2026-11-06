@@ -90,7 +90,7 @@ export function ReadFilesConfigPanel({
         <div className="text-xs font-semibold text-foreground">系统输出</div>
         <div className="flex flex-wrap gap-2">
           {READ_FILES_NODE_OUTPUTS.map((output) => (
-            <Badge key={output.key} variant="outline" className="font-mono text-[10px]">
+            <Badge key={output.key} variant="outline" size="compact" className="font-mono">
               {output.key}: {output.valueType}
             </Badge>
           ))}

@@ -11,6 +11,7 @@ export interface WorkflowRunRequest {
   appId: string;
   chatId?: string;
   chatGroupId?: string;
+  fromSquare?: boolean;
   message: Array<{ role: string; content: string }>;
   variables?: Record<string, unknown>;
   files?: Array<{

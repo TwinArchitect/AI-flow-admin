@@ -35,7 +35,7 @@ export const llmNodeModule: WorkflowNodeModule = {
     name: '大模型',
     description: '调用模型生成、理解或推理文本',
     category: '基础',
-    tone: 'bg-primary/10 text-primary border-primary/20',
+    badgeVariant: 'info',
     iconTone: 'bg-primary text-primary-foreground',
   },
   icon: BrainCircuit,

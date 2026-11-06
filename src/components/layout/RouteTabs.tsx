@@ -1,5 +1,5 @@
 import { useAuthStore } from '@/stores/auth';
-import { canAccess, menuPaths } from '@/features/permissions/routes';
+import { canAccess, isComponentExample, menuPaths, menuTitle } from '@/features/permissions/routes';
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, X, Home, Users, Box, BookOpen, Workflow, MessageSquare, FileText } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -25,7 +25,8 @@ const routeTitles: Record<string, string> = {
   '/agents/knowledge': '知识库',
   '/agents/knowledge/settings': '知识库 · 模型配置',
   '/agents/knowledge/api-doc': '知识库开放 API 文档',
-  '/agents/tags': '标签页',
+  '/agents/tags': '标签维护',
+  '/agents/audit': '智能体审核',
   '/agents/AgentPlaza/chat': '智能体会话',
   '/agents/models': '模型管理',
   '/agents/memory': '记忆维护',
@@ -57,10 +58,12 @@ const componentTitles: Record<string, string> = {
 const tablessRoutePaths = new Set(['/agents', '/components', '/agents/traffic', '/agents/channels']);
 
 function isTablessRoute(path: string) {
-  return tablessRoutePaths.has(path.split(/[?#]/, 1)[0]);
+  return (!import.meta.env.DEV && isComponentExample(path)) || tablessRoutePaths.has(path.split(/[?#]/, 1)[0]);
 }
 
 export function resolveRouteTitle(pathname: string) {
+  const dynamicTitle = menuTitle(pathname, useAuthStore.getState().menus ?? []);
+  if (dynamicTitle) return dynamicTitle;
   if (routeTitles[pathname]) return routeTitles[pathname];
   if (pathname.startsWith('/components/')) {
     const segment = pathname.split('/').filter(Boolean).at(-1) ?? '';
@@ -82,6 +85,7 @@ export function RouteTabs({ showBack }: RouteTabsProps) {
     openRouteTab,
     closeRouteTab,
     closeAllRouteTabs,
+    closeOtherRouteTabs,
     closeRouteTabsLeft,
     closeRouteTabsRight,
     setActiveTabPath,
@@ -123,6 +127,73 @@ export function RouteTabs({ showBack }: RouteTabsProps) {
     navigate('/');
   };
 
+  const renderTab = (tab: (typeof visibleRouteTabs)[number]) => {
+    const active = tab.path === currentPath;
+    const TabIcon = routeIcons[tab.path.split(/[?#]/, 1)[0]] ?? FileText;
+    const tabIndex = visibleRouteTabs.findIndex((item) => item.path === tab.path);
+    return (
+      <ContextMenu key={tab.path}>
+        <ContextMenuTrigger asChild>
+          <div
+        data-active={active}
+        className={cn(
+          'group relative flex h-9 max-w-56 shrink-0 items-center gap-2 rounded-t-lg border px-3.5 text-xs transition-colors',
+          active
+            ? 'border-border border-b-card bg-card font-semibold text-primary-text before:absolute before:inset-x-0 before:-top-px before:h-0.5 before:rounded-t-lg before:bg-primary-text'
+            : 'border-transparent border-r-border/60 text-muted-foreground hover:bg-accent hover:text-foreground',
+        )}
+          >
+        <TabIcon aria-hidden="true" className="size-4 shrink-0" />
+        <button
+          type="button"
+          aria-current={active ? 'page' : undefined}
+          className="min-w-0 flex-1 truncate py-1 text-left outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
+          title={tab.title}
+          onClick={() => changeTab(tab.path)}
+        >
+          {tab.title}
+        </button>
+            {tab.path !== '/' && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className={cn('ml-0.5 size-5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100', active ? 'opacity-70' : 'opacity-0 [@media(hover:none)]:opacity-70')}
+                onClick={() => closeTab(tab.path)}
+                aria-label={`关闭${tab.title}`}
+              >
+                <X className="size-3" />
+              </Button>
+            )}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem disabled={tab.path === '/'} onSelect={() => closeTab(tab.path)}>
+            关闭当前
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            disabled={!visibleRouteTabs.some(item => item.path !== '/' && item.path !== tab.path)}
+            onSelect={() => { closeOtherRouteTabs(tab.path); navigate(tab.path); }}
+          >
+            关闭其他
+          </ContextMenuItem>
+          <ContextMenuItem disabled={tabIndex <= 1} onSelect={() => closeRouteTabsLeft(tab.path)}>
+            关闭左侧
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={tabIndex === visibleRouteTabs.length - 1}
+            onSelect={() => closeRouteTabsRight(tab.path)}
+          >
+            关闭右侧
+          </ContextMenuItem>
+          <ContextMenuItem disabled={visibleRouteTabs.length === 1} onSelect={closeAllTabs}>
+            关闭全部
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  };
+
   return (
     <div className="flex h-11 shrink-0 items-center border-b border-border bg-primary/[0.035]">
       {showBack && (
@@ -138,67 +209,11 @@ export function RouteTabs({ showBack }: RouteTabsProps) {
         </div>
       )}
 
-      <div ref={tabsRef} aria-label="已打开的页面" className="flex min-w-0 flex-1 h-full items-end gap-0 overflow-x-auto px-3 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {visibleRouteTabs.map((tab) => {
-          const active = tab.path === currentPath;
-          const TabIcon = routeIcons[tab.path.split(/[?#]/, 1)[0]] ?? FileText;
-          const tabIndex = visibleRouteTabs.findIndex((item) => item.path === tab.path);
-          return (
-            <ContextMenu key={tab.path}>
-              <ContextMenuTrigger asChild>
-                <div
-              data-active={active}
-              className={cn(
-                'group relative flex h-9 max-w-56 shrink-0 items-center gap-2 rounded-t-lg border px-3.5 text-xs transition-colors',
-                active
-                  ? 'border-border border-b-card bg-card font-semibold text-primary-text before:absolute before:inset-x-0 before:-top-px before:h-0.5 before:rounded-t-lg before:bg-primary-text'
-                  : 'border-transparent border-r-border/60 text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-                >
-              <TabIcon aria-hidden="true" className="size-4 shrink-0" />
-              <button
-                type="button"
-                aria-current={active ? 'page' : undefined}
-                className="min-w-0 flex-1 truncate py-1 text-left outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
-                title={tab.title}
-                onClick={() => changeTab(tab.path)}
-              >
-                {tab.title}
-              </button>
-                  {tab.path !== '/' && (
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      className={cn('ml-0.5 size-5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100', active ? 'opacity-70' : 'opacity-0 [@media(hover:none)]:opacity-70')}
-                      onClick={() => closeTab(tab.path)}
-                      aria-label={`关闭${tab.title}`}
-                    >
-                      <X className="size-3" />
-                    </Button>
-                  )}
-                </div>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem disabled={tab.path === '/'} onSelect={() => closeTab(tab.path)}>
-                  关闭当前
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem disabled={tabIndex <= 1} onSelect={() => closeRouteTabsLeft(tab.path)}>
-                  关闭左侧
-                </ContextMenuItem>
-                <ContextMenuItem
-                  disabled={tabIndex === visibleRouteTabs.length - 1}
-                  onSelect={() => closeRouteTabsRight(tab.path)}
-                >
-                  关闭右侧
-                </ContextMenuItem>
-                <ContextMenuItem disabled={visibleRouteTabs.length === 1} onSelect={closeAllTabs}>
-                  关闭全部
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-          );
-        })}
+      <div className="flex h-full shrink-0 items-end pl-3 pt-1.5">
+        {visibleRouteTabs.filter((tab) => tab.path === '/').map(renderTab)}
+      </div>
+      <div ref={tabsRef} aria-label="已打开的页面" className="flex min-w-0 flex-1 h-full items-end gap-0 overflow-x-auto pr-3 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {visibleRouteTabs.filter((tab) => tab.path !== '/').map(renderTab)}
       </div>
 
     </div>

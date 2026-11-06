@@ -55,11 +55,11 @@ export function StartConfigPanel({
                   <span className="truncate text-xs font-medium text-foreground">
                     {variable.description?.trim() || variable.label || variable.key}
                   </span>
-                  <Badge variant="secondary" className="text-[9px]">
+                  <Badge variant="secondary" size="compact">
                     {getValueTypeLabel(variable.valueType)}
                   </Badge>
-                  <Badge variant="default" className="text-[9px]">全局</Badge>
-                  {variable.required && <Badge variant="destructive" className="text-[9px]">必填</Badge>}
+                  <Badge variant="default" size="compact">全局</Badge>
+                  {variable.required && <Badge variant="destructive" size="compact">必填</Badge>}
                 </div>
                 <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
                   {`{{VARIABLE_NODE_ID.${variable.key}}}`}
@@ -89,7 +89,7 @@ export function StartConfigPanel({
 
       <div className="border-t border-border pt-4">
         <div className="mb-2 text-xs font-semibold text-foreground">固定输出</div>
-        <Badge variant="outline" className="font-mono text-[10px]">userChatInput: string</Badge>
+        <Badge variant="outline" size="compact" className="font-mono">userChatInput: string</Badge>
       </div>
 
       <StartVariableDialog

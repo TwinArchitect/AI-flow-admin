@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -326,9 +327,9 @@ export default function AgentMobileOverview() {
       {/* Header section */}
       <div className="bg-gradient-to-r from-brand-600/10 via-indigo-650/5 to-transparent p-6 rounded-[28px] border border-slate-100 dark:border-slate-800/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <span className="px-2.5 py-1 bg-brand-50/50 dark:bg-brand-950/20 text-brand-650 dark:text-brand-300 font-black tracking-widest uppercase text-[10px] rounded-lg border border-brand-100 dark:border-brand-900/30">
+          <Badge variant="info" size="compact">
             MOBILE UX DEMONSTRATOR
-          </span>
+          </Badge>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 mt-2">
             <MonitorSmartphone className="text-brand-600 w-6 h-6 shrink-0" />
             样式示例

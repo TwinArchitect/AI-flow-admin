@@ -116,6 +116,8 @@ export interface DataTableProps<TData, TValue> {
   /** 是否开启列拖拽排序 */
   enableColumnReordering?: boolean;
   className?: string;
+  /** 固定表头，表格内部滚动；父级需提供受约束高度。 */
+  scrollable?: boolean;
 }
 
 // ── 选择列定义（通用） ──────────────────────────────────────────────
@@ -162,6 +164,7 @@ export function DataTable<TData, TValue>({
   enableColumnResizing = false,
   enableColumnReordering = false,
   className,
+  scrollable = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -245,11 +248,13 @@ export function DataTable<TData, TValue>({
     return { position: 'sticky', [side]: adjacent.reduce((width, key) => width + (table.getColumn(key)?.getSize() ?? 0), 0), zIndex: 2, background: 'var(--card)' };
   };
   const pinnedBoundary = (id: string) => pinnedColumns?.left?.at(-1) === id ? 'left' : pinnedColumns?.right?.[0] === id ? 'right' : undefined;
+  const toolbarContent = toolbar?.(table);
+  const hasToolbar = Boolean(searchColumn || showViewOptions || toolbarContent);
 
   return (
-    <div className={cn('rounded-lg border', className)}>
+    <div className={cn('rounded-lg border', scrollable && 'flex min-h-0 flex-1 flex-col overflow-hidden', className)}>
       {/* 工具栏 */}
-      <div className="flex items-center gap-2 p-3 border-b flex-wrap">
+      {hasToolbar && <div className="flex shrink-0 items-center gap-2 p-3 border-b flex-wrap">
         {searchColumn && (
           <Input
             placeholder={searchPlaceholder}
@@ -258,16 +263,16 @@ export function DataTable<TData, TValue>({
             className="h-8 text-sm max-w-xs"
           />
         )}
-        {toolbar?.(table)}
+        {toolbarContent}
         {showViewOptions && (
           <div className="ml-auto">
             <DataTableViewOptions table={table} />
           </div>
         )}
-      </div>
+      </div>}
 
       {/* 表格 */}
-      <Table className={cn(enableColumnResizing && 'table-fixed')}>
+      <Table scrollable={scrollable} className={cn(enableColumnResizing && 'table-fixed')}>
         <TableHeader>
           {table.getHeaderGroups().map(hg => (
             <TableRow key={hg.id}>
@@ -391,7 +396,7 @@ export function DataTable<TData, TValue>({
       </Table>
 
       {/* 分页 */}
-      {showPagination && <DataTablePagination table={table} />}
+      {showPagination && <div className="shrink-0"><DataTablePagination table={table} /></div>}
     </div>
   );
 }

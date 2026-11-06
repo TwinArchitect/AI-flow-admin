@@ -316,8 +316,8 @@ export function HttpConfigPanel({
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="font-mono text-[10px]">httpRawResponse: any</Badge>
-          <Badge variant="outline" className="font-mono text-[10px]">error: string</Badge>
+          <Badge variant="outline" size="compact" className="font-mono">httpRawResponse: any</Badge>
+          <Badge variant="outline" size="compact" className="font-mono">error: string</Badge>
         </div>
         {value.outputExtracts.map((output, index) => (
           <div key={output.id} className="grid grid-cols-[1fr_1fr_92px_28px] gap-2">
